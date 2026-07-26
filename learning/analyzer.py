@@ -16,41 +16,57 @@ class LearningAnalyzer:
             "new_dropdown_variants": []
         }
 
-        for product, info in self.runtime.pending.items():
+        for card in self.runtime.all_cards():
 
-            description = product
-            code = str(info.get("code", ""))
-            materials = info.get("materials", {})
+            manual = self.runtime.manual.get(card["url"])
+
+            if not manual:
+                continue
+
+            description = manual["description"].lower().strip()
+            code = str(manual["code"]).strip()
+
             runtime_product = self.runtime.repository.get_product(description)
 
             if runtime_product is None:
                 report["new_products"].append({
                     "description": description,
                     "code": code,
-                    "count": info.get("count", 1)
+                    "count": 1
                 })
+
                 continue
 
-            known_materials = runtime_product.get("material_codes", {})
+            product_name = description
+            product_info = runtime_product
+            material = (
+                    card.get("material", "")
+                    or card.get("specs", {}).get("Материал", "")
+            ).strip().lower()
 
-            for material in materials:
-
-                if material not in known_materials:
-                    report["new_material_codes"].append({
-                        "product": description,
-                        "material": material,
-                        "code": code
-                    })
-
-            aliases = runtime_product.get("aliases", [])
+            known_materials = product_info.get("material_codes", {})
 
             if (
-                    description != runtime_product.get("display_name", "").lower()
-                    and description not in aliases
+                    material
+                    and material not in known_materials
+            ):
+                report["new_material_codes"].append({
+                    "product": product_name,
+                    "material": material,
+                    "code": code
+                })
+
+            aliases = product_info.get("aliases", [])
+            original_title = card.get("title", "").strip().lower()
+
+            if (
+                    original_title
+                    and original_title != description
+                    and original_title not in aliases
             ):
                 report["new_aliases"].append({
-                    "product": description,
-                    "alias": description
+                    "product": product_name,
+                    "alias": original_title
                 })
 
             if description in KNOWN_DROPDOWNS:

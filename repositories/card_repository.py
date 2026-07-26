@@ -52,3 +52,6 @@ class CardRepository(JsonRepository):
             return result
 
         return self.find_by_slug(card.slug)
+
+    def all(self):
+        return self.data.values()

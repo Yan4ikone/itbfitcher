@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from repositories.card_repository import CardRepository
+
 LEARNING_FILE = Path("learning/manual_learning.json")
 
 
@@ -60,6 +62,10 @@ class LearningRepository:
 
     def load_materials(self):
         return self.data.setdefault("materials", {})
+
+    def load_cards(self):
+        repository = CardRepository()
+        return repository.data
 
     # ==========================================================
     # Manual

@@ -1,5 +1,6 @@
 from learning.analyzer import LearningAnalyzer
 from learning.repository import LearningRepository
+from repositories.card_repository import CardRepository
 
 
 class LearningRuntime:
@@ -7,6 +8,7 @@ class LearningRuntime:
     def __init__(self):
 
         self.repository = LearningRepository()
+        self.cards = CardRepository()
         self.reload()
 
     def reload(self):
@@ -37,3 +39,6 @@ class LearningRuntime:
 
     def analyze(self):
         return LearningAnalyzer(self).analyze()
+
+    def all_cards(self):
+        return self.repository.load_cards().values()
