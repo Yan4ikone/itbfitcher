@@ -1,0 +1,15 @@
+.venv/
+build/
+dist/
+logs/
+App.py
+App.spec
+Delitel.py
+Delitel.spec
+itb.ico
+itb.spec
+macro_template.xlsm.mpp
+MainApp.spec
+settings.json
+wordlist.py
+Проект.zip
