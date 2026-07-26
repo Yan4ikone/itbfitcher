@@ -31,7 +31,6 @@ class Trainer:
                 self.learn_alias(corrected_description, original)
 
         if corrected_material:
-
             self.repository.add_material_code(
                 corrected_description,
                 corrected_material,
