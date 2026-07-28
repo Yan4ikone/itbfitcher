@@ -10,6 +10,7 @@ from tkinter import ttk, messagebox, filedialog
 from tkinter.scrolledtext import (ScrolledText)
 from core.app_controller import AppController
 from learning.runtime import LearningRuntime
+from learning_window import LearningWindow
 from modules.review_manager import ReviewManager
 from learning.manual import ManualTeacher
 
@@ -349,19 +350,15 @@ def start_learning():
     stats = teacher.learn_result_file(result_file)
     runtime = LearningRuntime()
     report = runtime.analyze()
+    window = LearningWindow(root, report)
     print("\n========== LEARNING REPORT ==========")
-    for section, items in report.items():
-        print(f"{section}: {len(items)}")
+
+    print("new_products:", len(report.new_products))
+    print("new_aliases:", len(report.new_aliases))
+    print("new_material_codes:", len(report.new_material_codes))
+    print("new_dropdown_variants:", len(report.new_dropdown_variants))
+
     print(report)
-    messagebox.showinfo(
-        "Обучение",
-        f"""
-Карточки: {stats['manual_saved']}
-Новые товары: {stats['new_products']}
-Dropdown: {stats['dropdown_candidates']}
-Слова: {stats['words']}
-"""
-    )
 
 root = tk.Tk()
 root.title("Обработка ТН ВЭД")

@@ -14,6 +14,7 @@ print(inspect.getfile(classify_product))
 class DecisionEngine:
 
     def __init__(self, learning_history):
+        print("DECISION INIT")
         self.learning_history = learning_history
         self.knowledge = KnowledgeEngine()
         self.dropdown = DropdownResolver()
@@ -23,6 +24,8 @@ class DecisionEngine:
         self.trace_classifier = TraceClassifier()
 
     def decide(self, card):
+        print("DECIDE CALLED")
+        print("DECISION =", __file__)
         print("DecisionEngine =", __file__)
         print("classify_product =", inspect.getfile(classify_product))
 
@@ -37,6 +40,8 @@ class DecisionEngine:
         result.dropdown = self.dropdown.resolve(result.product)
         result = self.history_classifier.apply(result, card, resolver)
         result = self.learning_classifier.apply(result)
+        print("BEFORE REMEMBER")
+        self.knowledge.card_repository.remember(card, result)
         result.trace.add(
             "FINAL",
             f"Итог: код={result.code or '-'}, "

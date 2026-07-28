@@ -68,6 +68,17 @@ def classify_product(card, knowledge):
 
     result = ClassificationResult()
     result.original_name = card.title
+    manual = knowledge.get_manual(card.url)
+
+    if manual:
+        result.product = manual["description"].lower().strip()
+        result.dropdown = manual["description"]
+        result.code = str(manual["code"])
+
+        result.source = "MANUAL"
+        result.confidence = 100
+
+        return result
     candidates = score_products(card, knowledge)
     print("=" * 60)
     print("Название:", card.title)

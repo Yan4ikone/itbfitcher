@@ -1,6 +1,6 @@
 import re
 
-from modules.product_cleaner import clean_text
+from cleaner.product_cleaner import clean_text
 
 
 def normalize_name(text: str) -> str:

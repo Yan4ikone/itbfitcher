@@ -1,4 +1,4 @@
-from modules.product_cleaner import clean_text
+from cleaner.product_cleaner import clean_text
 
 
 def normalize_card(card):

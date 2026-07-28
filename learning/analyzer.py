@@ -1,62 +1,128 @@
-from dictionaries.all_dictionaries import KNOWN_DROPDOWNS
+from cleaner.alias_builder import AliasBuilder
+from learning.name_normalizer import normalize_dictionary_name
+from learning.product_matcher import ProductMatcher
+from learning.review_models import LearningReport, NewProduct, NewAlias, NewMaterialCode, NewDropdownVariant
 
 
 class LearningAnalyzer:
 
     def __init__(self, runtime):
         self.runtime = runtime
+        self.matcher = ProductMatcher(runtime.product_repository)
+        self.alias_builder = AliasBuilder()
 
     def analyze(self):
+        print("ANALYZER START")
+        report = LearningReport()
 
-        report = {
-            "new_products": [],
-            "new_aliases": [],
-            "new_material_codes": [],
-            "new_dropdowns": [],
-            "new_dropdown_variants": []
-        }
+        for card in self.runtime.all_cards():
+            manual = self.runtime.manual.get(
+                card.get("normalized_url", card["url"])
+            )
 
-        for product, info in self.runtime.pending.items():
+            print("CARD:", card["url"])
+            print("NORMALIZED:", card.get("normalized_url"))
+            print("MANUAL:", manual)
 
-            description = product
-            code = str(info.get("code", ""))
-            materials = info.get("materials", {})
-            runtime_product = self.runtime.repository.get_product(description)
-
-            if runtime_product is None:
-                report["new_products"].append({
-                    "description": description,
-                    "code": code,
-                    "count": info.get("count", 1)
-                })
+            if not manual:
                 continue
 
-            known_materials = runtime_product.get("material_codes", {})
+            raw_description = manual["description"].strip()
+            description = normalize_dictionary_name(raw_description).lower()
+            code = str(manual["code"]).strip()
+            runtime_product = self.runtime.get_product(description)
+            print("DESCRIPTION:", description)
+            print("PRODUCT EXISTS:", runtime_product)
+            material = (
+                    card.get("material", "")
+                    or card.get("specs", {}).get("Материал", "")
+            ).strip().lower()
 
-            for material in materials:
+            if not runtime_product:
 
-                if material not in known_materials:
-                    report["new_material_codes"].append({
-                        "product": description,
-                        "material": material,
-                        "code": code
-                    })
+                matched = self.matcher.match(description, code)
+                print()
+                print("MATCH")
+                print("DESCRIPTION:", description)
+                print("CODE:", code)
+                print("RESULT:", matched)
+                print()
 
-            aliases = runtime_product.get("aliases", [])
+                if matched:
+                    report.new_aliases.append(
+                        NewAlias(
+                            product=matched["product"],
+                            alias=description,
+                        )
+                    )
+                    continue
+
+                report.new_products.append(
+                    NewProduct(
+                        description=description,
+                        code=code,
+                        title=card.get("title", ""),
+                        url=card.get("url", ""),
+                        material=material,
+                    )
+                )
+                continue
+
+            product_name = description
+            product_info = runtime_product
+
+            if isinstance(runtime_product, dict) and "product" in runtime_product:
+                product_name = runtime_product["product"]
+                product_info = self.runtime.get_product(product_name)
+            known_materials = product_info.get("material_codes", {})
 
             if (
-                    description != runtime_product.get("display_name", "").lower()
-                    and description not in aliases
+                    material
+                    and material not in known_materials
             ):
-                report["new_aliases"].append({
-                    "product": description,
-                    "alias": description
-                })
+                report.new_material_codes.append(
+                    NewMaterialCode(
+                        product=product_name,
+                        material=material,
+                        code=code
+                    )
+                )
 
-            if description in KNOWN_DROPDOWNS:
+            candidate_aliases = self.alias_builder.build(
+                card,
+                description,
+            )
+
+            aliases = {
+                normalize_dictionary_name(alias).lower()
+                for alias in product_info.get("aliases", [])
+            }
+
+            aliases.add(
+                normalize_dictionary_name(product_name).lower()
+            )
+
+            for alias in candidate_aliases:
+
+                alias = normalize_dictionary_name(alias).lower()
+
+                if (
+                        not alias
+                        or alias in aliases
+                ):
+                    continue
+
+                report.new_aliases.append(
+                    NewAlias(
+                        product=product_name,
+                        alias=alias,
+                    )
+                )
+
+            dropdown = self.runtime.get_dropdown(description)
+            if dropdown:
 
                 dropdown = self.runtime.get_dropdown(description)
-
                 exists = False
 
                 if dropdown:
@@ -68,9 +134,10 @@ class LearningAnalyzer:
                             break
 
                 if not exists:
-                    report["new_dropdown_variants"].append({
-                        "product": description,
-                        "code": code
-                    })
-
+                    report.new_dropdown_variants.append(
+                        NewDropdownVariant(
+                            product=description,
+                            code=code
+                        )
+                    )
         return report

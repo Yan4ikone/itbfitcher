@@ -17,6 +17,9 @@ class KnowledgeEngine:
     def find_manual(self, card):
         return self.learning.find_manual(card)
 
+    def get_manual(self, url):
+        return self.learning.get_manual(url)
+
     def analyze_learning(self):
         return self.learning.analyze()
 
