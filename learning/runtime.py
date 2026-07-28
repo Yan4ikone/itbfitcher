@@ -1,6 +1,7 @@
 from learning.analyzer import LearningAnalyzer
 from learning.repository import LearningRepository
 from repositories.card_repository import CardRepository
+from repositories.product_repository import ProductRepository
 
 
 class LearningRuntime:
@@ -9,12 +10,12 @@ class LearningRuntime:
 
         self.repository = LearningRepository()
         self.cards = CardRepository()
+        self.product_repository = ProductRepository()
         self.reload()
 
     def reload(self):
 
         self.manual = self.repository.load_manual()
-        self.products = self.repository.load_products()
         self.dropdowns = self.repository.load_dropdowns()
         self.materials = self.repository.load_materials()
         self.pending = self.repository.get_pending()
@@ -23,13 +24,19 @@ class LearningRuntime:
         self.reload()
 
     def find_manual(self, card):
-        return self.manual.get(card.url)
+        return self.get_manual(card.url)
+
+    def get_manual(self, url):
+        return self.manual.get(url)
 
     def all_products(self):
-        return self.products.items()
+        return self.product_repository.all()
 
     def get_product(self, name):
-        return self.products.get(name)
+        return self.product_repository.get(name)
+
+    def has_product(self, name):
+        return self.product_repository.has(name)
 
     def get_dropdown(self, product):
         return self.dropdowns.get(product)
@@ -41,4 +48,13 @@ class LearningRuntime:
         return LearningAnalyzer(self).analyze()
 
     def all_cards(self):
-        return self.repository.load_cards().values()
+        cards = self.cards.data
+
+        print("CARDS COUNT:", len(cards))
+        print("RUNTIME FILE:", self.cards.file.resolve())
+        print("RUNTIME EXISTS:", self.cards.file.exists())
+
+        for url in cards:
+            print("CARD IN DB:", url)
+
+        return cards.values()

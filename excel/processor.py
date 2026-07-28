@@ -15,6 +15,7 @@ from modules.dropdown_manager import (apply_specific_dropdowns)
 from modules.result_engine import (apply_result)
 from classifier.normalizer import (normalize_name)
 
+print("PROCESSOR =", __file__)
 
 def _log(text, logger=None,):
 
@@ -29,6 +30,7 @@ def process_file_with_normalization(
     logger=None,
     progress_callback=None,
 ):
+    print("PROCESS_FILE_WITH_NORMALIZATION")
 
     learning_history = load_learning_history(input_path)
     data = load_input(input_path)
@@ -65,6 +67,7 @@ def process_file_with_normalization(
     surname_col_idx = structure["surname_col"]
     stats = ClassificationStatistics()
     engine = DecisionEngine(learning_history)
+    print("ENGINE CREATED")
     processed_rows = 0
     _log(f"Всего строк: {total_rows}", logger)
 
@@ -107,6 +110,7 @@ def process_file_with_normalization(
             )
 
             result = engine.decide(card)
+            print("DECIDE FINISHED")
 
             history = learning_history.get(
                 normalized_name.lower()

@@ -1,4 +1,5 @@
 from utils.json_repository import JsonRepository
+from utils.url_utils import normalize_ozon_url
 
 
 class CardRepository(JsonRepository):
@@ -8,6 +9,17 @@ class CardRepository(JsonRepository):
 
     def find_by_url(self, url):
         return self.data.get(url)
+
+    def find_by_normalized_url(self, url):
+
+        normalized = normalize_ozon_url(url)
+
+        for item in self.data.values():
+
+            if item.get("normalized_url") == normalized:
+                return item
+
+        return None
 
     def find_by_slug(self, slug):
         slug = (slug or "").lower()
@@ -20,9 +32,13 @@ class CardRepository(JsonRepository):
         return None
 
     def remember(self, card, result):
+        print("CARD REMEMBER")
+        print(self.file.resolve())
+        print(card.url)
         self.data[card.url] = {
 
             "url": card.url,
+            "normalized_url": normalize_ozon_url(card.url),
             "slug": card.slug,
             "title": card.title,
             "description": card.description,
@@ -43,6 +59,8 @@ class CardRepository(JsonRepository):
         }
         self.mark_dirty()
         self.flush()
+        print("CARD SAVED")
+        print(self.file.exists())
 
     def find(self, card):
 

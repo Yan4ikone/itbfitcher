@@ -8,23 +8,6 @@ from dictionaries.all_dictionaries import (
     FORBIDDEN_WORDS
 )
 
-KEEP_UNITS = {
-    "шт",
-    "штук",
-    "комплект",
-    "набор",
-    "пара",
-    "пар",
-    "пары",
-    "мл",
-    "л",
-    "г",
-    "кг",
-    "см",
-    "мм",
-    "м"
-}
-
 
 def clean_text(text: str):
 

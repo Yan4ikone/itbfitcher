@@ -3,7 +3,9 @@ import pandas as pd
 from learning.repository import LearningRepository
 from learning.trainer import Trainer
 from learning.pending import save_pending_products
+from repositories.card_repository import CardRepository
 from repositories.product_repository import ProductRepository
+from utils.url_utils import normalize_ozon_url
 
 
 class ManualTeacher:
@@ -12,6 +14,7 @@ class ManualTeacher:
         self.repository = LearningRepository()
         self.product_repository = ProductRepository()
         self.trainer = Trainer(self.product_repository)
+        self.card_repository = CardRepository()
 
     def learn_result_file(self, path):
         df = pd.read_excel(path)
@@ -30,35 +33,26 @@ class ManualTeacher:
                 continue
             if url:
                 self.repository.remember_manual(
-                    url=url,
+                    url=normalize_ozon_url(url),
                     description=description,
                     code=code
                 )
+                card = self.card_repository.find_by_url(url)
+
+                if card:
+                    card["manual_description"] = description
+                    card["manual_code"] = code
+                    self.card_repository.mark_dirty()
                 statistics["manual_saved"] += 1
             product = description.lower().strip()
             existing = self.repository.get_product(product)
-            if existing:
 
-                old_code = str(existing.get("code", ""))
-
-                if code and old_code and code != old_code:
-                    self.trainer.add_dropdown(product)
-                    statistics["dropdown_candidates"] += 1
-
-            else:
+            if not existing:
                 self._add_pending(product, description, code)
                 statistics["new_products"] += 1
-                for word in product.split():
-                    if len(word) >= 4:
-                        self.trainer.learn_word(product, word)
-                        statistics["words"] += 1
-
-                current = (self.repository .get_product(product))
-                old_code = str(current.get("code", ""))
-                if code and code != old_code:
-                    self.trainer.add_dropdown(product)
-                    statistics["dropdown_candidates"] += 1
         self.repository.save()
+        self.card_repository.flush()
+
         return statistics
 
     def _add_pending(self, product, description, code):
