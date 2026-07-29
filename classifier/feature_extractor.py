@@ -4,7 +4,6 @@ from dictionaries.all_dictionaries import (MATERIAL_ALIASES, PRODUCT_TYPE_ALIASE
 def _find_alias(words, aliases):
 
     for value, variants in aliases.items():
-
         for variant in variants:
 
             variant_words = variant.lower().split()
@@ -12,7 +11,6 @@ def _find_alias(words, aliases):
             if all(word in words for word in variant_words):
 
                 return value
-
     return None
 
 
@@ -20,7 +18,6 @@ def extract_features(card):
 
     words = extract_words(card)
     features = {}
-
     material = _find_alias(words, MATERIAL_ALIASES)
 
     if material:

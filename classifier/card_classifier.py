@@ -3,7 +3,7 @@ class CardClassifier:
     def __init__(self, knowledge):
         self.knowledge = knowledge
 
-    def apply(self, card, result, resolver):
+    def apply(self, card, result):
 
         history = self.knowledge.find_card(card)
 
@@ -14,24 +14,12 @@ class CardClassifier:
             "KNOWLEDGE",
             f"Найдена ранее обработанная карточка ({history['code']})"
         )
-
-        resolver.apply(
-            history["code"],
-            "KNOWLEDGE",
-            100,
-            "точное совпадение"
-        )
-
-        result.product = history.get(
-            "product",
-            result.product
-        )
-
-        result.material = history.get(
-            "material",
-            ""
-        )
-
+        result.code = history["code"]
+        result.source = "CARD_CACHE"
+        result.confidence = 100
+        if result.source != "PRODUCTS":
+            result.product = history.get("product", result.product)
+        result.material = history.get("material", "")
         result.confidence = 100
 
         return result

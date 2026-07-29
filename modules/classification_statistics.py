@@ -7,17 +7,13 @@ class ClassificationStatistics:
 
     def __init__(self):
         self.total = 0
-
         self.found = 0
         self.not_found = 0
         self.review = 0
-
         self.sources = Counter()
         self.material_found = 0
         self.material_missing = 0
-
         self.unknown_products = []
-
         self.rows = []
 
     def add(self, result):
@@ -59,18 +55,15 @@ class ClassificationStatistics:
         logger("=" * 60)
         logger("СТАТИСТИКА КЛАССИФИКАЦИИ")
         logger("=" * 60)
-
         logger(f"Всего строк: {self.total}")
         logger(f"Найдено автоматически: {self.found}")
         logger(f"Не найдено: {self.not_found}")
         logger(f"Ручная проверка: {self.review}")
-
         logger("")
         logger("Источники определения:")
 
         for source, count in sorted(self.sources.items()):
             logger(f"  {source}: {count}")
-
         logger("")
         logger(f"Материал найден: {self.material_found}")
         logger(f"Материал не найден: {self.material_missing}")
@@ -78,14 +71,8 @@ class ClassificationStatistics:
     def save_excel(self, input_path):
 
         folder = os.path.dirname(input_path)
-
-        path = os.path.join(
-            folder,
-            "CLASSIFICATION_REPORT.xlsx"
-        )
-
+        path = os.path.join(folder, "CLASSIFICATION_REPORT.xlsx")
         df = pd.DataFrame(self.rows)
-
         df.to_excel(path, index=False)
 
         return path

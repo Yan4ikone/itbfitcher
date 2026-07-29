@@ -1,14 +1,11 @@
-from modules.knowledge_engine import KnowledgeEngine
-from modules.product_engine import classify_product
-from modules.code_resolver import CodeResolver
+from repositories.knowledge_engine import KnowledgeEngine
 from classifier.dropdown_resolver import DropdownResolver
 from classifier.history_classifier import HistoryClassifier
 from classifier.card_classifier import CardClassifier
 from classifier.learning_classifier import LearningClassifier
 from classifier.trace_classifier import TraceClassifier
-import inspect
 
-print(inspect.getfile(classify_product))
+from resolver.engine import ResolverEngine
 
 
 class DecisionEngine:
@@ -22,23 +19,21 @@ class DecisionEngine:
         self.card_classifier = CardClassifier(self.knowledge)
         self.learning_classifier = LearningClassifier(self.knowledge)
         self.trace_classifier = TraceClassifier()
+        self.product_engine = ResolverEngine(self.knowledge)
 
     def decide(self, card):
         print("DECIDE CALLED")
         print("DECISION =", __file__)
         print("DecisionEngine =", __file__)
-        print("classify_product =", inspect.getfile(classify_product))
-
-        result = classify_product(card, self.knowledge)
-        resolver = CodeResolver(result)
-        result_from_card = self.card_classifier.apply(card, result, resolver)
+        result = self.product_engine.classify(card)
+        result_from_card = self.card_classifier.apply(card, result)
 
         if result_from_card:
             return result_from_card
 
         result = self.trace_classifier.apply(card, result)
         result.dropdown = self.dropdown.resolve(result.product)
-        result = self.history_classifier.apply(result, card, resolver)
+        result = self.history_classifier.apply(result, card)
         result = self.learning_classifier.apply(result)
         print("BEFORE REMEMBER")
         self.knowledge.card_repository.remember(card, result)

@@ -1,5 +1,5 @@
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 
 class DecisionLogger:
@@ -9,79 +9,126 @@ class DecisionLogger:
         self.folder = Path("logs")
         self.folder.mkdir(exist_ok=True)
 
+    # ==========================================================
+    # PUBLIC
+    # ==========================================================
+
     def save(self, card, result):
 
         filename = (
-            datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            + ".txt"
+            datetime.now()
+            .strftime("%Y-%m-%d")
+            + ".log"
         )
 
         path = self.folder / filename
 
-        with open(path, "w", encoding="utf-8") as f:
+        with open(path, "a", encoding="utf-8") as f:
 
-            f.write("=" * 80 + "\n")
-            f.write("КАРТОЧКА ТОВАРА\n")
-            f.write("=" * 80 + "\n\n")
-
-            f.write(f"URL:\n{card.url}\n\n")
-
-            f.write(f"Название:\n{card.title}\n\n")
-
-            f.write(f"Описание:\n{card.description}\n\n")
-
-            f.write("Характеристики\n")
-
-            for key, value in card.specs.items():
-                f.write(f"    {key}: {value}\n")
+            self._write_header(f, card, result)
+            self._write_candidates(f, result)
 
             f.write("\n")
-            f.write("=" * 80 + "\n")
-            f.write("РЕЗУЛЬТАТ\n")
-            f.write("=" * 80 + "\n\n")
+            f.write("=" * 100)
+            f.write("\n\n")
 
-            f.write("=" * 80 + "\n")
-            f.write("КАНДИДАТЫ PRODUCTS\n")
-            f.write("=" * 80 + "\n\n")
+    # ==========================================================
+    # HEADER
+    # ==========================================================
 
-            for candidate in result.product_scores:
+    def _write_header(self, f, card, result):
 
-                f.write(f"{candidate['product']}\n")
-                f.write(f"score = {candidate['score']}\n")
+        f.write("=" * 100)
+        f.write("\n")
+        f.write(f"URL: {card.url}\n")
+        f.write(f"TITLE: {card.title}\n")
 
-                if "diff" in candidate:
-                    f.write(f"diff = {candidate['diff']}\n")
+        if getattr(card, "slug", ""):
+            f.write(f"SLUG: {card.slug}\n")
 
-                f.write("Совпадения:\n")
+        if getattr(card, "cleaned_text", ""):
+            f.write(f"CLEANED: {card.cleaned_text}\n")
+        f.write("\n")
+        f.write(f"RESULT PRODUCT : {result.product}\n")
+        f.write(f"RESULT CODE    : {result.code}\n")
+        f.write(f"SOURCE         : {result.source}\n")
+        f.write(f"CONFIDENCE     : {result.confidence}\n")
 
-                f.write("Разбивка баллов:\n")
+        if result.material:
+            f.write(f"MATERIAL       : {result.material}\n")
+        f.write("\n")
 
-                for key, value in candidate["breakdown"].items():
+    # ==========================================================
+    # CANDIDATES
+    # ==========================================================
 
-                    if value:
-                        f.write(f"    {key:15} +{value}\n")
+    def _write_candidates(self, f, result):
 
-                f.write("\nСовпадения:\n")
+        if not result.product_scores:
 
-                for match in candidate["matches"]:
-                    f.write(
-                        f"    +{match['points']:3} "
-                        f"{match['type']:15} "
-                        f"{match['text']}\n"
-                    )
+            f.write("NO CANDIDATES\n")
+            return
 
-                f.write(f"\nИТОГО: {candidate['score']}\n")
+        f.write("CANDIDATES\n")
+        f.write("-" * 100)
+        f.write("\n")
 
-                f.write("\n")
+        for index, candidate in enumerate(result.product_scores, start=1):
 
-            f.write(f"Товар: {result.product}\n")
-            f.write(f"Материал: {result.material}\n")
-            f.write(f"Код: {result.code}\n")
-            f.write(f"Источник: {result.source}\n")
-            f.write(f"Уверенность: {result.confidence}\n")
-            f.write(f"Проверка: {result.review}\n\n")
+            self._write_candidate(f, index, candidate)
 
-            f.write("=" * 80 + "\n")
-            f.write("TRACE\n")
-            f.write("=" * 80 + "\n\n")
-            f.write(result.trace.to_text())
+    # ==========================================================
+    # ONE CANDIDATE
+    # ==========================================================
+
+    def _write_candidate(self, f, index, candidate):
+
+        f.write("\n")
+        f.write(f"{index}. {candidate.product}\n")
+        f.write(f"Score : {candidate.score}\n")
+        f.write(f"Code  : {candidate.code}\n")
+
+        if candidate.material:
+
+            f.write(f"Material : {candidate.material}\n")
+
+        if candidate.material_code:
+
+            f.write(
+                f"Material code : "
+                f"{candidate.material_code}\n"
+            )
+
+        f.write("\n")
+        f.write("BREAKDOWN\n")
+
+        if candidate.breakdown:
+
+            for key, value in sorted(
+                    candidate.breakdown.items(),
+                    key=lambda x: x[1],
+                    reverse=True,
+            ):
+
+                f.write(f"    {key:<20} {value}\n")
+        f.write("\n")
+        f.write("MATCHES\n")
+
+        if not candidate.matches:
+
+            f.write("    -\n")
+
+        else:
+
+            for match in sorted(
+                    candidate.matches,
+                    key=lambda x: x["points"],
+                    reverse=True,
+            ):
+                f.write(
+                    f"    "
+                    f"+{match['points']:>4} "
+                    f"{match['type']:<20}"
+                    f"{match['text']}\n"
+                )
+        f.write("\n")
