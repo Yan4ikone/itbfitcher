@@ -1,5 +1,8 @@
 from copy import copy
 
+from openpyxl.formula.translate import Translator
+
+
 def sort_by_description(ws, desc_col_idx, last_row):
 
     rows_data = []
@@ -11,6 +14,7 @@ def sort_by_description(ws, desc_col_idx, last_row):
         for col in range(1, ws.max_column + 1):
             cell = ws.cell(row=row, column=col)
             row_cells.append({
+                "coordinate": cell.coordinate,
                 "value": cell.value,
                 "font": copy(cell.font) if cell.has_style else None,
                 "fill": copy(cell.fill) if cell.has_style else None,
@@ -18,7 +22,6 @@ def sort_by_description(ws, desc_col_idx, last_row):
                 "border": copy(cell.border) if cell.has_style else None,
                 "number_format": cell.number_format if cell.has_style else None,
             })
-
         rows_data.append(row_cells)
 
     if not rows_data:
@@ -31,7 +34,19 @@ def sort_by_description(ws, desc_col_idx, last_row):
     for new_row_idx, row_cells in enumerate(rows_data, start=2):
         for col_idx, cell_data in enumerate(row_cells, start=1):
             cell = ws.cell(row=new_row_idx, column=col_idx)
-            cell.value = cell_data["value"]
+            value = cell_data["value"]
+
+            if isinstance(value, str) and value.startswith("="):
+                try:
+                    value = Translator(
+                        value,
+                        origin=cell_data["coordinate"]
+                    ).translate_formula(
+                        cell.coordinate
+                    )
+                except Exception:
+                    pass
+            cell.value = value
             if cell_data["font"]:
                 cell.font = cell_data["font"]
             if cell_data["fill"]:

@@ -9,7 +9,6 @@ class TraceClassifier:
         result.trace.add("CARD", f"material={card.material}")
         result.trace.add("CARD", f"quantity={card.quantity}")
         result.trace.add("CARD", f"specs={card.specs}")
-
         result.trace.add(
             "CLASSIFY",
             f"Классификатор: товар={result.product or '-'}, "

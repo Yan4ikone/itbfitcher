@@ -5,7 +5,7 @@ from classifier.card_classifier import CardClassifier
 from classifier.learning_classifier import LearningClassifier
 from classifier.trace_classifier import TraceClassifier
 
-from resolver.engine import ResolverEngine
+from engines.engine import ResolverEngine
 from resolver.excel_name_builder import ExcelNameBuilder
 
 

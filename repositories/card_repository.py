@@ -35,6 +35,8 @@ class CardRepository(JsonRepository):
         print("CARD REMEMBER")
         print(self.file.resolve())
         print(card.url)
+        if not card.url:
+            return
         self.data[card.url] = {
 
             "url": card.url,
@@ -43,16 +45,13 @@ class CardRepository(JsonRepository):
             "title": card.title,
             "description": card.description,
             "cleaned_text": card.cleaned_text,
-
             "product": result.product,
-            "display_name": result.dropdown,
+            "display_name": result.display_name,
             "code": result.code,
-
             "material": getattr(card, "material", ""),
             "quantity": getattr(card, "quantity", ""),
             "brand": getattr(card, "brand", ""),
             "country": getattr(card, "country", ""),
-
             "specs": getattr(card, "specs", {}),
             "sections": getattr(card, "sections", {}),
             "features": getattr(card, "features", {})
@@ -69,7 +68,14 @@ class CardRepository(JsonRepository):
         if result:
             return result
 
-        return self.find_by_slug(card.slug)
+        if card.slug and len(card.slug) > 5:
+
+            result = self.find_by_slug(card.slug)
+
+            if result:
+                return result
+
+        return None
 
     def all(self):
         return self.data.values()

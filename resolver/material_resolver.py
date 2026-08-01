@@ -40,12 +40,26 @@ class MaterialResolver:
 
         parts = []
 
-        for key in ("title", "slug", "description", "cleaned_text", "specs", "material"):
+        for key in (
+                "title",
+                "slug",
+                "description",
+                "cleaned_text",
+                "material",
+        ):
 
             value = parsed.get(key)
 
             if value:
-                parts.append(value.lower())
+                parts.append(str(value).lower())
+
+        specs = parsed.get("specs", [])
+
+        if isinstance(specs, list):
+            parts.extend(specs)
+
+        elif isinstance(specs, str):
+            parts.append(specs.lower())
 
         return " ".join(parts)
 
@@ -58,20 +72,30 @@ class MaterialResolver:
         if not text:
             return ""
 
-        for material, aliases in MATERIAL_ALIASES.items():
+        priority = [
+            "силикон",
+            "смола",
+            "пластик",
+            "abs пластик",
+            "искусственная кожа",
+            "натуральная кожа",
+            "текстиль",
+            "металл",
+            "стекло",
+        ]
+
+        for wanted in priority:
+
+            aliases = MATERIAL_ALIASES.get(wanted, [])
 
             if isinstance(aliases, str):
                 aliases = [aliases]
 
-            variants = [
-                material.lower(),
-                *[
-                    alias.lower()
-                    for alias in aliases
-                ]
-            ]
+            variants = [wanted] + aliases
+
             for variant in variants:
-                if variant in text:
-                    return material.lower()
+
+                if variant.lower() in text:
+                    return wanted
 
         return ""

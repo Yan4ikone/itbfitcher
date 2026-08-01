@@ -34,11 +34,12 @@ class CandidateScorer:
 
     def _score_product(self, candidate, parsed, product):
 
-        self._field_score(candidate, parsed["title"], product,350,"TITLE")
+        self._field_score(candidate, parsed["title"], product,250,"TITLE")
         self._field_score(candidate, parsed["slug"], product,220,"SLUG")
-        self._field_score(candidate, parsed["description"], product,800,"DESCRIPTION")
-        self._field_score(candidate, parsed["cleaned_text"], product,450,"CLEANED")
-        self._field_score(candidate, parsed["specs"], product,150,"SPECS")
+        self._field_score(candidate, parsed["description"], product,200,"DESCRIPTION")
+        self._field_score(candidate, parsed["cleaned_text"], product,350,"CLEANED")
+        for value in parsed["specs_dict"].values():
+            self._field_score(candidate, value, product,150,"SPECS")
 
     # ==========================================================
     # ALIAS
@@ -48,8 +49,8 @@ class CandidateScorer:
 
         self._field_score(candidate, parsed["title"], alias,300,"TITLE_ALIAS")
         self._field_score(candidate, parsed["slug"], alias,220,"SLUG_ALIAS")
-        self._field_score(candidate, parsed["description"], alias,900,"DESC_ALIAS")
-        self._field_score(candidate, parsed["cleaned_text"], alias,500,"CLEANED_ALIAS")
+        self._field_score(candidate, parsed["description"], alias,300,"DESC_ALIAS")
+        self._field_score(candidate, parsed["cleaned_text"], alias,250,"CLEANED_ALIAS")
 
     # ==========================================================
     # PATTERN

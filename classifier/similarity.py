@@ -1,6 +1,6 @@
 from classifier.similarity_engine import (find_similar_products, extract_features)
 from modules.feature_predictor import predict_features
-from modules.material_engine import choose_by_material
+from engines.material_engine import choose_by_material
 
 
 class SimilarityClassifier:

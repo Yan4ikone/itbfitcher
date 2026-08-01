@@ -21,6 +21,12 @@ class ProductResolver:
     def resolve(self, card):
 
         parsed = self.parser.parse(card)
+        print()
+        print("=" * 80)
+        print("PARSED PRODUCT")
+        print(parsed["product_name"])
+        print("=" * 80)
+        print()
         candidates = self.find_candidates(parsed)
 
         if not candidates:

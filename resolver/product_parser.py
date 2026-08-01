@@ -1,13 +1,12 @@
 import re
 
+from cleaner.product_cleaner import clean_text
 from cleaner.product_extractor import ProductExtractor
-from learning.name_normalizer import normalize_dictionary_name
 
 
 class ProductParser:
 
     def __init__(self):
-
         self.extractor = ProductExtractor()
 
     # ==========================================================
@@ -16,147 +15,122 @@ class ProductParser:
 
     def parse(self, card):
 
-        texts = self.collect_texts(card)
+        texts = []
 
-        parsed = {
-            "title": self.prepare(
-                texts["title"]
-            ),
-            "slug": self.prepare(
-                texts["slug"]
-            ),
-            "description": self.prepare(
-                texts["description"]
-            ),
-            "cleaned_text": self.prepare(
-                texts["cleaned_text"]
-            ),
-            "raw_text": self.prepare(
-                texts["raw_text"]
-            ),
-            "specs": self.prepare(
-                texts["specs"]
-            ),
-            "material": self.prepare(
-                texts["material"]
-            ),
-            "brand": self.prepare(
-                texts["brand"]
-            ),
-            "country": self.prepare(
-                texts["country"]
-            ),
-            "quantity": texts["quantity"],
-        }
+        if card.title:
+            texts.append(card.title)
 
-        parsed["search_text"] = self.build_search_text(parsed)
-        parsed["tokens"] = self.tokenize(parsed["search_text"])
+        if card.slug:
+            texts.append(card.slug)
 
-        return parsed
+        if card.description:
+            texts.append(card.description)
 
-    # ==========================================================
-    # COLLECT
-    # ==========================================================
+        if card.material:
+            texts.append(card.material)
 
-    def collect_texts(self, card):
+        if card.quantity:
+            texts.append(card.quantity)
 
-        specs = []
+        for key, value in card.specs.items():
 
-        for value in (card.specs or {}).values():
+            if not value:
+                continue
+
+            texts.append(str(value))
+
+        for section in card.sections.values():
+
+            if isinstance(section, dict):
+
+                for value in section.values():
+
+                    if value:
+                        texts.append(str(value))
+
+            elif isinstance(section, list):
+
+                for value in section:
+
+                    if value:
+                        texts.append(str(value))
+
+            elif section:
+                texts.append(str(section))
+
+        for value in card.features.values():
 
             if value:
-                specs.append(str(value))
+                texts.append(str(value))
+
+        raw_text = " ".join(texts)
+        cleaned, _, _ = clean_text(raw_text)
+        print("\nRAW:")
+        print(raw_text)
+
+        print("\nCLEANED:")
+        print(cleaned)
+
+        product = self.extractor.extract(cleaned)
+
+        print("\nEXTRACTED PRODUCT:")
+        print(product)
+        quantity = self._extract_quantity(raw_text)
+
+        if quantity:
+
+            product = f"{product} {quantity}"
+
+        spec_values = []
+
+        for value in card.specs.values():
+
+            if value:
+                spec_values.append(str(value).lower())
+
+        for k, v in card.specs.items():
+            print(f"   {k}: {v}")
 
         return {
-
-            "title":
-                getattr(card, "title", ""),
-            "slug":
-                getattr(card, "slug", ""),
-            "description":
-                getattr(card, "description", ""),
-            "cleaned_text":
-                getattr(card, "cleaned_text", ""),
-            "raw_text":
-                getattr(card, "raw_text", ""),
-            "specs":
-                " ".join(specs),
-            "material":
-                getattr(card, "material", ""),
-            "brand":
-                getattr(card, "brand", ""),
-            "country":
-                getattr(card, "country", ""),
-            "quantity":
-                getattr(card, "quantity", ""),
+            "title": card.title.lower(),
+            "slug": card.slug.lower(),
+            "description": cleaned.lower(),
+            "cleaned_text": product.lower(),
+            "search_text": raw_text.lower(),
+            "specs": spec_values,
+            "material": getattr(card, "material", ""),
+            "quantity": getattr(card, "quantity", ""),
+            "specs_dict": {
+                k: str(v).lower()
+                for k, v in card.specs.items()
+            },
+            "tokens": set(raw_text.lower().split()),
+            "product_name": product,
         }
-
     # ==========================================================
-    # NORMALIZE
-    # ==========================================================
-
-    def prepare(self, text):
-
-        if not text:
-            return ""
-
-        text = normalize_dictionary_name(text)
-        text = self.extractor.extract(text)
-
-        return text.lower().strip()
-
-    # ==========================================================
-    # SEARCH TEXT
+    # QUANTITY
     # ==========================================================
 
-    def build_search_text(self, parsed):
+    def _extract_quantity(self, text):
 
-        parts = []
+        patterns = [
+            r"(\d+)\s*шт",
+            r"(\d+)\s*штук",
+            r"комплект\s+из\s+(\d+)",
+            r"набор\s+из\s+(\d+)",
+            r"(\d+)\s*pcs",
+            r"(\d+)\s*pieces",
+            r"(\d+)\s*пар",
+            r"(\d+)\s*пары",
+        ]
 
-        for key in (
-            "title",
-            "slug",
-            "description",
-            "cleaned_text",
-            "raw_text",
-            "specs",
-        ):
+        text = text.lower()
 
-            value = parsed[key]
+        for pattern in patterns:
 
-            if value:
-                parts.append(value)
+            m = re.search(pattern, text)
 
-        return " ".join(parts)
+            if m:
+                return f"{m.group(1)} шт"
 
-    # ==========================================================
-    # TOKENIZE
-    # ==========================================================
-
-    def tokenize(self, text):
-
-        if not text:
-            return set()
-
-        text = re.sub(
-            r"[^a-zа-я0-9 ]",
-            " ",
-            text,
-            flags=re.IGNORECASE,
-        )
-
-        result = set()
-
-        for word in text.split():
-
-            word = word.strip()
-
-            if len(word) < 3:
-                continue
-
-            if word.isdigit():
-                continue
-
-            result.add(word)
-
-        return result
+        return ""

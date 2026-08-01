@@ -6,7 +6,7 @@ import random
 
 from learning.importer import load_learning_history
 from parser.cdp_product_parser import CDPProductParser
-from classifier.decision_engine import DecisionEngine
+from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
 
 from pathlib import Path
@@ -26,9 +26,7 @@ class OzonAutoProcessor:
         self.excel_path = excel_path
         self.logger = logger
         self.limit = limit
-        self.stats_callback = (
-            stats_callback
-        )
+        self.stats_callback = (stats_callback)
         self.stop_requested = False
         self.total_rows = 0
         self.processed_rows = 0
@@ -109,18 +107,14 @@ class OzonAutoProcessor:
         engine = DecisionEngine(learning_history)
 
         try:
-
             for row in rows_to_process:
-
                 if self.stop_requested:
                     self.log("Обработка остановлена пользователем")
-
                     break
 
                 try:
 
                     self.processed_rows += 1
-
                     self.process_row(ws, row, parser, engine)
 
                     if (
@@ -142,7 +136,6 @@ class OzonAutoProcessor:
         finally:
 
             parser.disconnect()
-
         self.print_summary()
 
     def process_row(self, ws, row, parser, engine):
@@ -173,11 +166,14 @@ class OzonAutoProcessor:
             "material": result.material
         })
 
-        ws[f"B{row}"] = (
-            result.dropdown
-            if result.dropdown
-            else (result.product or "")
-        )
+        original = ws[f"B{row}"].value
+
+        if result.dropdown:
+            ws[f"B{row}"] = result.dropdown
+        elif result.product:
+            ws[f"B{row}"] = result.product
+        else:
+            ws[f"B{row}"] = original
 
         if result.code:
 
@@ -189,7 +185,7 @@ class OzonAutoProcessor:
         if result.code:
 
             self.found_count += 1
-            self.log(f"Описание: {result.product}")
+            self.log(f"Описание: {result.dropdown}")
             self.log(f"Товар: {result.product}")
             self.log(f"Материал: {result.material}")
             self.log(f"Код: {result.code}")
@@ -212,7 +208,6 @@ class OzonAutoProcessor:
                 self.found_count,
                 self.not_found_count
             )
-
         time.sleep(delay)
 
     def print_progress(self):
@@ -221,7 +216,6 @@ class OzonAutoProcessor:
                 self.total_rows
                 - self.processed_rows
         )
-
         self.log(
             (
                 f"Обработано: "

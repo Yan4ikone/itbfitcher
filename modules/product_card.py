@@ -16,6 +16,7 @@ class ProductCard:
     quantity: str = ""
     package: str = ""
     images: list = field(default_factory=list)
+    image_description: str = ""
     cleaned_text: str = ""
     features: dict = field(default_factory=dict)
     parser_log: list = field(default_factory=list)

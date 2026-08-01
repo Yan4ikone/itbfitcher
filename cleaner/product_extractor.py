@@ -19,7 +19,7 @@ class ProductExtractor:
 
         cleaned, _, _ = clean_text(text)
         cleaned = cleaned.lower()
-
+        cleaned = self._remove_negative(cleaned)
         cleaned = self._remove_brackets(cleaned)
         cleaned = self._remove_sizes(cleaned)
         cleaned = self._remove_dimensions(cleaned)
@@ -27,7 +27,6 @@ class ProductExtractor:
         cleaned = self._normalize_spaces(cleaned)
 
         words = cleaned.split()
-
         result = []
 
         for word in words:
@@ -36,12 +35,19 @@ class ProductExtractor:
                 continue
 
             result.append(word)
-
         result = self._trim_tail(result)
 
         return " ".join(result).strip()
 
     # =====================================================
+    def _remove_negative(self, text):
+
+        return re.sub(
+            r"\bбез\s+\w+\b",
+            " ",
+            text
+        )
+
 
     def _skip_word(self, word):
 

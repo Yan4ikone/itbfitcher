@@ -182,6 +182,16 @@ class ProductRepository:
 
     def get_display_name(self, product):
 
+        if isinstance(product, list):
+
+            if not product:
+                return ""
+
+            product = product[0]
+
+        if not isinstance(product, str):
+            product = str(product)
+
         info = self.get(product)
 
         if not info:

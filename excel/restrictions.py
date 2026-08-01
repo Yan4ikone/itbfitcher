@@ -11,11 +11,15 @@ def apply_restrictions(ws, code_col_idx, decision_col_idx=None, surname_col_idx=
         decision_cell = ws.cell(row=row, column=decision_col_idx) if decision_col_idx else None
 
         code_val = str(code_cell.value).strip() if code_cell.value else ""
+        last_col = ws.max_column
+
+        while last_col > 1 and ws.cell(1, last_col).value is None:
+            last_col -= 1
 
         # 1. Код "0" или пустой -> Красный + Нельзя
         if not code_val or code_val == "0":
             code_cell.font = RED_FONT
-            for col in range(1, ws.max_column + 1):
+            for col in range(1, last_col + 1):
                 ws.cell(row=row, column=col).font = RED_FONT
             if decision_cell: decision_cell.value = "Нельзя"
             continue
@@ -30,7 +34,7 @@ def apply_restrictions(ws, code_col_idx, decision_col_idx=None, surname_col_idx=
         is_restricted = any(code_val.startswith(p) for p in RESTRICTED_PREFIXES)
         if is_restricted:
             code_cell.font = RED_FONT
-            for col in range(1, ws.max_column + 1):
+            for col in range(1, last_col + 1):
                 ws.cell(row=row, column=col).font = RED_FONT
             if decision_cell: decision_cell.value = "Нельзя"
             continue

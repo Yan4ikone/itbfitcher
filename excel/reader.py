@@ -88,7 +88,6 @@ def count_rows(dataframe, description_column):
             str(value).strip()
             and str(value).lower() != "nan"
         )
-
     )
 
 

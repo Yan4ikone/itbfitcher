@@ -25,20 +25,20 @@ def extract_slug(url):
 
     slug = m.group(1)
     slug = slug.replace("-", " ")
+    slug = re.sub(r"\s+", " ", slug)
 
-    return slug.strip()
+    return slug.strip().lower()
 
-def build_from_excel(description, characteristics=""):
+def build_from_excel(description, characteristics="", normalized=""):
     card = ProductCard()
     card.title = description
     card.description = description
-    card.cleaned_text = description
+    card.cleaned_text = normalized or description
 
     if characteristics:
         card.specs["Характеристики"] = characteristics
 
     return card
-
 
 def build_product_card(url, parsed, raw_text):
 
@@ -50,17 +50,47 @@ def build_product_card(url, parsed, raw_text):
     card.title = parsed.get("title", "")
     card.description = parsed.get("description", "")
     card.specs = parsed.get("specs", {})
-    for key, value in card.specs.items():
-        key_l = key.lower()
-        if "количество" in key_l:
-            card.quantity = str(value)
-            break
+    card.images = parsed.get("images", [])
+
+    if not card.title:
+        card.title = card.slug
+
+    if not card.cleaned_text:
+        if not card.cleaned_text:
+            card.cleaned_text = (
+                    card.title
+                    or card.slug
+                    or card.description
+            )
+
+    if not card.description or card.description == "Распродажа":
+        card.description = card.slug
 
     for key, value in card.specs.items():
+
         key_l = key.lower()
-        if "материал" in key_l:
+
+        if any(
+                x in key_l
+                for x in (
+                        "количество",
+                        "в упаковке",
+                        "количество товара",
+                        "комплект",
+                        "шт",
+                )
+        ):
+            card.quantity = str(value)
+
+        if key_l.strip() == "материал":
             card.material = str(value)
-            break
+
+        if "страна" in key_l:
+            card.country = str(value)
+
+        if "бренд" in key_l:
+            card.brand = str(value)
+
     card.sections = parsed.get("sections", {})
     card.parser_log = parsed.get("parser_log", [])
 

@@ -1,6 +1,9 @@
+from engines.image_description_engine import ImageDescriptionEngine
 from learning.runtime import LearningRuntime
 from repositories.card_repository import CardRepository
 from repositories.product_repository import ProductRepository
+from services.image_description_service import ImageDescriptionService
+from services.image_loader import ImageLoader
 
 
 class KnowledgeEngine:
@@ -10,6 +13,9 @@ class KnowledgeEngine:
         self.product_repository = ProductRepository()
         self.learning = LearningRuntime()
         self.card_repository = CardRepository()
+        self.image_loader = ImageLoader()
+        self.image_engine = ImageDescriptionEngine()
+        self.image_service = ImageDescriptionService(self.image_engine)
 
     def refresh_learning(self):
         self.learning.refresh()

@@ -155,6 +155,7 @@ imports:
  &#8226;   <a href="#keyword">keyword</a>
  &#8226;   <a href="#learning.manual">learning.manual</a>
  &#8226;   <a href="#learning.runtime">learning.runtime</a>
+ &#8226;   <a href="#learning_window">learning_window</a>
  &#8226;   <a href="#linecache">linecache</a>
  &#8226;   <a href="#locale">locale</a>
  &#8226;   <a href="#modules.review_manager">modules.review_manager</a>
@@ -8363,7 +8364,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#models.similar_product">models.similar_product</a>
+    <a href="#learning.review_models">learning.review_models</a>
+ &#8226;   <a href="#models.similar_product">models.similar_product</a>
  &#8226;   <a href="#modules.classification_result">modules.classification_result</a>
  &#8226;   <a href="#modules.product_card">modules.product_card</a>
  &#8226;   <a href="#pandas.core.dtypes.inference">pandas.core.dtypes.inference</a>
@@ -8947,7 +8949,7 @@ imported by:
     <a href="#classifier.feature_extractor">classifier.feature_extractor</a>
  &#8226;   <a href="#classifier.similarity_engine">classifier.similarity_engine</a>
  &#8226;   <a href="#excel.restrictions">excel.restrictions</a>
- &#8226;   <a href="#learning.analyzer">learning.analyzer</a>
+ &#8226;   <a href="#learning.name_normalizer">learning.name_normalizer</a>
  &#8226;   <a href="#modules.dropdown_manager">modules.dropdown_manager</a>
  &#8226;   <a href="#modules.product_cleaner">modules.product_cleaner</a>
  &#8226;   <a href="#modules.product_engine">modules.product_engine</a>
@@ -8968,6 +8970,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#classifier.dropdown_resolver">classifier.dropdown_resolver</a>
+ &#8226;   <a href="#learning.builder">learning.builder</a>
  &#8226;   <a href="#learning.trainer">learning.trainer</a>
  &#8226;   <a href="#modules.dropdown_manager">modules.dropdown_manager</a>
  &#8226;   <a href="#modules.result_engine">modules.result_engine</a>
@@ -9010,6 +9013,7 @@ imports:
 imported by:
     <a href="#difflib">difflib</a>
  &#8226;   <a href="#doctest">doctest</a>
+ &#8226;   <a href="#learning.product_matcher">learning.product_matcher</a>
  &#8226;   <a href="#numpy.testing._private.utils">numpy.testing._private.utils</a>
  &#8226;   <a href="#scipy.optimize._nonlin">scipy.optimize._nonlin</a>
  &#8226;   <a href="#unittest.case">unittest.case</a>
@@ -14456,10 +14460,15 @@ imported by:
 <span class="moduletype">NamespacePackage</span>  <div class="import">
 imported by:
     <a href="#learning.analyzer">learning.analyzer</a>
+ &#8226;   <a href="#learning.applier">learning.applier</a>
+ &#8226;   <a href="#learning.builder">learning.builder</a>
  &#8226;   <a href="#learning.importer">learning.importer</a>
  &#8226;   <a href="#learning.manual">learning.manual</a>
+ &#8226;   <a href="#learning.name_normalizer">learning.name_normalizer</a>
  &#8226;   <a href="#learning.pending">learning.pending</a>
+ &#8226;   <a href="#learning.product_matcher">learning.product_matcher</a>
  &#8226;   <a href="#learning.repository">learning.repository</a>
+ &#8226;   <a href="#learning.review_models">learning.review_models</a>
  &#8226;   <a href="#learning.runtime">learning.runtime</a>
  &#8226;   <a href="#learning.trainer">learning.trainer</a>
 
@@ -14472,13 +14481,50 @@ imported by:
   <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/learning/analyzer.py" type="text/plain"><tt>learning.analyzer</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#dictionaries.all_dictionaries">dictionaries.all_dictionaries</a>
- &#8226;   <a href="#learning">learning</a>
+    <a href="#learning">learning</a>
+ &#8226;   <a href="#learning.name_normalizer">learning.name_normalizer</a>
+ &#8226;   <a href="#learning.product_matcher">learning.product_matcher</a>
+ &#8226;   <a href="#learning.review_models">learning.review_models</a>
 
   </div>
   <div class="import">
 imported by:
     <a href="#learning.runtime">learning.runtime</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="learning.applier"></a>
+  <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/learning/applier.py" type="text/plain"><tt>learning.applier</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#learning">learning</a>
+ &#8226;   <a href="#learning.builder">learning.builder</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#learning_window">learning_window</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="learning.builder"></a>
+  <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/learning/builder.py" type="text/plain"><tt>learning.builder</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#dictionaries.dropdown_lists">dictionaries.dropdown_lists</a>
+ &#8226;   <a href="#learning">learning</a>
+ &#8226;   <a href="#repositories.product_repository">repositories.product_repository</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#learning.applier">learning.applier</a>
 
   </div>
 
@@ -14518,12 +14564,33 @@ imports:
  &#8226;   <a href="#learning.repository">learning.repository</a>
  &#8226;   <a href="#learning.trainer">learning.trainer</a>
  &#8226;   <a href="#pandas">pandas</a>
+ &#8226;   <a href="#repositories.card_repository">repositories.card_repository</a>
  &#8226;   <a href="#repositories.product_repository">repositories.product_repository</a>
+ &#8226;   <a href="#utils.url_utils">utils.url_utils</a>
 
   </div>
   <div class="import">
 imported by:
     <a href="#MainApp.py">MainApp.py</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="learning.name_normalizer"></a>
+  <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/learning/name_normalizer.py" type="text/plain"><tt>learning.name_normalizer</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#dictionaries.all_dictionaries">dictionaries.all_dictionaries</a>
+ &#8226;   <a href="#learning">learning</a>
+ &#8226;   <a href="#re">re</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#learning.analyzer">learning.analyzer</a>
+ &#8226;   <a href="#learning.product_matcher">learning.product_matcher</a>
 
   </div>
 
@@ -14549,6 +14616,24 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="learning.product_matcher"></a>
+  <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/learning/product_matcher.py" type="text/plain"><tt>learning.product_matcher</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#difflib">difflib</a>
+ &#8226;   <a href="#learning">learning</a>
+ &#8226;   <a href="#learning.name_normalizer">learning.name_normalizer</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#learning.analyzer">learning.analyzer</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="learning.repository"></a>
   <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/learning/repository.py" type="text/plain"><tt>learning.repository</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
@@ -14556,12 +14641,31 @@ imports:
     <a href="#json">json</a>
  &#8226;   <a href="#learning">learning</a>
  &#8226;   <a href="#pathlib">pathlib</a>
+ &#8226;   <a href="#repositories.card_repository">repositories.card_repository</a>
 
   </div>
   <div class="import">
 imported by:
     <a href="#learning.manual">learning.manual</a>
  &#8226;   <a href="#learning.runtime">learning.runtime</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="learning.review_models"></a>
+  <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/learning/review_models.py" type="text/plain"><tt>learning.review_models</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#dataclasses">dataclasses</a>
+ &#8226;   <a href="#learning">learning</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#learning.analyzer">learning.analyzer</a>
+ &#8226;   <a href="#learning_window">learning_window</a>
 
   </div>
 
@@ -14575,6 +14679,8 @@ imports:
     <a href="#learning">learning</a>
  &#8226;   <a href="#learning.analyzer">learning.analyzer</a>
  &#8226;   <a href="#learning.repository">learning.repository</a>
+ &#8226;   <a href="#repositories.card_repository">repositories.card_repository</a>
+ &#8226;   <a href="#repositories.product_repository">repositories.product_repository</a>
 
   </div>
   <div class="import">
@@ -14601,6 +14707,26 @@ imports:
   <div class="import">
 imported by:
     <a href="#learning.manual">learning.manual</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="learning_window"></a>
+  <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/learning_window.py" type="text/plain"><tt>learning_window</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#learning.applier">learning.applier</a>
+ &#8226;   <a href="#learning.review_models">learning.review_models</a>
+ &#8226;   <a href="#tkinter">tkinter</a>
+ &#8226;   <a href="#tkinter.messagebox">tkinter.messagebox</a>
+ &#8226;   <a href="#tkinter.ttk">tkinter.ttk</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#MainApp.py">MainApp.py</a>
 
   </div>
 
@@ -43899,6 +44025,7 @@ imported by:
  &#8226;   <a href="#json.decoder">json.decoder</a>
  &#8226;   <a href="#json.encoder">json.encoder</a>
  &#8226;   <a href="#json.scanner">json.scanner</a>
+ &#8226;   <a href="#learning.name_normalizer">learning.name_normalizer</a>
  &#8226;   <a href="#locale">locale</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#models.card_builder">models.card_builder</a>
@@ -44022,6 +44149,7 @@ imported by:
  &#8226;   <a href="#urllib3.util.retry">urllib3.util.retry</a>
  &#8226;   <a href="#urllib3.util.ssl_match_hostname">urllib3.util.ssl_match_hostname</a>
  &#8226;   <a href="#urllib3.util.url">urllib3.util.url</a>
+ &#8226;   <a href="#utils.url_utils">utils.url_utils</a>
  &#8226;   <a href="#warnings">warnings</a>
  &#8226;   <a href="#xml.etree.ElementPath">xml.etree.ElementPath</a>
  &#8226;   <a href="#xml.etree.ElementTree">xml.etree.ElementTree</a>
@@ -44149,11 +44277,15 @@ imported by:
 imports:
     <a href="#repositories">repositories</a>
  &#8226;   <a href="#utils.json_repository">utils.json_repository</a>
+ &#8226;   <a href="#utils.url_utils">utils.url_utils</a>
 
   </div>
   <div class="import">
 imported by:
-    <a href="#modules.knowledge_engine">modules.knowledge_engine</a>
+    <a href="#learning.manual">learning.manual</a>
+ &#8226;   <a href="#learning.repository">learning.repository</a>
+ &#8226;   <a href="#learning.runtime">learning.runtime</a>
+ &#8226;   <a href="#modules.knowledge_engine">modules.knowledge_engine</a>
 
   </div>
 
@@ -44173,7 +44305,9 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#learning.manual">learning.manual</a>
+    <a href="#learning.builder">learning.builder</a>
+ &#8226;   <a href="#learning.manual">learning.manual</a>
+ &#8226;   <a href="#learning.runtime">learning.runtime</a>
  &#8226;   <a href="#modules.knowledge_engine">modules.knowledge_engine</a>
 
   </div>
@@ -60340,6 +60474,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#MainApp.py">MainApp.py</a>
+ &#8226;   <a href="#learning_window">learning_window</a>
  &#8226;   <a href="#modules.review_manager">modules.review_manager</a>
  &#8226;   <a href="#tkinter.commondialog">tkinter.commondialog</a>
  &#8226;   <a href="#tkinter.constants">tkinter.constants</a>
@@ -60439,6 +60574,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#MainApp.py">MainApp.py</a>
+ &#8226;   <a href="#learning_window">learning_window</a>
  &#8226;   <a href="#modules.review_manager">modules.review_manager</a>
  &#8226;   <a href="#tkinter">tkinter</a>
  &#8226;   <a href="#tkinter.simpledialog">tkinter.simpledialog</a>
@@ -60492,6 +60628,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#MainApp.py">MainApp.py</a>
+ &#8226;   <a href="#learning_window">learning_window</a>
  &#8226;   <a href="#modules.review_manager">modules.review_manager</a>
  &#8226;   <a href="#tkinter">tkinter</a>
 
@@ -62894,6 +63031,7 @@ imported by:
 <span class="moduletype">NamespacePackage</span>  <div class="import">
 imported by:
     <a href="#utils.json_repository">utils.json_repository</a>
+ &#8226;   <a href="#utils.url_utils">utils.url_utils</a>
 
   </div>
 
@@ -62912,6 +63050,24 @@ imports:
   <div class="import">
 imported by:
     <a href="#repositories.card_repository">repositories.card_repository</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="utils.url_utils"></a>
+  <a target="code" href="///C:/Users/Yan/PycharmProjects/itbfitcher/utils/url_utils.py" type="text/plain"><tt>utils.url_utils</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#re">re</a>
+ &#8226;   <a href="#utils">utils</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#learning.manual">learning.manual</a>
+ &#8226;   <a href="#repositories.card_repository">repositories.card_repository</a>
 
   </div>
 

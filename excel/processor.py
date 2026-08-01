@@ -1,7 +1,7 @@
 import os
 import openpyxl
 
-from classifier.decision_engine import DecisionEngine
+from engines.decision_engine import DecisionEngine
 from excel.reader import load_input, load_source_sheet
 from excel.utils import copy_sheet
 from excel.writer import (write_result, add_history_warning, fill_surname_column, save_workbook)
@@ -12,7 +12,7 @@ from learning.importer import load_learning_history
 from models.card_builder import build_from_excel
 from modules.classification_statistics import (ClassificationStatistics)
 from modules.dropdown_manager import (apply_specific_dropdowns)
-from modules.result_engine import (apply_result)
+from engines.result_engine import (apply_result)
 from classifier.normalizer import (normalize_name)
 
 print("PROCESSOR =", __file__)
@@ -40,6 +40,7 @@ def process_file_with_normalization(
     code_col = data["columns"]["code"]
     characteristics_col = data["columns"]["characteristics"]
     total_rows = data["rows"]
+    total_rows = df[desc_col].notna().sum()
 
     df["Описание_Новое"] = (
         df[desc_col]
@@ -47,7 +48,7 @@ def process_file_with_normalization(
         .apply(normalize_name)
     )
 
-    last_row = len(df) + 1
+    last_row = total_rows + 1
 
     if not os.path.exists(TEMPLATE_PATH):
         raise Exception(
@@ -71,10 +72,9 @@ def process_file_with_normalization(
     processed_rows = 0
     _log(f"Всего строк: {total_rows}", logger)
 
-    for row in range(2, last_row + 1):
-
+    for dataframe_row in df.index:
+        row = dataframe_row + 2
         try:
-            dataframe_row = row - 2
             original_name = str(
                 df.at[
                     dataframe_row,
@@ -94,6 +94,9 @@ def process_file_with_normalization(
                     "Описание_Новое",
                 ]
             )
+            print("ORIGINAL:", original_name)
+            print("NORMALIZED:", normalized_name)
+
             characteristics = ""
 
             if characteristics_col:
@@ -105,9 +108,12 @@ def process_file_with_normalization(
                 )
 
             card = build_from_excel(
-                description=normalized_name,
+                description=original_name,
                 characteristics=characteristics,
+                normalized=normalized_name,
             )
+            print("CARD TITLE :", card.title)
+            print("CARD CLEAN :", card.cleaned_text)
 
             result = engine.decide(card)
             print("DECIDE FINISHED")
@@ -130,7 +136,7 @@ def process_file_with_normalization(
                 row=row,
                 code_column=code_cell_idx,
                 description_column=desc_cell_idx,
-                description=normalized_name,
+                description=original_name,
                 result=result,
                 apply_result=apply_result,
             )

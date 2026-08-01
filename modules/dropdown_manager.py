@@ -72,9 +72,7 @@ def apply_specific_dropdowns(
         if not prod_cell.value:
             continue
 
-        prod_name = str(
-            prod_cell.value
-        ).lower()
+        prod_name = str(prod_cell.value).lower()
 
         for key, codes_dict in DROPDOWN_LISTS.items():
 
@@ -85,8 +83,19 @@ def apply_specific_dropdowns(
             # Выпадающий список только из кодов
             # -----------------------------------
 
-            codes = list(codes_dict.keys())
+            if isinstance(codes_dict, dict) and "variants" in codes_dict:
 
+                codes = [
+                    str(item["code"])
+                    for item in codes_dict["variants"]
+                ]
+
+            else:
+
+                codes = [
+                    str(code)
+                    for code in codes_dict.keys()
+                ]
             formula = '"' + ",".join(codes) + '"'
 
             dv = DataValidation(
@@ -102,25 +111,7 @@ def apply_specific_dropdowns(
                 row=row,
                 column=code_col_idx
             )
-
-            # Выпадающий список только из кодов
-
-            codes = list(codes_dict.keys())
-
-            formula = '"' + ",".join(codes) + '"'
-
-            dv = DataValidation(
-                type="list",
-                formula1=formula,
-                allow_blank=True
-            )
-
-            dv.prompt = "Выберите код"
-
-            dv.showInputMessage = True
-
             dv.add(cell)
-
             ws.add_data_validation(dv)
 
             # -----------------------------------------
@@ -129,48 +120,51 @@ def apply_specific_dropdowns(
 
             comment_lines = []
 
-            for code, material in codes_dict.items():
-                comment_lines.append(
+            if "variants" in codes_dict:
 
-                    f"{code} - {material.capitalize()}"
-
-                )
-
+                for item in codes_dict["variants"]:
+                    comment_lines.append(
+                        f'{item["code"]} - {item["name"]}'
+                    )
+            else:
+                for code, material in codes_dict.items():
+                    comment_lines.append(
+                        f"{code} - {str(material).capitalize()}"
+                    )
             cell.comment = Comment(
-
                 "\n".join(comment_lines),
-
                 "Classifier"
-
             )
 
             # -----------------------------------------
             # Цвет
             # -----------------------------------------
 
-            materials = {
+            materials = set()
 
-                material.lower()
+            for material in codes_dict.values():
 
-                for material in codes_dict.values()
+                if isinstance(material, list):
 
-            }
+                    for item in material:
+                        materials.add(
+                            str(item).lower()
+                        )
 
+                else:
+                    materials.add(
+                        str(material).lower()
+                    )
             if len(materials) == 1:
 
                 material = next(iter(materials))
-
                 color = MATERIAL_COLORS.get(material)
 
                 if color:
                     cell.fill = PatternFill(
-
                         fill_type="solid",
-
                         fgColor=color
-
                     )
-
             break
 
 
@@ -185,9 +179,7 @@ def apply_dropdowns(wb, ws):
 
     hidden_ws = wb.create_sheet(hidden_sheet_name)
     hidden_ws.sheet_state = 'hidden'
-
     header = [str(cell.value).strip().lower() if cell.value else "" for cell in ws[1]]
-
     code_col_idx = None
     for idx, col_name in enumerate(header, start=1):
         if "тнвэд" in col_name or "код" in col_name:
@@ -200,7 +192,6 @@ def apply_dropdowns(wb, ws):
     hidden_ws.cell(row=1, column=1, value="ТН ВЭД Коды")
     for row_idx, code in enumerate(tnved_codes, start=2):
         hidden_ws.cell(row=row_idx, column=1, value=code)
-
     safe_name = "List_TNVED_Codes"
     last_row = len(tnved_codes) + 1
     ref = f"'{hidden_sheet_name}'!$A$2:$A${last_row}"
@@ -210,7 +201,6 @@ def apply_dropdowns(wb, ws):
 
     defn = DefinedName(safe_name, attr_text=ref)
     wb.defined_names.add(defn)
-
     dv = DataValidation(
         type="list",
         formula1=f"={safe_name}",
@@ -220,7 +210,6 @@ def apply_dropdowns(wb, ws):
     dv.errorTitle = "Неверный код"
     dv.prompt = "Выберите код из списка или введите вручную"
     dv.promptTitle = "Код ТН ВЭД"
-
     col_letter = get_column_letter(code_col_idx)
     dv.add(f"{col_letter}2:{col_letter}10000")
     ws.add_data_validation(dv)

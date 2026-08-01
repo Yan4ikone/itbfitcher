@@ -5,18 +5,23 @@ import time
 import requests
 from playwright.sync_api import sync_playwright
 
-from modules.ozon_parser import OzonParser
+from engines.image_description_engine import ImageDescriptionEngine
+from parser.ozon_parser import OzonParser
+from parser.wb_parser import WBParser
 from models.card_builder import build_product_card
+from processors.card_image_processor import CardImageProcessor
+from services.image_description_service import ImageDescriptionService
 
 
 class CDPProductParser:
 
-    def __init__(
-        self,
-        cdp_url="http://127.0.0.1:9222"
-    ):
+    def __init__(self, cdp_url="http://127.0.0.1:9222"):
 
         self.cdp_url = cdp_url
+        image_engine = ImageDescriptionEngine()
+        image_service = ImageDescriptionService(image_engine)
+        self.image_processor = CardImageProcessor(image_service)
+
 
     def kill_yandex_browser(self):
 
@@ -150,13 +155,19 @@ class CDPProductParser:
 
     def parse_page_text(self, page):
 
-        parser = OzonParser()
+        url = page.url.lower()
+
+        if "wildberries.ru" in url:
+
+            parser = WBParser()
+
+        else:
+
+            parser = OzonParser()
         parsed = parser.parse_page(page)
-        card = build_product_card(
-            page.url,
-            parsed,
-            parsed["raw_text"]
-        )
+        card = build_product_card(page.url, parsed, parsed["raw_text"])
+        print("IMAGES:", card.images[:3])
+        card = self.image_processor.process(card)
 
         return card
 
@@ -236,8 +247,7 @@ class CDPProductParser:
 
         return result
 
-    def parse_ozon_page(self, page):
-
+    def parse_marketplace_page(self, page):
         return self.parse_page_text(page)
 
     def parse_open_pages(self):
@@ -248,11 +258,7 @@ class CDPProductParser:
         for marketplace, page in pages:
 
             try:
-
-                if marketplace == "ozon":
-
-                    data = (self.parse_ozon_page(page))
-
+                    data = self.parse_marketplace_page(page)
                     result.append(data)
 
             except Exception as e:

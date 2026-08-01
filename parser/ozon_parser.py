@@ -50,6 +50,33 @@ class OzonParser:
 
         return ""
 
+    def extract_images(self, page):
+
+        images = []
+
+        try:
+            for img in page.locator("img").all():
+                src = (
+                        img.get_attribute("src")
+                        or img.get_attribute("data-src")
+                )
+                if not src:
+                    continue
+                if "logo" in src.lower():
+                    continue
+                if "ozone.ru" not in src:
+                    continue
+                if "/wc50/" in src:
+                    src = src.replace(
+                        "/wc50/",
+                        "/wc1000/"
+                    )
+                images.append(src)
+
+        except Exception as e:
+            print(f"IMAGE EXTRACT ERROR: {e}")
+        return list(dict.fromkeys(images))
+
     def parse_page(self, page):
 
         parser_log = []
@@ -57,6 +84,7 @@ class OzonParser:
             "title": "",
             "description": "",
             "specs": {},
+            "images": [],
             "raw_text": "",
             "parser_log": parser_log
         }
@@ -167,6 +195,7 @@ class OzonParser:
             )
             if quantity:
                 parsed["specs"]["Количество"] = quantity
+        parsed["images"] = self.extract_images(page)
 
         return parsed
 

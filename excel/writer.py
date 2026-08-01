@@ -1,5 +1,6 @@
-from openpyxl.comments import Comment
+import inspect
 
+from openpyxl.comments import Comment
 from excel.styles import WARNING_FILL
 
 
@@ -12,27 +13,46 @@ def write_result(
         result,
         apply_result,
 ):
-
-    apply_result(
-        ws,
+    print(
+        "WRITE RESULT",
         row,
-        code_column,
-        description,
-        result,
+        result.product,
+        result.code
     )
+    params = len(
+        inspect.signature(
+            apply_result
+        ).parameters
+    )
+    if params == 5:
+        print(
+            "AFTER PARM5",
+            row,
+            result.product,
+            result.code
+        )
 
+        apply_result(
+            ws,
+            row,
+            code_column,
+            description,
+            result,
+        )
+    else:
+        apply_result(
+            ws,
+            row,
+            code_column,
+            result,
+        )
     ws.cell(
         row=row,
         column=description_column,
     ).value = description
 
 
-def add_history_warning(
-        ws,
-        row,
-        code_column,
-        history,
-):
+def add_history_warning(ws, row, code_column, history):
 
     if (
         not history
@@ -46,7 +66,6 @@ def add_history_warning(
     )
 
     cell.fill = WARNING_FILL
-
     variants = [
         code
 

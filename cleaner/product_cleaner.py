@@ -42,14 +42,32 @@ def clean_text(text: str):
 
     result = text
 
+    PROTECTED_WORDS = {
+        "шт",
+        "штук",
+        "мл",
+        "л",
+        "мм",
+        "см",
+        "м",
+        "г",
+        "кг",
+        "упаковка",
+        "упаковке",
+        "комплект",
+        "набор",
+    }
+
     for word in trash:
 
-        if re.search(
-            rf"\b{re.escape(word)}\b",
-            result,
-            flags=re.IGNORECASE
-        ):
+        if word.lower() in PROTECTED_WORDS:
+            continue
 
+        if re.search(
+                rf"\b{re.escape(word)}\b",
+                result,
+                flags=re.IGNORECASE
+        ):
             removed.append(word)
 
             result = re.sub(

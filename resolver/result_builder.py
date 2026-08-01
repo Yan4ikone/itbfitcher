@@ -12,6 +12,11 @@ class ResultBuilder:
             return result
 
         result.product = winner.product
+        print(
+            "DEBUG PRODUCT TYPE:",
+            type(winner.product),
+            winner.product
+        )
         result.product_scores = candidates
         result.code = winner.code
         result.default_code = winner.code
