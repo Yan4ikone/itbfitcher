@@ -2,6 +2,9 @@
 build/
 dist/
 logs/
+dictionaries/
+macro_template.xlsm
+learning/manual_learning.json
 App.py
 App.spec
 Delitel.py
@@ -12,4 +15,7 @@ macro_template.xlsm.mpp
 MainApp.spec
 settings.json
 wordlist.py
-Проект.zip
+Проект.zip# created by virtualenv automatically
+*.log
+
+

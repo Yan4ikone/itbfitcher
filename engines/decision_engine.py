@@ -1,4 +1,4 @@
-from repositories.knowledge_engine import KnowledgeEngine
+from engines.knowledge_engine import KnowledgeEngine
 from classifier.dropdown_resolver import DropdownResolver
 from classifier.history_classifier import HistoryClassifier
 from classifier.card_classifier import CardClassifier
@@ -6,6 +6,7 @@ from classifier.learning_classifier import LearningClassifier
 from classifier.trace_classifier import TraceClassifier
 
 from resolver.engine import ResolverEngine
+from resolver.excel_name_builder import ExcelNameBuilder
 
 
 class DecisionEngine:
@@ -22,21 +23,25 @@ class DecisionEngine:
         self.product_engine = ResolverEngine(self.knowledge)
 
     def decide(self, card):
-        print("DECIDE CALLED")
-        print("DECISION =", __file__)
-        print("DecisionEngine =", __file__)
         result = self.product_engine.classify(card)
+        result.quantity = getattr(card, "quantity", "")
+        result.material = getattr(card, "material", "")
         result_from_card = self.card_classifier.apply(card, result)
 
         if result_from_card:
             return result_from_card
 
         result = self.trace_classifier.apply(card, result)
-        result.dropdown = self.dropdown.resolve(result.product)
         result = self.history_classifier.apply(result, card)
         result = self.learning_classifier.apply(result)
-        print("BEFORE REMEMBER")
+        builder = ExcelNameBuilder()
+        result.dropdown = builder.build(card, result.product)
+        result.display_name = result.dropdown
+        print("PRODUCT :", result.product)
+        print("DROPDOWN:", result.dropdown)
+        print("DISPLAY :", getattr(result, "display_name", ""))
         self.knowledge.card_repository.remember(card, result)
+
         result.trace.add(
             "FINAL",
             f"Итог: код={result.code or '-'}, "
@@ -44,4 +49,5 @@ class DecisionEngine:
             f"уверенность={result.confidence}, "
             f"проверка={result.review}"
         )
+
         return result
