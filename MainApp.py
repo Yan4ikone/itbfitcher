@@ -5,14 +5,14 @@ import shutil
 import sys
 import threading
 import tkinter as tk
-
 from tkinter import ttk, messagebox, filedialog
 from tkinter.scrolledtext import (ScrolledText)
+
 from core.app_controller import AppController
+from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
 from learning_window import LearningWindow
 from modules.review_manager import ReviewManager
-from learning.manual import ManualTeacher
 
 
 def create_output_from_template(input_path):
@@ -121,6 +121,23 @@ def stop_ozon_auto():
         set_status(
             "Остановлено"
         )
+
+def pause_ozon_auto():
+
+    processor = current_processor.get("instance")
+
+    if processor is None:
+        return
+
+    if getattr(processor, "pause_requested", False):
+
+        processor.resume()
+        set_status("Продолжено")
+
+    else:
+
+        processor.pause()
+        set_status("Пауза")
 
 def run_ozon_auto_thread():
 
@@ -322,8 +339,6 @@ def set_status(text):
         lambda: status_var.set(text)
     )
 
-
-
 def start_learning():
 
     if not selected_file["path"]:
@@ -350,14 +365,18 @@ def start_learning():
     stats = teacher.learn_result_file(result_file)
     runtime = LearningRuntime()
     report = runtime.analyze()
-    window = LearningWindow(root, report)
-    print("\n========== LEARNING REPORT ==========")
+    window = LearningWindow(root, report, runtime)
+    root.wait_window(window)
 
+    if window.applied:
+        runtime.mark_learning_processed(
+            report.processed_cards
+        )
+    print("\n========== LEARNING REPORT ==========")
     print("new_products:", len(report.new_products))
     print("new_aliases:", len(report.new_aliases))
     print("new_material_codes:", len(report.new_material_codes))
     print("new_dropdown_variants:", len(report.new_dropdown_variants))
-
     print(report)
 
 root = tk.Tk()
@@ -597,6 +616,11 @@ buttons = [
     (
         "Остановить",
        stop_ozon_auto
+    ),
+
+    (
+        "Пауза",
+        pause_ozon_auto
     ),
 
     (

@@ -2,18 +2,25 @@ from pathlib import Path
 from pprint import pformat
 
 from dictionaries.dropdown_lists import DROPDOWN_LISTS
-from dictionaries.products import PRODUCTS
+import dictionaries.products as products_dictionary
 
 
 class ProductRepository:
 
     def __init__(self):
-        self.products = PRODUCTS
+        self.products = products_dictionary.PRODUCTS
         self.search_index = {}
         self.rebuild_index()
 
     def all_products(self):
         return self.products.items()
+
+    def reload(self):
+
+        importlib.invalidate_caches()
+        importlib.reload(products_dictionary)
+        self.products = products_dictionary.PRODUCTS
+        self.rebuild_index()
 
     def add_alias(self, product, alias):
 
@@ -135,14 +142,7 @@ class ProductRepository:
 
         if not info:
             return ""
-
-        return info.get(
-            "material_codes",
-            {}
-        ).get(
-            material.lower(),
-            ""
-        )
+        return info.get("material_codes", {}).get(material.lower(), "")
 
     def get_material_codes(self, product):
 

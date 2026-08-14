@@ -1,6 +1,6 @@
 from excel.processor import (process_file_with_normalization, recalculate_codes)
 from learning.importer import import_verified_file
-from modules.ozon_auto_processor import OzonAutoProcessor
+from processors.ozon_auto_processor import OzonAutoProcessor
 
 
 class AppController:

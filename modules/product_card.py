@@ -7,11 +7,17 @@ class ProductCard:
     marketplace: str = ""
     slug: str = ""
     title: str = ""
+    raw_title: str = ""
+    raw_description: str = ""
+    extracted_product: str = ""
     description: str = ""
     raw_text: str = ""
     specs: dict = field(default_factory=dict)
     clean_title: str = ""
+    brand: str = ""
+    country: str = ""
     clean_description: str = ""
+    product_candidates: list = field(default_factory=list)
     material: str = ""
     quantity: str = ""
     package: str = ""

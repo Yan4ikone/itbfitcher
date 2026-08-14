@@ -12,7 +12,6 @@ class ExcelNameBuilder:
         ]).lower()
 
         keywords = [
-
             "духи",
             "парфюм",
             "парфюмерная вода",
@@ -91,8 +90,9 @@ class ExcelNameBuilder:
             "Объём",
             "Объем, мл",
             "Объём, мл",
+            "Объем товара",
+            "Объём товара",
         ]
-
         for field in fields:
 
             value = specs.get(field)
@@ -106,7 +106,6 @@ class ExcelNameBuilder:
 
         if m:
             return f"{m.group(1)} {m.group(2)}"
-
         return ""
 
     # =====================================================
@@ -116,7 +115,6 @@ class ExcelNameBuilder:
     def _size(self, card):
 
         specs = getattr(card, "specs", {}) or {}
-
         fields = [
             "Размер",
             "Диаметр",
@@ -124,7 +122,6 @@ class ExcelNameBuilder:
             "Высота",
             "Ширина",
         ]
-
         for field in fields:
 
             value = specs.get(field)
@@ -137,18 +134,14 @@ class ExcelNameBuilder:
             r"(\d+)\s?дюйм",
             r"(\d+)\s?(см|мм|м)",
         ]
-
         for pattern in patterns:
 
             m = re.search(pattern, text)
 
             if m:
-
                 if len(m.groups()) == 1:
                     return f"{m.group(1)} дюймов"
-
                 return f"{m.group(1)} {m.group(2)}"
-
         return ""
 
     # =====================================================
@@ -174,5 +167,4 @@ class ExcelNameBuilder:
 
         if m:
             return m.group()
-
         return ""

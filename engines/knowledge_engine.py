@@ -17,6 +17,9 @@ class KnowledgeEngine:
         self.image_engine = ImageDescriptionEngine()
         self.image_service = ImageDescriptionService(self.image_engine)
 
+    def refresh_products(self):
+        self.product_repository = ProductRepository()
+
     def refresh_learning(self):
         self.learning.refresh()
 

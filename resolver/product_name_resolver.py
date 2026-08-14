@@ -83,35 +83,79 @@ class ProductNameResolver:
 
     def _find_quantity(self, card):
 
+        #
+        # 1. Явные поля характеристик
+        #
+
+        priority_keys = (
+            "Количество в комплекте",
+            "Количество товара",
+            "Количество",
+            "Комплектация",
+            "Комплект",
+        )
+
+        for key, value in card.specs.items():
+
+            if not value:
+                continue
+
+            key_l = key.lower()
+
+            if any(
+                    x.lower() in key_l
+                    for x in priority_keys
+            ):
+                text = str(value).lower()
+                m = re.search(r"\b(\d+)\b", text)
+
+                if m:
+                    return f"{m.group(1)} шт"
+
+        #
+        # 2. Комплектация
+        #
+
+        complect = str(card.specs.get("Комплектация", "")).lower()
+
+        if complect:
+
+            patterns = [
+                r"[-:]\s*(\d+)\s*шт",
+                r"комплект\s+из\s+(\d+)",
+                r"набор\s+из\s+(\d+)",
+                r"(\d+)\s*шт",
+            ]
+
+            for pattern in patterns:
+                m = re.search(pattern, complect)
+                if m:
+                    return f"{m.group(1)} шт"
+
+        #
+        # 3. Только безопасные конструкции
+        #
+
         fields = [
-            card.title,
-            card.slug,
             card.description,
             card.cleaned_text,
         ]
-        fields.extend(card.specs.values())
+
         patterns = [
-            r"(\d+)\s*шт",
-            r"(\d+)\s*штук",
-            r"(\d+)\s*пары",
-            r"(\d+)\s*пар",
-            r"(\d+)\s*комплект",
-            r"(\d+)\s*упаков",
-            r"(\d+)\s*pcs",
-            r"количество.*?(\d+)",
+            r"комплект\s+из\s+(\d+)\s*(?:шт|штук)?",
+            r"набор\s+из\s+(\d+)\s*(?:шт|штук)?",
+            r"в\s+упаковке\s+(\d+)",
+            r"упаковка\s+(\d+)",
+            r"количество\s+в\s+комплекте.*?(\d+)",
+            r"количество\s+товара.*?(\d+)",
         ]
 
         for field in fields:
-
             if not field:
                 continue
-
             text = str(field).lower()
-
             for pattern in patterns:
-
                 m = re.search(pattern, text)
-
                 if m:
                     return f"{m.group(1)} шт"
 

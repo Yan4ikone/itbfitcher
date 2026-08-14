@@ -1,3 +1,4 @@
+import threading
 import traceback
 
 import openpyxl
@@ -10,6 +11,8 @@ from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
 
 from pathlib import Path
+
+from repositories.card_repository import CardRepository
 
 
 class OzonAutoProcessor:
@@ -28,6 +31,9 @@ class OzonAutoProcessor:
         self.limit = limit
         self.stats_callback = (stats_callback)
         self.stop_requested = False
+        self.pause_requested = False
+        self.pause_event = threading.Event()
+        self.pause_event.set()
         self.total_rows = 0
         self.processed_rows = 0
         self.found_count = 0
@@ -36,6 +42,8 @@ class OzonAutoProcessor:
         p = Path(excel_path)
         self.result_path = str(p.with_name(f"{p.stem}_RESULT{p.suffix}"))
         self.decision_logger = DecisionLogger()
+        self.card_repository = CardRepository()
+        self.cached_count = 0
 
     def log(self, text):
 
@@ -43,6 +51,30 @@ class OzonAutoProcessor:
 
         if self.logger:
             self.logger(text)
+
+    def get_cached_card(self, url):
+
+        if not url:
+            return None
+
+        card = self.card_repository.find_by_url(url)
+
+        if card:
+            return card
+
+        return self.card_repository.find_by_normalized_url(url)
+
+    def pause(self):
+
+        self.pause_requested = True
+        self.pause_event.clear()
+        self.log("Обработка приостановлена")
+
+    def resume(self):
+
+        self.pause_requested = False
+        self.pause_event.set()
+        self.log("Обработка продолжена")
 
     def stop(self):
 
@@ -108,6 +140,7 @@ class OzonAutoProcessor:
 
         try:
             for row in rows_to_process:
+                self.pause_event.wait()
                 if self.stop_requested:
                     self.log("Обработка остановлена пользователем")
                     break
@@ -147,13 +180,56 @@ class OzonAutoProcessor:
 
         self.log(f"\nСтрока {row}")
         self.log(f"URL: {url}")
+        cached_card = self.get_cached_card(url)
+
+        if cached_card:
+
+            self.log("CARD CACHE: найдено ранее обработанное URL")
+
+            description = (
+                    cached_card.get("display_name")
+                    or cached_card.get("product")
+                    or cached_card.get("description")
+                    or ""
+            )
+            code = str(cached_card.get("code", "")).strip()
+
+            if description:
+                ws[f"B{row}"] = description
+
+            if code and code not in ("0", "nan"):
+
+                try:
+                    ws[f"C{row}"] = int(code)
+                except ValueError:
+                    ws[f"C{row}"] = code
+
+                self.found_count += 1
+                self.log(f"CACHE Описание: {description}")
+                self.log(f"CACHE Код: {code}")
+
+            else:
+                self.not_found_count += 1
+            self.cached_count += 1
+            self.print_progress()
+
+            if self.stats_callback:
+                self.stats_callback(
+                    self.total_rows,
+                    self.processed_rows,
+                    self.found_count,
+                    self.not_found_count
+                )
+            return
+
         card = parser.parse_url(url)
+        self.pause_event.wait()
         excel_name = str(ws[f"B{row}"].value or "").strip()
 
         if excel_name:
             card.excel_title = excel_name
-
         result = engine.decide(card)
+        self.pause_event.wait()
         ws[f"K{row}"] = "Да" if result.new_product else ""
         ws[f"L{row}"] = "Да" if result.new_dropdown else ""
         self.decision_logger.save(card, result)
@@ -208,7 +284,16 @@ class OzonAutoProcessor:
                 self.found_count,
                 self.not_found_count
             )
-        time.sleep(delay)
+        end = time.time() + delay
+
+        while time.time() < end:
+
+            self.pause_event.wait()
+
+            if self.stop_requested:
+                return
+
+            time.sleep(0.2)
 
     def print_progress(self):
 
@@ -234,6 +319,7 @@ class OzonAutoProcessor:
         self.log(f"Всего: {self.total_rows}")
         self.log(f"Найдено: {self.found_count}")
         self.log(f"Не найдено: " f"{self.not_found_count}")
+        self.log(f"Из кеша: {self.cached_count}")
 
         if self.total_rows:
             percent = round(
@@ -245,7 +331,6 @@ class OzonAutoProcessor:
             )
 
             self.log(f"Успешность: " f"{percent}%")
-
         self.log("=" * 60)
         elapsed = round(time.time() - self.start_time)
         self.log(f"Время работы: " f"{elapsed} сек.")
@@ -255,7 +340,6 @@ class OzonAutoProcessor:
                     elapsed
                     / self.processed_rows
             )
-
             self.log(f"Среднее на товар: " f"{avg:.2f} сек.")
 
         if self.stats_callback:

@@ -25,12 +25,10 @@ class ProductExtractor:
         cleaned = self._remove_dimensions(cleaned)
         cleaned = self._remove_article(cleaned)
         cleaned = self._normalize_spaces(cleaned)
-
         words = cleaned.split()
         result = []
 
         for word in words:
-
             if self._skip_word(word):
                 continue
 
@@ -48,34 +46,24 @@ class ProductExtractor:
             text
         )
 
-
     def _skip_word(self, word):
 
         if not word:
             return True
-
         if word in KEEP_PREPOSITIONS:
             return False
-
         if word in KEEP_UNITS:
             return False
-
         if word in STOP_WORDS:
             return True
-
         if word.isdigit():
             return True
 
         if any(ch.isdigit() for ch in word):
-
             if word in KEEP_UNITS:
                 return False
-
             return True
-
         return False
-
-    # =====================================================
 
     def _trim_tail(self, words):
 
@@ -85,22 +73,15 @@ class ProductExtractor:
 
             if last in KEEP_UNITS:
                 break
-
             if len(last) <= 2:
                 words.pop()
                 continue
-
             break
-
         return words
-
-    # =====================================================
 
     def _remove_brackets(self, text):
 
         return re.sub(r"\(.*?\)", " ", text)
-
-    # =====================================================
 
     def _remove_sizes(self, text):
 
@@ -109,16 +90,12 @@ class ProductExtractor:
             " ",
             text,
         )
-
         text = re.sub(
             r"\b\d+[xх]\d+([xх]\d+)?\b",
             " ",
             text,
         )
-
         return text
-
-    # =====================================================
 
     def _remove_dimensions(self, text):
 
@@ -127,10 +104,7 @@ class ProductExtractor:
             " ",
             text,
         )
-
         return text
-
-    # =====================================================
 
     def _remove_article(self, text):
 
@@ -139,8 +113,6 @@ class ProductExtractor:
             " ",
             text,
         )
-
-    # =====================================================
 
     def _normalize_spaces(self, text):
 

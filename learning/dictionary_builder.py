@@ -152,9 +152,9 @@ def build_dictionaries(input_path: str):
                 )
 
             f.write(f'    "{product_name}": {{\n')
-            f.write(f'        "code": "{code}",\n')
-            f.write(f'        "patterns": {patterns!r},\n')
-            f.write(f'        "aliases": {aliases!r}\n')
+            f.write(f'        "Код": "{code}",\n')
+            f.write(f'        "Паттерны": {patterns!r},\n')
+            f.write(f'        "Синонимы": {aliases!r}\n')
             f.write("    },\n")
 
         f.write("}\n")

@@ -4,8 +4,12 @@ from utils.url_utils import normalize_ozon_url
 
 class CardRepository(JsonRepository):
 
-    def __init__(self):
-        super().__init__("learning/cards.json")
+    def __init__(self, filename=None):
+
+        if filename is None:
+            filename = "storage/runtime_cards.json"
+
+        super().__init__(filename)
 
     def find_by_url(self, url):
         return self.data.get(url)
@@ -31,35 +35,51 @@ class CardRepository(JsonRepository):
 
         return None
 
-    def remember(self, card, result):
-        print("CARD REMEMBER")
-        print(self.file.resolve())
-        print(card.url)
+    def remember(self, card, result=None):
+
         if not card.url:
             return
-        self.data[card.url] = {
 
+        if result is None:
+            return
+
+        if not getattr(result, "code", ""):
+            return
+
+        existing = self.data.get(card.url, {})
+        self.data[card.url] = {
             "url": card.url,
             "normalized_url": normalize_ozon_url(card.url),
             "slug": card.slug,
             "title": card.title,
             "description": card.description,
             "cleaned_text": card.cleaned_text,
-            "product": result.product,
-            "display_name": result.display_name,
-            "code": result.code,
-            "material": getattr(card, "material", ""),
-            "quantity": getattr(card, "quantity", ""),
-            "brand": getattr(card, "brand", ""),
-            "country": getattr(card, "country", ""),
-            "specs": getattr(card, "specs", {}),
-            "sections": getattr(card, "sections", {}),
-            "features": getattr(card, "features", {})
+            "product": (
+                getattr(result, "product", "")
+                if result else
+                existing.get("product", "")
+            ),
+            "display_name": (
+                getattr(result, "display_name", "")
+                if result else
+                existing.get("display_name", "")
+            ),
+            "code": (
+                getattr(result, "code", "")
+                if result else
+                existing.get("code", "")
+            ),
+            "material": card.material,
+            "quantity": card.quantity,
+            "brand": card.brand,
+            "country": card.country,
+            "specs": card.specs,
+            "sections": card.sections,
+            "features": card.features,
+            "images": getattr(card, "images", []),
         }
+
         self.mark_dirty()
-        self.flush()
-        print("CARD SAVED")
-        print(self.file.exists())
 
     def find(self, card):
 
@@ -79,3 +99,14 @@ class CardRepository(JsonRepository):
 
     def all(self):
         return self.data.values()
+
+    def remove_without_code(self):
+
+        self.data = {
+            url: card
+            for url, card in self.data.items()
+            if card.get("code")
+        }
+
+        self.mark_dirty()
+        self.flush()

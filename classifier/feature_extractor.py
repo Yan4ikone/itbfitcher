@@ -46,9 +46,7 @@ def extract_words(card):
                 card.cleaned_text.lower()
             )
         )
-
     for value in card.specs.values():
-
         if value:
             words.extend(
                 re.findall(
@@ -56,5 +54,4 @@ def extract_words(card):
                     str(value).lower()
                 )
             )
-
     return words

@@ -32,6 +32,23 @@ FORBIDDEN_TRIGGERS = [
     "diamond", "dropship", "delivery", "weapon", "gift", "present", "iphone", "shock"
 ]
 
+IGNORED_ALIAS_WORDS = {
+    "для",
+    "шт",
+    "штука",
+    "штук",
+    "штуки",
+    "реверсивная",
+    "реверсивный",
+    "реверсивное",
+    "мужские",
+    "мужской",
+    "женские",
+    "женский",
+    "детские",
+    "детский",
+}
+
 REMOVE_WORDS = {
     "шт",
     "штук",

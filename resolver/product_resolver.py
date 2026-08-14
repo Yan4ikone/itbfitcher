@@ -1,3 +1,4 @@
+from resolver.candidate import Candidate
 from resolver.product_parser import ProductParser
 from resolver.candidate_finder import CandidateFinder
 from resolver.candidate_scorer import CandidateScorer
@@ -13,11 +14,9 @@ class ProductResolver:
         self.finder = CandidateFinder(repository)
         self.scorer = CandidateScorer(repository)
         self.materials = MaterialResolver()
-
     # ==========================================================
     # PUBLIC
     # ==========================================================
-
     def resolve(self, card):
 
         parsed = self.parser.parse(card)
@@ -30,20 +29,44 @@ class ProductResolver:
         candidates = self.find_candidates(parsed)
 
         if not candidates:
-            return None, []
+            winner = Candidate(product="")
+            winner.review = True
+            winner.reason = "NO_CANDIDATES"
+
+            return winner, []
 
         winner = candidates[0]
-        material_code = self.materials.resolve(winner, parsed)
+
+        # 1. Проверяем уверенность
+
+        if winner.score < 70:
+            winner.review = True
+            winner.reason = "LOW_CONFIDENCE"
+
+            return winner, candidates
+
+        # 2. Проверяем отрыв
+
+        if len(candidates) > 1:
+
+            delta = winner.score - candidates[1].score
+
+            if delta < 15:
+                winner.review = True
+                winner.reason = "AMBIGUOUS"
+
+                return winner, candidates
+
+        # 3. Материал
+
+        material_code = self.materials.resolve(winner, parsed,)
 
         if material_code:
             winner.code = material_code
-
         return winner, candidates
-
     # ==========================================================
     # CANDIDATES
     # ==========================================================
-
     def find_candidates(self, parsed):
 
         candidates = self.finder.find(parsed)
@@ -64,13 +87,10 @@ class ProductResolver:
             key=lambda x: x.score,
             reverse=True,
         )
-
         return result
-
     # ==========================================================
     # DEBUG
     # ==========================================================
-
     def print_candidates(self, candidates):
 
         print("=" * 70)

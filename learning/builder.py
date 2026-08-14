@@ -1,80 +1,173 @@
-from repositories.product_repository import ProductRepository
+from pathlib import Path
+from pprint import pformat
+
 from dictionaries.dropdown_lists import DROPDOWN_LISTS
+from dictionaries.products import PRODUCTS
 
 
 class LearningBuilder:
 
     def __init__(self):
 
-        self.products = ProductRepository()
-
+        self.products = PRODUCTS
+        self.dropdowns = DROPDOWN_LISTS
     # ==========================================================
     # PRODUCTS
     # ==========================================================
-
     def add_product(self, item):
-        if self.products.has(item.description):
+
+        if self.products.get(item.description):
             return
 
-        self.products.add(
-            item.description,
-            {
-                "code": item.code,
-                "patterns": [],
-                "aliases": [],
-                "material_codes": {}
-            }
-        )
-
+        self.products[item.description] = {
+            "code": str(item.code),
+            "patterns": [],
+            "aliases": [],
+            "material_codes": {},
+        }
     # ==========================================================
     # ALIASES
     # ==========================================================
-
     def add_alias(self, item):
 
-        self.products.add_alias(
-            item.product,
-            item.alias
-        )
+        product = self.products.get(item.product)
 
+        if not product:
+            return
+
+        aliases = product.setdefault(
+            "aliases",
+            []
+        )
+        alias = str(item.alias).strip().lower()
+
+        if not alias:
+            return
+        if alias in {
+            str(value).strip().lower()
+            for value in aliases
+        }:
+            return
+
+        aliases.append(alias)
     # ==========================================================
     # MATERIALS
     # ==========================================================
-
     def add_material(self, item):
 
-        self.products.add_material_code(
-            item.product,
-            item.material,
-            item.code
+        product = self.products.get(item.product)
+
+        if not product:
+            return
+
+        materials = product.setdefault(
+            "material_codes",
+            {}
         )
 
+        material = str(item.material).strip().lower()
+
+        if not material:
+            return
+
+        materials[material] = str(item.code)
     # ==========================================================
     # DROPDOWNS
     # ==========================================================
-
     def add_dropdown_variant(self, item):
 
-        variants = DROPDOWN_LISTS.setdefault(
-            item.product,
+        dropdown = self.dropdowns.get(item.product)
+
+        if not dropdown:
+            return
+
+        variants = dropdown.setdefault(
+            "variants",
             []
         )
+        code = str(item.code).strip()
 
-        code = str(item.code)
+        if not code:
+            return
+        for variant in variants:
+            if str(
+                variant.get("code", "")
+            ).strip() == code:
+                return
 
-        if code not in variants:
-            variants.append(code)
+        variants.append({
+            "code": code,
+            "name": "",
+            "group": "other",
+        })
+    # ==========================================================
+    # PATTERNS
+    # ==========================================================
+    def add_pattern(self, item):
 
-    # =====================================================
-    # SAVE
-    # =====================================================
+        product = self.products.get(item.product)
 
+        if not product:
+            return
+
+        patterns = product.setdefault("patterns", [])
+        pattern = str(item.pattern).strip()
+
+        if not pattern:
+            return
+
+        if pattern not in patterns:
+            patterns.append(pattern)
+    # ==========================================================
+    # SAVE PRODUCTS
+    # ==========================================================
     def save_products(self):
-        self.products.save()
 
+        path = (
+            Path(__file__).parent.parent
+            / "dictionaries"
+            / "products.py"
+        )
+        with open(
+            path,
+            "w",
+            encoding="utf-8"
+        ) as f:
+            f.write("PRODUCTS = ")
+            f.write(
+                pformat(
+                    self.products,
+                    width=140,
+                    sort_dicts=False
+                )
+            )
+    # ==========================================================
+    # SAVE DROPDOWNS
+    # ==========================================================
     def save_dropdowns(self):
-        pass
 
+        path = (
+            Path(__file__).parent.parent
+            / "dictionaries"
+            / "dropdown_lists.py"
+        )
+        with open(
+            path,
+            "w",
+            encoding="utf-8"
+        ) as f:
+            f.write("DROPDOWN_LISTS = ")
+            f.write(
+                pformat(
+                    self.dropdowns,
+                    width=140,
+                    sort_dicts=False
+                )
+            )
+    # ==========================================================
+    # SAVE
+    # ==========================================================
     def save(self):
+
         self.save_products()
         self.save_dropdowns()

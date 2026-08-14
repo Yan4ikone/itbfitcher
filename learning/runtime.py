@@ -23,6 +23,42 @@ class LearningRuntime:
     def refresh(self):
         self.reload()
 
+    # ==========================================================
+    # LEARNING PROCESSED
+    # ==========================================================
+
+    def is_learning_processed(self, url):
+
+        card = self.cards.data.get(url)
+
+        if not card:
+            return False
+        return bool(card.get("learning_processed", False))
+
+    def mark_learning_processed(self, urls):
+
+        changed = False
+
+        for url in urls:
+            if not url:
+                continue
+
+            card = self.cards.data.get(url)
+
+            if not card:
+                continue
+            if card.get("learning_processed"):
+                continue
+
+            card["learning_processed"] = True
+            changed = True
+
+        if changed:
+            self.cards.mark_dirty()
+            self.cards.flush()
+
+    # ==========================================================
+
     def find_manual(self, card):
         return self.get_manual(card.url)
 
@@ -48,6 +84,7 @@ class LearningRuntime:
         return LearningAnalyzer(self).analyze()
 
     def all_cards(self):
+
         cards = self.cards.data
 
         print("CARDS COUNT:", len(cards))

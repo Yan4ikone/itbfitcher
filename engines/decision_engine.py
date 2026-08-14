@@ -7,12 +7,12 @@ from classifier.trace_classifier import TraceClassifier
 
 from engines.engine import ResolverEngine
 from resolver.excel_name_builder import ExcelNameBuilder
+from resolver.special_product_resolver import SpecialProductResolver
 
 
 class DecisionEngine:
 
     def __init__(self, learning_history):
-        print("DECISION INIT")
         self.learning_history = learning_history
         self.knowledge = KnowledgeEngine()
         self.dropdown = DropdownResolver()
@@ -21,8 +21,31 @@ class DecisionEngine:
         self.learning_classifier = LearningClassifier(self.knowledge)
         self.trace_classifier = TraceClassifier()
         self.product_engine = ResolverEngine(self.knowledge)
+        self.special_products = SpecialProductResolver()
 
     def decide(self, card):
+        special = self.special_products.resolve(card)
+
+        if special:
+            result = self.product_engine.classify(card)
+
+            result.product = special["product"]
+            result.dropdown = special["dropdown"]
+            result.display_name = special["display_name"]
+            result.code = special["code"]
+            result.source = special["source"]
+            result.confidence = special["confidence"]
+            result.review = special["review"]
+
+            result.quantity = getattr(card, "quantity", "")
+            result.material = getattr(card, "material", "")
+
+            result.trace.add(
+                "SPECIAL_PRODUCT",
+                f"Специальное правило: {special['source']}"
+            )
+            return result
+
         result = self.product_engine.classify(card)
         result.quantity = getattr(card, "quantity", "")
         result.material = getattr(card, "material", "")
@@ -37,11 +60,10 @@ class DecisionEngine:
         builder = ExcelNameBuilder()
         result.dropdown = builder.build(card, result.product)
         result.display_name = result.dropdown
-        print("PRODUCT :", result.product)
-        print("DROPDOWN:", result.dropdown)
-        print("DISPLAY :", getattr(result, "display_name", ""))
         self.knowledge.card_repository.remember(card, result)
-
+        self.knowledge.card_repository.flush()
+        print(self.knowledge.card_repository.file)
+        print(self.knowledge.card_repository.data.keys())
         result.trace.add(
             "FINAL",
             f"Итог: код={result.code or '-'}, "

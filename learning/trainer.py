@@ -182,13 +182,10 @@ class Trainer:
                     sort_dicts=False
                 )
             )
-
     def apply_analysis(self, report):
 
         changed = False
-
         # ---------- Новые товары ----------
-
         for item in report.get("new_products", []):
 
             if self.add_product(
@@ -197,20 +194,12 @@ class Trainer:
                     display_name=item["description"].capitalize()
             ):
                 changed = True
-
         # ---------- Алиасы ----------
-
         for item in report.get("new_aliases", []):
 
-            self.learn_alias(
-                item["product"],
-                item["alias"]
-            )
-
+            self.learn_alias(item["product"], item["alias"])
             changed = True
-
         # ---------- Материалы ----------
-
         for item in report.get("new_material_codes", []):
 
             self.repository.add_material_code(
@@ -218,21 +207,12 @@ class Trainer:
                 item["material"],
                 item["code"]
             )
-
             changed = True
-
         # ---------- Новые dropdown ----------
-
         for item in report.get("new_dropdowns", []):
-
-            self.add_dropdown(
-                item["product"]
-            )
-
+            self.add_dropdown(item["product"])
             changed = True
-
         # ---------- Новые варианты dropdown ----------
-
         for item in report.get("new_dropdown_variants", []):
 
             dropdown = DROPDOWN_LISTS.setdefault(
@@ -242,14 +222,11 @@ class Trainer:
                     "variants": []
                 }
             )
-
             exists = any(
                 v["code"] == item["code"]
                 for v in dropdown["variants"]
             )
-
             if not exists:
-
                 dropdown["variants"].append(
                     {
                         "code": item["code"],
@@ -257,12 +234,8 @@ class Trainer:
                         "group": "other"
                     }
                 )
-
                 changed = True
-
         if changed:
-
             self.repository.save()
             self.save_dropdowns()
-
         return changed

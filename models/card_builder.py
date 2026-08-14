@@ -68,30 +68,110 @@ def build_product_card(url, parsed, raw_text):
 
     for key, value in card.specs.items():
 
-        key_l = key.lower()
+        key_l = str(key or "").strip().lower()
+        value_str = str(value or "").strip()
 
-        if any(
-                x in key_l
-                for x in (
-                        "количество",
-                        "в упаковке",
-                        "количество товара",
-                        "комплект",
-                        "шт",
-                )
+        if not value_str:
+            continue
+        # ======================================================
+        # MATERIAL
+        # ======================================================
+        if (
+                "материал" in key_l
+                or "состав" in key_l
         ):
-            card.quantity = str(value)
+            if not card.material:
+                card.material = value_str
+        # ======================================================
+        # QUANTITY
+        # ======================================================
+        if (
+                "количество" in key_l
+                or "кол-во" in key_l
+                or "кол во" in key_l
+                or "в упаковке" in key_l
+                or "комплект" in key_l
+                or "набор" in key_l
+                or "объем" in key_l
+                or "объём" in key_l
+        ):
+            quantity = _extract_quantity(value_str)
 
-        if key_l.strip() == "материал":
-            card.material = str(value)
-
+            if quantity:
+                card.quantity = quantity
+        # ======================================================
+        # COUNTRY
+        # ======================================================
         if "страна" in key_l:
-            card.country = str(value)
-
+            if not card.country:
+                card.country = value_str
+        # ======================================================
+        # BRAND
+        # ======================================================
         if "бренд" in key_l:
-            card.brand = str(value)
+            if not card.brand:
+                card.brand = value_str
 
+    print("QUANTITY =", card.quantity)
     card.sections = parsed.get("sections", {})
     card.parser_log = parsed.get("parser_log", [])
 
     return card
+
+def _extract_quantity(value):
+
+    value = str(value or "").strip().lower()
+
+    if not value:
+        return ""
+
+    value = re.sub(r"\s+", " ", value)
+    match = re.fullmatch(
+        r"(\d+)\s*(шт\.?|штук[аи]?|ед\.?|единиц[аы]?)",
+        value,
+    )
+    if match:
+        number = int(match.group(1))
+
+        if number >= 2:
+            return value
+        return ""
+
+    match = re.fullmatch(
+        r"(\d+)\s*пар[аы]?",
+        value,
+    )
+    if match:
+        number = int(match.group(1))
+
+        if number >= 2:
+            return value
+        return ""
+
+    match = re.fullmatch(
+        r"(\d+)\s*комплект(?:а|ов)?",
+        value,
+    )
+    if match:
+        number = int(match.group(1))
+        if number >= 2:
+            return value
+        return ""
+
+    match = re.fullmatch(
+        r"(\d+)\s*набор(?:а|ов)?",
+        value,
+    )
+    if match:
+        number = int(match.group(1))
+        if number >= 2:
+            return value
+        return ""
+
+    match = re.fullmatch(
+        r"(\d+(?:[.,]\d+)?)\s*мл",
+        value,
+    )
+    if match:
+        return value
+    return ""

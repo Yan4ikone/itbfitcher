@@ -8,11 +8,9 @@ class DecisionLogger:
 
         self.folder = Path("logs")
         self.folder.mkdir(exist_ok=True)
-
     # ==========================================================
     # PUBLIC
     # ==========================================================
-
     def save(self, card, result):
 
         filename = (
@@ -20,22 +18,18 @@ class DecisionLogger:
             .strftime("%Y-%m-%d")
             + ".log"
         )
-
         path = self.folder / filename
 
         with open(path, "a", encoding="utf-8") as f:
 
             self._write_header(f, card, result)
             self._write_candidates(f, result)
-
             f.write("\n")
             f.write("=" * 100)
             f.write("\n\n")
-
     # ==========================================================
     # HEADER
     # ==========================================================
-
     def _write_header(self, f, card, result):
 
         f.write("=" * 100)
@@ -57,11 +51,9 @@ class DecisionLogger:
         if result.material:
             f.write(f"MATERIAL       : {result.material}\n")
         f.write("\n")
-
     # ==========================================================
     # CANDIDATES
     # ==========================================================
-
     def _write_candidates(self, f, result):
 
         if not result.product_scores:
@@ -76,11 +68,9 @@ class DecisionLogger:
         for index, candidate in enumerate(result.product_scores, start=1):
 
             self._write_candidate(f, index, candidate)
-
     # ==========================================================
     # ONE CANDIDATE
     # ==========================================================
-
     def _write_candidate(self, f, index, candidate):
 
         f.write("\n")
@@ -89,37 +79,26 @@ class DecisionLogger:
         f.write(f"Code  : {candidate.code}\n")
 
         if candidate.material:
-
             f.write(f"Material : {candidate.material}\n")
-
         if candidate.material_code:
-
             f.write(
                 f"Material code : "
                 f"{candidate.material_code}\n"
             )
-
         f.write("\n")
         f.write("BREAKDOWN\n")
-
         if candidate.breakdown:
-
             for key, value in sorted(
                     candidate.breakdown.items(),
                     key=lambda x: x[1],
                     reverse=True,
             ):
-
                 f.write(f"    {key:<20} {value}\n")
         f.write("\n")
         f.write("MATCHES\n")
-
         if not candidate.matches:
-
             f.write("    -\n")
-
         else:
-
             for match in sorted(
                     candidate.matches,
                     key=lambda x: x["points"],

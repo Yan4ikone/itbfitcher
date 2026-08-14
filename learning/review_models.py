@@ -34,6 +34,13 @@ class NewDropdownVariant:
     selected: bool = True
 
 
+@dataclass(frozen=True)
+class NewPattern:
+    product: str
+    pattern: str
+    selected: bool = True
+
+
 @dataclass
 class LearningReport:
 
@@ -42,3 +49,5 @@ class LearningReport:
     new_material_codes: list[NewMaterialCode] = field(default_factory=list)
     new_dropdowns: list = field(default_factory=list)
     new_dropdown_variants: list[NewDropdownVariant] = field(default_factory=list)
+    new_patterns: list[NewPattern] = field(default_factory=list)
+    processed_cards: list[str] = field(default_factory=list)

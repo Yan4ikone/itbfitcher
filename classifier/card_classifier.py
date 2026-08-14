@@ -20,11 +20,13 @@ class CardClassifier:
             "KNOWLEDGE",
             f"Найдена ранее обработанная карточка ({history['code']})"
         )
-        result.code = history["code"]
-        result.source = "CARD_CACHE"
         result.confidence = 100
-        if result.source != "PRODUCTS":
-            result.product = history.get("product", result.product)
+        if history.get("code"):
+            result.code = history["code"]
+            result.source = "CARD_CACHE"
+
+        if history.get("product"):
+            result.product = history["product"]
         result.material = history.get("material", "")
         result.confidence = 100
 

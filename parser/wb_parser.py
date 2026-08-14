@@ -1,4 +1,3 @@
-import json
 import requests
 
 
@@ -14,6 +13,7 @@ class WBParser:
         if data:
 
             product = self._find_product(data)
+            print(product)
 
             if product:
 
@@ -23,20 +23,17 @@ class WBParser:
                     or product.get("title")
                     or ""
                 )
-
                 description = (
                     product.get("description")
                     or product.get("descriptionText")
                     or ""
                 )
-
                 options = (
                     product.get("options")
                     or product.get("characteristics")
                     or product.get("params")
                     or []
                 )
-
                 if isinstance(options, list):
 
                     for item in options:
@@ -46,13 +43,11 @@ class WBParser:
                             or item.get("title")
                             or item.get("key")
                         )
-
                         value = (
                             item.get("value")
                             or item.get("text")
                             or item.get("description")
                         )
-
                         if key and value:
                             specs[str(key)] = str(value)
 
@@ -65,16 +60,13 @@ class WBParser:
                 "[class*=product-page] h1",
                 "[class*=product] h1",
             ])
-
         if not description:
             description = self._text(page, [
                 "[class*=description]",
                 "[class*=about]",
             ])
-
         if not specs:
             specs = self._parse_dom_specs(page)
-
         raw_text = page.locator("body").inner_text()
 
         return {
@@ -90,87 +82,73 @@ class WBParser:
 
     def _extract_json(self, page):
 
-        urls = page.evaluate("""
-        () => performance.getEntriesByType("resource")
-            .map(r => r.name)
-        """)
+        for _ in range(40):
 
-        card_url = None
+            urls = page.evaluate("""
+            () => performance.getEntriesByType("resource")
+                .map(r => r.name)
+            """)
 
-        for url in urls:
+            for url in urls:
 
-            if "/card.json" in url:
-                card_url = url
-                break
+                if "/card.json" in url:
+                    try:
+                        return requests.get(
+                            url,
+                            timeout=10,
+                            headers={
+                                "User-Agent": "Mozilla/5.0"
+                            }
+                        ).json()
 
-        if not card_url:
-            return None
+                    except Exception:
+                        return None
 
-        try:
+            page.wait_for_timeout(250)
 
-            return requests.get(
-                card_url,
-                timeout=10,
-                headers={
-                    "User-Agent":
-                        "Mozilla/5.0"
-                }
-            ).json()
-
-        except Exception as e:
-
-            print(e)
-            return None
+        return None
 
     # ---------------------------------------------------------
 
     def _find_product(self, obj):
 
-        if not isinstance(obj, dict):
-            return None
+        if isinstance(obj, dict):
 
-        if "imt_name" in obj:
-            return obj
+            if (
+                    "imt_name" in obj
+                    and (
+                    "description" in obj
+                    or "options" in obj
+                    or "characteristics" in obj
+            )
+            ):
+                return obj
+            for value in obj.values():
+                result = self._find_product(value)
+                if result:
+                    return result
 
-        if "options" in obj:
-            return obj
+        elif isinstance(obj, list):
+            for item in obj:
+                result = self._find_product(item)
 
-        if "characteristics" in obj:
-            return obj
+                if result:
+                    return result
 
-        if "description" in obj:
-            return obj
-
-        if "colors" in obj:
-
-            colors = obj["colors"]
-
-            if colors:
-
-                color = colors[0]
-
-                products = color.get("products", [])
-
-                if products:
-                    return products[0]
-
-        return obj
+        return None
 
     # ---------------------------------------------------------
 
     def _parse_dom_specs(self, page):
 
         specs = {}
-
         selectors = [
-
             "[class*=characteristics] li",
             "[class*=options] li",
             "[class*=params] li",
             "[class*=spec] li",
             "dl",
         ]
-
         for selector in selectors:
 
             try:
@@ -200,25 +178,17 @@ class WBParser:
                 else:
 
                     for i in range(rows.count()):
-
                         row = rows.nth(i)
-
                         spans = row.locator("span")
-
                         if spans.count() >= 2:
-
                             key = spans.nth(0).inner_text().strip().rstrip(":")
                             value = spans.nth(1).inner_text().strip()
-
                             if key and value:
                                 specs[key] = value
-
                 if specs:
                     return specs
-
             except:
                 pass
-
         return specs
 
     # ---------------------------------------------------------
@@ -226,15 +196,10 @@ class WBParser:
     def _text(self, page, selectors):
 
         for selector in selectors:
-
             try:
-
                 value = page.locator(selector).first.inner_text(timeout=1000)
-
                 if value:
                     return value.strip()
-
             except:
                 pass
-
         return ""
