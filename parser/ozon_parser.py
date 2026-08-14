@@ -1,8 +1,6 @@
 import re
 from urllib.parse import urlparse, unquote
 
-from models.card_builder import extract_slug
-
 IMPORTANT_FIELDS = [
     "Тип",
     "Тип товара",

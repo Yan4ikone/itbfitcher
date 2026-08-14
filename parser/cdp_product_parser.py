@@ -478,32 +478,10 @@ class CDPProductParser:
         return card
 
     def parse_url(self, url):
-
-        page = None
-        created_page = False
-
-        try:
-
-            page = self.find_page_by_url(url)
-
-            if page is None:
-
-                page = self.open_url(url)
-                created_page = True
-
-            else:
-
-                page.bring_to_front()
-            self.wait_page_ready(page)
-            card = self.parse_page_text(page)
-
-            return card
-        finally:
-            if created_page and page:
-                try:
-                    page.close()
-                except:
-                    pass
+        page = self.find_page_by_url(url) or self.open_url(url)
+        page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        data = parse_ozon_page(page)
+        return build_product_card(url, data, raw_text=data["description"])
 
     def disconnect(self):
 
