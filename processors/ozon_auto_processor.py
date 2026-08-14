@@ -135,6 +135,12 @@ class OzonAutoProcessor:
         self.log(f"Всего строк: {self.total_rows}")
         parser = CDPProductParser()
         parser.connect()
+        parser.inspect_url_network(
+            "https://www.ozon.ru/product/5023754050/",
+            "network_capture.json"
+        )
+
+        parser.disconnect()
         learning_history = load_learning_history(self.excel_path)
         engine = DecisionEngine(learning_history)
 

@@ -1,13 +1,23 @@
 # Версия: v1 GUI
 # pyinstaller --onefile --noconsole MainApp.py
+# pyinstaller --clean MainApp.spec
 import os
+import sys
+
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+if sys.stdin is None:
+    sys.stdin = open(os.devnull, "r")
+
 import shutil
 import sys
 import threading
 import tkinter as tk
+
 from tkinter import ttk, messagebox, filedialog
 from tkinter.scrolledtext import (ScrolledText)
-
 from core.app_controller import AppController
 from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
@@ -38,9 +48,7 @@ def make_rule_hint(product_name):
 
         if len(word) > 5:
             return f'r"{word[:-1]}"'
-
         return f'r"{word}"'
-
     return " + ".join(
         [
             f'r"{w[:5]}"'

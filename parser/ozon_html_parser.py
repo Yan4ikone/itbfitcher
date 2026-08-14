@@ -17,11 +17,15 @@ Ozon не может менять без поломки собственной S
 """
 
 import json
+import re
 from bs4 import BeautifulSoup
 
 
 def parse_ozon_html(html: str) -> dict:
-    soup = BeautifulSoup(html, "lxml")
+    # html.parser - встроен в стандартную библиотеку Python, не требует
+    # установки внешних пакетов (в отличие от lxml). На размере одной
+    # карточки товара разница в скорости не заметна.
+    soup = BeautifulSoup(html, "html.parser")
 
     result = {
         "title": "",
@@ -31,13 +35,49 @@ def parse_ozon_html(html: str) -> dict:
         "sku": "",
         "brand": "",
         "main_image": "",
+        "images": [],
         "specs": {},
         "specs_count": 0,
+        "material": "",
     }
+
     _parse_ld_json(soup, result)
     _parse_specs(soup, result)
+    _parse_images(soup, result)
+    _extract_material(result)
 
     return result
+
+
+# Порядок важен: сначала точное совпадение "Материал", затем более
+# специфичные варианты. Если у товара несколько материал-полей
+# (верх/подошва/подкладка), для ТН ВЭД обычно важнее основной/верхний.
+_MATERIAL_KEY_PRIORITY = (
+    "материал",
+    "материал верха",
+    "материал изделия",
+    "состав",
+)
+
+
+def _extract_material(result: dict) -> None:
+    specs = result.get("specs", {})
+    if not specs:
+        return
+
+    # 1. Точное совпадение по приоритету
+    lowered = {k.lower().strip(): v for k, v in specs.items()}
+    for candidate in _MATERIAL_KEY_PRIORITY:
+        if candidate in lowered and lowered[candidate]:
+            result["material"] = lowered[candidate]
+            return
+
+    # 2. Fallback: любой ключ, содержащий "матери" (материал, материалы,
+    # материал верха и т.п.) - берём первый непустой.
+    for key, value in specs.items():
+        if "матери" in key.lower() and value:
+            result["material"] = value
+            return
 
 
 def _parse_ld_json(soup: BeautifulSoup, result: dict) -> None:
@@ -88,14 +128,30 @@ def _parse_specs(soup: BeautifulSoup, result: dict) -> None:
     """
     Источник 2: характеристики товара.
 
-    Структура: <dl><dt><span>Название</span></dt><dd>Значение</dd></dl>
+    Ищем ТОЛЬКО внутри data-widget="webCharacteristics" (или
+    webShortCharacteristics как fallback) - это стабильный атрибут,
+    который Ozon не хэширует (в отличие от CSS-классов). Без этого
+    ограничения dl/dt могли бы найтись где угодно на странице -
+    в блоке рекомендаций, в шапке и т.д.
+
+    Внутри контейнера структура:
+    <dl><dt><span>Название</span></dt><dd>Значение</dd></dl>
     Внутри dt может быть несколько вложенных span - берём весь
     текст dt целиком. Внутри dd иногда лежит иконка "скопировать"
     (для Артикула) - она не текстовая, get_text() её не подхватит.
     """
     specs = {}
 
-    for dl in soup.find_all("dl"):
+    container = soup.find(attrs={"data-widget": "webCharacteristics"})
+    if container is None:
+        container = soup.find(attrs={"data-widget": "webShortCharacteristics"})
+
+    if container is None:
+        result["specs"] = specs
+        result["specs_count"] = 0
+        return
+
+    for dl in container.find_all("dl"):
         dt = dl.find("dt")
         dd = dl.find("dd")
         if not dt or not dd:
@@ -111,15 +167,78 @@ def _parse_specs(soup: BeautifulSoup, result: dict) -> None:
     result["specs_count"] = len(specs)
 
 
+# Регулярка достаёт CDN-ссылку Ozon на изображение товара из srcset.
+# Формат: https://ir.ozone.ru/s3/multimedia-<bucket>/[wc<size>/]<id>.jpg
+# wc100/wc250/... - превью нужного размера, полноразмерная версия
+# получается тем же URL без сегмента wc<N>/.
+_IMAGE_URL_RE = re.compile(
+    r"https://ir\.ozone\.ru/s3/multimedia-[^/\s\"]+/(?:wc\d+/)?[\w.-]+\.jpg"
+)
+
+
+def _to_full_size(url: str) -> str:
+    return re.sub(r"/wc\d+/", "/", url)
+
+
+def _parse_images(soup: BeautifulSoup, result: dict) -> None:
+    """
+    Источник 3: галерея изображений товара.
+
+    Ищем ТОЛЬКО внутри data-widget="webGallery" - иначе регулярка
+    находит картинки блока рекомендаций/отзывов дальше по странице
+    (проверено: без этого ограничения на реальной странице находится
+    60+ "изображений", из которых товару принадлежит только ~11).
+    """
+    images = []
+
+    gallery = soup.find(attrs={"data-widget": "webGallery"})
+    if gallery is None:
+        result["images"] = images
+        return
+
+    seen = set()
+    for img in gallery.find_all("img"):
+        srcset = img.get("srcset", "")
+        for match in _IMAGE_URL_RE.findall(srcset):
+            full_url = _to_full_size(match)
+            if full_url not in seen:
+                seen.add(full_url)
+                images.append(full_url)
+
+    result["images"] = images
+
+
 def parse_ozon_page(page) -> dict:
     """
-    Интеграция с Playwright: берём HTML уже отрисованной страницы
-    (page.content() отдаёт текущий DOM, включая всё, что дорисовал JS)
-    и парсим его этим же кодом. Никакого ожидания network idle не
-    нужно - только дождаться, что нужный блок появился в DOM.
+    Интеграция с Playwright (sync API): берём HTML уже отрисованной
+    страницы (page.content() отдаёт текущий DOM, включая всё, что
+    дорисовал JS) и парсим его этим же кодом.
     """
-    page.wait_for_selector("dl dt, script[type='application/ld+json']", timeout=15000)
+    page.wait_for_selector(
+        "[data-widget='webCharacteristics'], "
+        "[data-widget='webGallery'], "
+        "script[type='application/ld+json']",
+        state="attached",
+        timeout=15000,
+    )
     html = page.content()
+    return parse_ozon_html(html)
+
+
+async def parse_ozon_page_async(page) -> dict:
+    """
+    То же самое, но для Playwright async API (используется в
+    AsyncCDPProductParser для параллельной обработки нескольких
+    товаров одновременно).
+    """
+    await page.wait_for_selector(
+        "[data-widget='webCharacteristics'], "
+        "[data-widget='webGallery'], "
+        "script[type='application/ld+json']",
+        state="attached",
+        timeout=15000,
+    )
+    html = await page.content()
     return parse_ozon_html(html)
 
 
@@ -137,7 +256,10 @@ if __name__ == "__main__":
     print("  ->", data["description"][:150].replace("\n", " "), "...")
     print("PRICE:", data["price"], data["currency"])
     print("SKU:", data["sku"])
-    print("MAIN IMAGE:", data["main_image"])
+    print("MATERIAL:", data["material"])
+    print("IMAGES:", len(data["images"]))
+    for u in data["images"]:
+        print("  ", u)
     print()
     print(f"SPECS ({data['specs_count']}):")
     for k, v in data["specs"].items():
