@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import time
+from random import random
 
 import requests
 from playwright.sync_api import sync_playwright
@@ -83,16 +84,39 @@ class CDPProductParser:
         self.context = self.browser.contexts[0]
         log.info("CDP подключен")
 
-    def disconnect(self):
-        try:
-            self.browser.close()
-        except Exception:
-            log.debug("Ошибка при закрытии браузера", exc_info=True)
+    def disconnect(self, close_browser=False):
+        """
+        Останавливает только Playwright-соединение текущего потока.
+
+        При многопоточности несколько CDPProductParser подключаются
+        к одному браузеру. Поэтому worker не должен закрывать общий браузер.
+
+        close_browser=True используется только главным parser после
+        завершения всей обработки.
+        """
+
+        if close_browser:
+            try:
+                if self.browser:
+                    self.browser.close()
+            except Exception:
+                log.debug(
+                    "Ошибка при закрытии браузера",
+                    exc_info=True,
+                )
 
         try:
-            self.playwright.stop()
+            if getattr(self, "playwright", None):
+                self.playwright.stop()
         except Exception:
-            log.debug("Ошибка при остановке playwright", exc_info=True)
+            log.debug(
+                "Ошибка при остановке playwright",
+                exc_info=True,
+            )
+
+        self.browser = None
+        self.context = None
+        self.playwright = None
 
     # ------------------------------------------------------------------
     # PAGE LOOKUP / OPEN
@@ -144,36 +168,321 @@ class CDPProductParser:
 
         return page
 
-    # ------------------------------------------------------------------
-    # MAIN ENTRY POINT (Ozon)
-    # ------------------------------------------------------------------
-
     def parse_url(self, url):
         """
-        Основной метод для пайплайна: открывает (или переиспользует уже
-        открытую) страницу товара Ozon и парсит её через ld+json + dl/dt.
+        Парсит одну страницу Ozon.
+
+        В многопоточном режиме каждая попытка использует
+        отдельную вкладку.
+
+        Если Ozon зависает на навигации:
+            1. закрываем зависшую вкладку;
+            2. создаём новую;
+            3. повторяем запрос.
+
+        Если после повторной попытки страница не загрузилась —
+        выбрасываем исключение, чтобы worker мог перейти
+        к следующей задаче.
         """
-        page = self.find_page_by_url(url)
 
-        if page is not None:
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        else:
-            page = self.open_url(url)
+        max_attempts = 2
 
-        try:
-            data = parse_ozon_page(page)
-        except Exception:
-            log.exception("Не удалось распарсить страницу товара: %s", url)
-            raise
+        last_error = None
 
-        card = build_product_card(url, data, raw_text=data["description"])
-        log.info(
-            "Карточка построена: TITLE=%s DESCRIPTION=%d SPECS=%d",
-            bool(card.title),
-            len(card.description or ""),
-            len(data.get("specs", {})),
-        )
-        return card
+        for attempt in range(
+                1,
+                max_attempts + 1
+        ):
+
+            page = None
+
+            try:
+
+                log.info(
+                    "OZON OPEN "
+                    "attempt=%s/%s "
+                    "URL=%s",
+                    attempt,
+                    max_attempts,
+                    url,
+                )
+
+                # ==================================================
+                # НОВАЯ ВКЛАДКА
+                # ==================================================
+
+                page = self.context.new_page()
+
+                # ==================================================
+                # БЛОКИРОВКА НЕНУЖНЫХ РЕСУРСОВ
+                # ==================================================
+
+                def route_handler(route):
+
+                    try:
+
+                        if (
+                                route.request.resource_type
+                                in BLOCKED_RESOURCE_TYPES
+                        ):
+
+                            route.abort()
+
+                        else:
+
+                            route.continue_()
+
+                    except Exception:
+
+                        try:
+                            route.continue_()
+                        except Exception:
+                            pass
+
+                page.route(
+                    "**/*",
+                    route_handler,
+                )
+
+                # ==================================================
+                # NAVIGATION
+                # ==================================================
+
+                try:
+
+                    response = page.goto(
+                        url,
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+
+                except Exception as exc:
+
+                    last_error = exc
+
+                    log.warning(
+                        "OZON NAVIGATION ERROR "
+                        "attempt=%s/%s "
+                        "URL=%s: %s",
+                        attempt,
+                        max_attempts,
+                        url,
+                        exc,
+                    )
+
+                    # ----------------------------------------------
+                    # Закрываем зависшую вкладку
+                    # ----------------------------------------------
+
+                    try:
+
+                        page.close()
+
+                    except Exception:
+
+                        log.debug(
+                            "Не удалось закрыть "
+                            "зависшую страницу",
+                            exc_info=True,
+                        )
+
+                    page = None
+
+                    # ----------------------------------------------
+                    # Если есть ещё попытка — повторяем
+                    # ----------------------------------------------
+
+                    if attempt < max_attempts:
+                        time.sleep(
+                            random.uniform(
+                                1.0,
+                                2.0,
+                            )
+                        )
+
+                        continue
+
+                    raise
+
+                # ==================================================
+                # ПРОВЕРКА СТРАНИЦЫ
+                # ==================================================
+
+                try:
+
+                    current_url = page.url
+
+                except Exception:
+
+                    current_url = ""
+
+                log.info(
+                    "OZON PAGE URL: %s",
+                    current_url,
+                )
+
+                # --------------------------------------------------
+                # Иногда Ozon возвращает пустую страницу.
+                #
+                # Проверяем body.
+                # --------------------------------------------------
+
+                try:
+
+                    body_text = page.locator(
+                        "body"
+                    ).inner_text(
+                        timeout=5000
+                    ).strip()
+
+                except Exception:
+
+                    body_text = ""
+
+                # --------------------------------------------------
+                # Пустая страница
+                # --------------------------------------------------
+
+                if not body_text:
+
+                    last_error = RuntimeError(
+                        "Ozon returned empty page"
+                    )
+
+                    log.warning(
+                        "OZON EMPTY PAGE "
+                        "attempt=%s/%s "
+                        "URL=%s",
+                        attempt,
+                        max_attempts,
+                        url,
+                    )
+
+                    try:
+
+                        page.close()
+
+                    except Exception:
+
+                        log.debug(
+                            "Не удалось закрыть "
+                            "пустую страницу",
+                            exc_info=True,
+                        )
+
+                    page = None
+
+                    if attempt < max_attempts:
+                        time.sleep(
+                            random.uniform(
+                                1.0,
+                                2.0,
+                            )
+                        )
+
+                        continue
+
+                    raise last_error
+
+                # ==================================================
+                # PARSING
+                # ==================================================
+
+                data = parse_ozon_page(
+                    page
+                )
+
+                # ==================================================
+                # PRODUCT CARD
+                # ==================================================
+
+                card = build_product_card(
+                    url,
+                    data,
+                    raw_text=data.get(
+                        "description",
+                        "",
+                    ),
+                )
+
+                log.info(
+                    "Карточка построена: "
+                    "TITLE=%s "
+                    "DESCRIPTION=%d "
+                    "SPECS=%d "
+                    "IMAGES=%d",
+                    bool(card.title),
+                    len(
+                        card.description
+                        or ""
+                    ),
+                    len(
+                        data.get(
+                            "specs",
+                            {},
+                        )
+                    ),
+                    len(
+                        data.get(
+                            "images",
+                            [],
+                        )
+                    ),
+                )
+
+                return card
+
+            except Exception:
+
+                last_error = (
+                        last_error
+                        or RuntimeError(
+                    "Ozon parse failed"
+                )
+                )
+
+                log.exception(
+                    "OZON PARSE ERROR "
+                    "attempt=%s/%s "
+                    "URL=%s",
+                    attempt,
+                    max_attempts,
+                    url,
+                )
+
+                # --------------------------------------------------
+                # Если page ещё существует — закрываем
+                # --------------------------------------------------
+
+                if page is not None:
+
+                    try:
+
+                        page.close()
+
+                    except Exception:
+
+                        log.debug(
+                            "Ошибка закрытия page",
+                            exc_info=True,
+                        )
+
+                # --------------------------------------------------
+                # Если есть retry
+                # --------------------------------------------------
+
+                if attempt < max_attempts:
+                    time.sleep(
+                        random.uniform(
+                            1.0,
+                            2.0,
+                        )
+                    )
+
+                    continue
+
+                raise last_error
+        return None
 
     # ------------------------------------------------------------------
     # LEGACY / MULTI-MARKETPLACE PATH (уже открытые вкладки в браузере)

@@ -1,9 +1,8 @@
 import threading
 import traceback
-
-import openpyxl
 import time
-import random
+import queue
+import openpyxl
 
 from learning.importer import load_learning_history
 from parser.cdp_product_parser import CDPProductParser
@@ -17,6 +16,12 @@ from repositories.card_repository import CardRepository
 
 class OzonAutoProcessor:
 
+    # ==========================================================
+    # НАСТРОЙКА МНОГОПОТОЧНОСТИ
+    # ==========================================================
+
+    MAX_WORKERS = 4
+
     def __init__(
             self,
             excel_path,
@@ -29,21 +34,61 @@ class OzonAutoProcessor:
         self.excel_path = excel_path
         self.logger = logger
         self.limit = limit
-        self.stats_callback = (stats_callback)
+        self.stats_callback = stats_callback
+
         self.stop_requested = False
         self.pause_requested = False
+
         self.pause_event = threading.Event()
         self.pause_event.set()
+        self.worker_local = threading.local()
+        self.worker_result_queue = queue.Queue()
+        self.worker_threads = []
+
         self.total_rows = 0
         self.processed_rows = 0
         self.found_count = 0
         self.not_found_count = 0
+        self.cached_count = 0
+
         self.learning_buffer = []
+
         p = Path(excel_path)
-        self.result_path = str(p.with_name(f"{p.stem}_RESULT{p.suffix}"))
+
+        self.result_path = str(
+            p.with_name(
+                f"{p.stem}_RESULT{p.suffix}"
+            )
+        )
+
         self.decision_logger = DecisionLogger()
         self.card_repository = CardRepository()
-        self.cached_count = 0
+
+        # ------------------------------------------------------
+        # Защита общей статистики
+        # ------------------------------------------------------
+
+        self.stats_lock = threading.Lock()
+
+        # ------------------------------------------------------
+        # DecisionEngine нельзя одновременно заставлять
+        # писать CardRepository из нескольких потоков.
+        # Поэтому decide() будет защищён этим lock.
+        # ------------------------------------------------------
+
+        self.engine_lock = threading.Lock()
+
+        # ------------------------------------------------------
+        # Thread-local storage.
+        #
+        # У каждого worker будет свой CDPProductParser.
+        # ------------------------------------------------------
+
+        self.worker_local = threading.local()
+
+    # ==========================================================
+    # LOG
+    # ==========================================================
 
     def log(self, text):
 
@@ -51,6 +96,10 @@ class OzonAutoProcessor:
 
         if self.logger:
             self.logger(text)
+
+    # ==========================================================
+    # CACHE
+    # ==========================================================
 
     def get_cached_card(self, url):
 
@@ -64,22 +113,43 @@ class OzonAutoProcessor:
 
         return self.card_repository.find_by_normalized_url(url)
 
+    # ==========================================================
+    # PAUSE / RESUME / STOP
+    # ==========================================================
+
     def pause(self):
 
         self.pause_requested = True
         self.pause_event.clear()
-        self.log("Обработка приостановлена")
+
+        self.log(
+            "Обработка приостановлена"
+        )
 
     def resume(self):
 
         self.pause_requested = False
         self.pause_event.set()
-        self.log("Обработка продолжена")
+
+        self.log(
+            "Обработка продолжена"
+        )
 
     def stop(self):
 
         self.stop_requested = True
-        self.log("Получена команда остановки...")
+
+        # Разбудить ожидающие worker,
+        # чтобы они могли увидеть stop_requested.
+        self.pause_event.set()
+
+        self.log(
+            "Получена команда остановки..."
+        )
+
+    # ==========================================================
+    # URL
+    # ==========================================================
 
     def get_url_from_row(self, ws, row):
 
@@ -100,213 +170,822 @@ class OzonAutoProcessor:
 
         return None
 
+    # ==========================================================
+    # WORKER PARSER
+    # ==========================================================
+
+    def get_worker_parser(self):
+
+        parser = getattr(
+            self.worker_local,
+            "parser",
+            None,
+        )
+
+        if parser is None:
+
+            parser = CDPProductParser()
+
+            parser.connect()
+
+            self.worker_local.parser = parser
+
+            self.log(
+                f"Worker parser подключён: "
+                f"{threading.current_thread().name}"
+            )
+
+        return parser
+
+    # ==========================================================
+    # APPLY CACHE RESULT
+    # ==========================================================
+
+    def apply_cached_result(
+            self,
+            ws,
+            row,
+            cached_card,
+    ):
+
+        description = (
+            cached_card.get("display_name")
+            or cached_card.get("product")
+            or cached_card.get("description")
+            or ""
+        )
+
+        code = str(
+            cached_card.get(
+                "code",
+                "",
+            )
+        ).strip()
+
+        if description:
+            ws[f"B{row}"] = description
+
+        if code and code not in (
+                "0",
+                "nan",
+        ):
+
+            try:
+                ws[f"C{row}"] = int(code)
+            except ValueError:
+                ws[f"C{row}"] = code
+
+            self.found_count += 1
+
+            self.log(
+                f"CACHE Описание: {description}"
+            )
+
+            self.log(
+                f"CACHE Код: {code}"
+            )
+
+        else:
+
+            self.not_found_count += 1
+
+    # ==========================================================
+    # APPLY NORMAL RESULT
+    # ==========================================================
+
+    def apply_result(
+            self,
+            ws,
+            row,
+            card,
+            result,
+    ):
+
+        # ------------------------------------------------------
+        # Excel title
+        # ------------------------------------------------------
+
+        # ВАЖНО:
+        # card.excel_title должен быть установлен ДО decide().
+        #
+        # Это будет сделано в run(), перед отправкой worker.
+        # Если decide() уже был вызван без него, значение B
+        # не влияет на уже полученный результат.
+        #
+        # Поэтому ниже ничего не меняем.
+        # ------------------------------------------------------
+
+        ws[f"K{row}"] = (
+            "Да"
+            if result.new_product
+            else ""
+        )
+
+        ws[f"L{row}"] = (
+            "Да"
+            if result.new_dropdown
+            else ""
+        )
+
+        # ------------------------------------------------------
+        # Decision Logger
+        # ------------------------------------------------------
+
+        self.decision_logger.save(
+            card,
+            result,
+        )
+
+        # ------------------------------------------------------
+        # Learning buffer
+        # ------------------------------------------------------
+
+        self.learning_buffer.append(
+            {
+                "url": card.url,
+                "title": card.title,
+                "description": card.description,
+                "product": result.product,
+                "code": result.code,
+                "material": result.material,
+            }
+        )
+
+        # ------------------------------------------------------
+        # B
+        # ------------------------------------------------------
+
+        original = ws[f"B{row}"].value
+
+        if result.dropdown:
+
+            ws[f"B{row}"] = (
+                result.dropdown
+            )
+
+        elif result.product:
+
+            ws[f"B{row}"] = (
+                result.product
+            )
+
+        else:
+
+            ws[f"B{row}"] = original
+
+        # ------------------------------------------------------
+        # C
+        # ------------------------------------------------------
+
+        if result.code:
+
+            try:
+                ws[f"C{row}"] = int(
+                    result.code
+                )
+
+            except ValueError:
+                ws[f"C{row}"] = (
+                    result.code
+                )
+
+        # ------------------------------------------------------
+        # Statistics
+        # ------------------------------------------------------
+
+        if result.code:
+
+            self.found_count += 1
+
+            self.log(
+                f"Описание: {result.dropdown}"
+            )
+
+            self.log(
+                f"Товар: {result.product}"
+            )
+
+            self.log(
+                f"Материал: {result.material}"
+            )
+
+            self.log(
+                f"Код: {result.code}"
+            )
+
+            self.log(
+                f"Источник: {result.source}"
+            )
+
+            self.log(
+                f"Уверенность: "
+                f"{result.confidence}%"
+            )
+
+            if result.review:
+                self.log(
+                    "⚠ Требуется проверка"
+                )
+
+        else:
+
+            self.not_found_count += 1
+
+            self.log(
+                f"Описание: "
+                f"{result.product}"
+            )
+
+            self.log(
+                "Код не найден"
+            )
+
+    # ==========================================================
+    # RUN
+    # ==========================================================
+
     def run(self):
 
         self.start_time = time.time()
-        self.log("Открытие Excel...")
-        wb = openpyxl.load_workbook(self.excel_path)
+
+        self.log(
+            "Открытие Excel..."
+        )
+
+        wb = openpyxl.load_workbook(
+            self.excel_path
+        )
+
         ws = wb.active
+
         rows_to_process = []
+
+        # ==========================================================
+        # СОБИРАЕМ СТРОКИ
+        # ==========================================================
 
         for row in range(
                 2,
                 ws.max_row + 1
         ):
 
-            url = self.get_url_from_row(ws, row)
-            current_code = ws[f"C{row}"].value
+            url = self.get_url_from_row(
+                ws,
+                row,
+            )
+
+            current_code = (
+                ws[f"C{row}"].value
+            )
 
             if self.skip_filled:
 
                 if current_code not in (
                         None,
                         "",
-                        0
+                        0,
                 ):
                     continue
 
             if url:
-                rows_to_process.append(row)
+                excel_name = str(
+                    ws[f"B{row}"].value
+                    or ""
+                ).strip()
+
+                rows_to_process.append(
+                    (
+                        row,
+                        url,
+                        excel_name,
+                    )
+                )
+
+        # ==========================================================
+        # LIMIT
+        # ==========================================================
 
         if self.limit:
-            rows_to_process = (rows_to_process[:self.limit])
+            rows_to_process = (
+                rows_to_process[
+                :self.limit
+                ]
+            )
 
-        self.total_rows = len(rows_to_process)
-        self.log(f"Всего строк: {self.total_rows}")
-        parser = CDPProductParser()
-        parser.connect()
-        parser.inspect_url_network(
-            "https://www.ozon.ru/product/5023754050/",
-            "network_capture.json"
+        self.total_rows = len(
+            rows_to_process
         )
 
-        parser.disconnect()
-        learning_history = load_learning_history(self.excel_path)
-        engine = DecisionEngine(learning_history)
+        self.log(
+            f"Всего строк: "
+            f"{self.total_rows}"
+        )
+
+        if not rows_to_process:
+            wb.save(
+                self.result_path
+            )
+
+            self.print_summary()
+
+            return
+
+        # ==========================================================
+        # LEARNING HISTORY
+        # ==========================================================
+
+        learning_history = (
+            load_learning_history(
+                self.excel_path
+            )
+        )
+
+        engine = DecisionEngine(
+            learning_history
+        )
+
+        # ==========================================================
+        # ЗАПУСК CDP
+        # ==========================================================
+        #
+        # Этот parser нужен только для гарантированного запуска
+        # браузера/CDP.
+        #
+        # Он НЕ занимается товарами.
+        # ==========================================================
+
+        bootstrap_parser = (
+            CDPProductParser()
+        )
+
+        bootstrap_parser.connect()
+
+        self.log(
+            "CDP браузер готов."
+        )
+
+        # ==========================================================
+        # ОЧЕРЕДЬ ЗАДАЧ
+        # ==========================================================
+
+        task_queue = queue.Queue()
+
+        # ==========================================================
+        # СОЗДАЁМ 4 ПОСТОЯННЫХ WORKER-А
+        # ==========================================================
+
+        worker_count = min(
+            self.MAX_WORKERS,
+            len(rows_to_process),
+        )
+
+        self.log(
+            f"Запускаем "
+            f"{worker_count} worker-а"
+        )
+
+        self.worker_threads = []
+
+        for index in range(
+                worker_count
+        ):
+            thread = threading.Thread(
+                target=self.worker_loop,
+                args=(
+                    task_queue,
+                    engine,
+                ),
+                name=f"OzonWorker-{index + 1}",
+                daemon=True,
+            )
+
+            thread.start()
+
+            self.worker_threads.append(
+                thread
+            )
+
+        # ==========================================================
+        # ЗАПОЛНЯЕМ ОЧЕРЕДЬ
+        # ==========================================================
+
+        for task in rows_to_process:
+
+            if self.stop_requested:
+                break
+
+            task_queue.put(task)
+
+        # ==========================================================
+        # СТОП-СИГНАЛЫ ДЛЯ WORKER-ОВ
+        # ==========================================================
+        #
+        # Каждый worker получает None и завершает свой цикл.
+        # ==========================================================
+
+        for _ in range(worker_count):
+            task_queue.put(None)
+
+        # ==========================================================
+        # ГЛАВНЫЙ ЦИКЛ
+        # ==========================================================
+        #
+        # Worker-ы парсят.
+        #
+        # Главный поток получает готовые результаты
+        # и единственный изменяет Excel.
+        # ==========================================================
+
+        completed = 0
 
         try:
-            for row in rows_to_process:
-                self.pause_event.wait()
-                if self.stop_requested:
-                    self.log("Обработка остановлена пользователем")
-                    break
+
+            while completed < len(
+                    rows_to_process
+            ):
 
                 try:
 
+                    result_data = (
+                        self.worker_result_queue.get(
+                            timeout=0.5
+                        )
+                    )
+
+                except queue.Empty:
+
+                    # Проверяем, не завершились ли worker-ы
+                    # неожиданно.
+
+                    if all(
+                            not thread.is_alive()
+                            for thread in self.worker_threads
+                    ):
+                        break
+
+                    continue
+
+                try:
+
+                    completed += 1
+
+                    # ==================================================
+                    # ОШИБКА WORKER
+                    # ==================================================
+
+                    if "error" in result_data:
+                        self.log(
+                            result_data.get(
+                                "traceback",
+                                "Неизвестная ошибка",
+                            )
+                        )
+
+                        self.processed_rows += 1
+
+                        self.print_progress()
+
+                        continue
+
+                    # ==================================================
+                    # STOP
+                    # ==================================================
+
+                    if result_data.get(
+                            "stopped"
+                    ):
+                        self.processed_rows += 1
+
+                        self.print_progress()
+
+                        continue
+
+                    row = result_data[
+                        "row"
+                    ]
+
+                    # ==================================================
+                    # CACHE
+                    # ==================================================
+
+                    if result_data.get(
+                            "cached"
+                    ):
+
+                        cached_card = (
+                            result_data[
+                                "cached_card"
+                            ]
+                        )
+
+                        self.apply_cached_result(
+                            ws,
+                            row,
+                            cached_card,
+                        )
+
+                        self.cached_count += 1
+
+                    # ==================================================
+                    # NORMAL RESULT
+                    # ==================================================
+
+                    else:
+
+                        card = (
+                            result_data[
+                                "card"
+                            ]
+                        )
+
+                        result = (
+                            result_data[
+                                "result"
+                            ]
+                        )
+
+                        self.apply_result(
+                            ws,
+                            row,
+                            card,
+                            result,
+                        )
+
+                    # ==================================================
+                    # PROGRESS
+                    # ==================================================
+
                     self.processed_rows += 1
-                    self.process_row(ws, row, parser, engine)
+
+                    self.print_progress()
+
+                    # ==================================================
+                    # SAVE EVERY 20
+                    # ==================================================
 
                     if (
                             self.processed_rows
                             % 20
                             == 0
                     ):
-                        wb.save(self.result_path)
-                        self.log("Файл сохранён")
+                        wb.save(
+                            self.result_path
+                        )
 
-                except Exception as e:
+                        self.log(
+                            "Файл сохранён"
+                        )
 
-                    self.log(traceback.format_exc())
+                finally:
 
-                    continue
+                    self.worker_result_queue.task_done()
 
-            wb.save(self.result_path)
+        except Exception:
+
+            self.log(
+                traceback.format_exc()
+            )
 
         finally:
 
-            parser.disconnect()
-        self.print_summary()
+            # ======================================================
+            # ЖДЁМ ЗАВЕРШЕНИЯ ВСЕХ WORKER-ОВ
+            # ======================================================
 
-    def process_row(self, ws, row, parser, engine):
+            for thread in self.worker_threads:
+                thread.join()
 
-        url = self.get_url_from_row(ws, row)
+            # ======================================================
+            # ФИНАЛЬНОЕ СОХРАНЕНИЕ EXCEL
+            # ======================================================
 
-        if not url:
-            return
-
-        self.log(f"\nСтрока {row}")
-        self.log(f"URL: {url}")
-        cached_card = self.get_cached_card(url)
-
-        if cached_card:
-
-            self.log("CARD CACHE: найдено ранее обработанное URL")
-
-            description = (
-                    cached_card.get("display_name")
-                    or cached_card.get("product")
-                    or cached_card.get("description")
-                    or ""
+            wb.save(
+                self.result_path
             )
-            code = str(cached_card.get("code", "")).strip()
 
-            if description:
-                ws[f"B{row}"] = description
-
-            if code and code not in ("0", "nan"):
-
-                try:
-                    ws[f"C{row}"] = int(code)
-                except ValueError:
-                    ws[f"C{row}"] = code
-
-                self.found_count += 1
-                self.log(f"CACHE Описание: {description}")
-                self.log(f"CACHE Код: {code}")
-
-            else:
-                self.not_found_count += 1
-            self.cached_count += 1
-            self.print_progress()
-
-            if self.stats_callback:
-                self.stats_callback(
-                    self.total_rows,
-                    self.processed_rows,
-                    self.found_count,
-                    self.not_found_count
-                )
-            return
-
-        card = parser.parse_url(url)
-        self.pause_event.wait()
-        excel_name = str(ws[f"B{row}"].value or "").strip()
-
-        if excel_name:
-            card.excel_title = excel_name
-        result = engine.decide(card)
-        self.pause_event.wait()
-        ws[f"K{row}"] = "Да" if result.new_product else ""
-        ws[f"L{row}"] = "Да" if result.new_dropdown else ""
-        self.decision_logger.save(card, result)
-        self.learning_buffer.append({
-            "url": card.url,
-            "title": card.title,
-            "description": card.description,
-            "product": result.product,
-            "code": result.code,
-            "material": result.material
-        })
-
-        original = ws[f"B{row}"].value
-
-        if result.dropdown:
-            ws[f"B{row}"] = result.dropdown
-        elif result.product:
-            ws[f"B{row}"] = result.product
-        else:
-            ws[f"B{row}"] = original
-
-        if result.code:
+            # ======================================================
+            # ТОЛЬКО ЗДЕСЬ закрываем bootstrap parser.
+            #
+            # close_browser=True закрывает общий браузер.
+            # ======================================================
 
             try:
-                ws[f"C{row}"] = int(result.code)
-            except ValueError:
-                ws[f"C{row}"] = result.code
 
-        if result.code:
+                bootstrap_parser.disconnect(
+                    close_browser=True
+                )
 
-            self.found_count += 1
-            self.log(f"Описание: {result.dropdown}")
-            self.log(f"Товар: {result.product}")
-            self.log(f"Материал: {result.material}")
-            self.log(f"Код: {result.code}")
-            self.log(f"Источник: {result.source}")
-            self.log(f"Уверенность: {result.confidence}%")
-            if result.review:self.log("⚠ Требуется проверка")
+            except Exception:
 
-        else:
+                self.log(
+                    traceback.format_exc()
+                )
 
-            self.not_found_count += 1
-            self.log(f"Описание: {result.product}")
-            self.log("Код не найден")
-        self.print_progress()
-        delay = random.uniform(2.0,4.0)
+        self.print_summary()
 
-        if self.stats_callback:
-            self.stats_callback(
-                self.total_rows,
-                self.processed_rows,
-                self.found_count,
-                self.not_found_count
+    def worker_loop(self, task_queue, engine):
+        """
+        Постоянный worker-поток.
+
+        Один поток:
+            1. создаёт свой CDPProductParser
+            2. подключается к браузеру
+            3. обрабатывает несколько URL
+            4. отключает parser
+            5. завершается
+
+        В результате Playwright никогда не передаётся
+        между потоками.
+        """
+
+        parser = None
+
+        try:
+            # ------------------------------------------------------
+            # Каждый worker получает СОБСТВЕННЫЙ parser
+            # ------------------------------------------------------
+
+            parser = CDPProductParser()
+            parser.connect()
+
+            self.log(
+                f"[{threading.current_thread().name}] "
+                f"CDP parser подключён"
             )
-        end = time.time() + delay
 
-        while time.time() < end:
+            # ------------------------------------------------------
+            # Обрабатываем задачи
+            # ------------------------------------------------------
 
-            self.pause_event.wait()
+            while True:
 
-            if self.stop_requested:
-                return
+                task = task_queue.get()
 
-            time.sleep(0.2)
+                try:
+
+                    # Специальная команда завершения
+                    if task is None:
+                        return
+
+                    row, url, excel_name = task
+
+                    # ----------------------------------------------
+                    # STOP
+                    # ----------------------------------------------
+
+                    if self.stop_requested:
+                        self.worker_result_queue.put({
+                            "row": row,
+                            "url": url,
+                            "stopped": True,
+                        })
+
+                        continue
+
+                    # ----------------------------------------------
+                    # PAUSE
+                    # ----------------------------------------------
+
+                    self.pause_event.wait()
+
+                    if self.stop_requested:
+                        self.worker_result_queue.put({
+                            "row": row,
+                            "url": url,
+                            "stopped": True,
+                        })
+
+                        continue
+
+                    # ----------------------------------------------
+                    # CACHE
+                    # ----------------------------------------------
+
+                    cached_card = self.get_cached_card(url)
+
+                    if cached_card:
+                        self.worker_result_queue.put({
+                            "row": row,
+                            "url": url,
+                            "cached": True,
+                            "cached_card": cached_card,
+                        })
+
+                        continue
+
+                    # ----------------------------------------------
+                    # LOG
+                    # ----------------------------------------------
+
+                    self.log(
+                        f"[{threading.current_thread().name}] "
+                        f"Строка {row}: {url}"
+                    )
+
+                    # ----------------------------------------------
+                    # Ozon
+                    # ----------------------------------------------
+
+                    card = parser.parse_url(url)
+
+                    # ----------------------------------------------
+                    # Excel title
+                    # ----------------------------------------------
+
+                    if excel_name:
+                        card.excel_title = excel_name
+
+                    # ----------------------------------------------
+                    # Pause
+                    # ----------------------------------------------
+
+                    self.pause_event.wait()
+
+                    if self.stop_requested:
+                        self.worker_result_queue.put({
+                            "row": row,
+                            "url": url,
+                            "card": card,
+                            "stopped": True,
+                        })
+
+                        continue
+
+                    # ----------------------------------------------
+                    # DecisionEngine
+                    #
+                    # Он изменяет общий CardRepository.
+                    # Поэтому только один worker за раз.
+                    # ----------------------------------------------
+
+                    with self.engine_lock:
+
+                        result = engine.decide(card)
+
+                    # ----------------------------------------------
+                    # Передаём результат главному потоку
+                    # ----------------------------------------------
+
+                    self.worker_result_queue.put({
+                        "row": row,
+                        "url": url,
+                        "cached": False,
+                        "card": card,
+                        "result": result,
+                    })
+
+                except Exception as e:
+
+                    self.worker_result_queue.put({
+                        "row": row,
+                        "url": url,
+                        "error": e,
+                        "traceback": traceback.format_exc(),
+                    })
+
+                finally:
+
+                    task_queue.task_done()
+
+        finally:
+
+            # ------------------------------------------------------
+            # КРИТИЧЕСКИ ВАЖНО:
+            #
+            # parser отключается внутри ТОГО ЖЕ потока,
+            # в котором был создан.
+            # ------------------------------------------------------
+
+            if parser is not None:
+
+                try:
+
+                    parser.disconnect(
+                        close_browser=False
+                    )
+
+                    self.log(
+                        f"[{threading.current_thread().name}] "
+                        f"CDP parser отключён"
+                    )
+
+                except Exception:
+
+                    self.log(
+                        traceback.format_exc()
+                    )
+
+    # ==========================================================
+    # PROGRESS
+    # ==========================================================
 
     def print_progress(self):
 
         remaining = (
-                self.total_rows
-                - self.processed_rows
+            self.total_rows
+            - self.processed_rows
         )
+
         self.log(
             (
                 f"Обработано: "
@@ -317,41 +996,90 @@ class OzonAutoProcessor:
             )
         )
 
+        if self.stats_callback:
+
+            self.stats_callback(
+                self.total_rows,
+                self.processed_rows,
+                self.found_count,
+                self.not_found_count,
+            )
+
+    # ==========================================================
+    # SUMMARY
+    # ==========================================================
+
     def print_summary(self):
 
         self.log("\n")
         self.log("=" * 60)
-        self.log("ОБРАБОТКА ЗАВЕРШЕНА")
-        self.log(f"Всего: {self.total_rows}")
-        self.log(f"Найдено: {self.found_count}")
-        self.log(f"Не найдено: " f"{self.not_found_count}")
-        self.log(f"Из кеша: {self.cached_count}")
+
+        self.log(
+            "ОБРАБОТКА ЗАВЕРШЕНА"
+        )
+
+        self.log(
+            f"Всего: {self.total_rows}"
+        )
+
+        self.log(
+            f"Найдено: {self.found_count}"
+        )
+
+        self.log(
+            f"Не найдено: "
+            f"{self.not_found_count}"
+        )
+
+        self.log(
+            f"Из кеша: "
+            f"{self.cached_count}"
+        )
 
         if self.total_rows:
+
             percent = round(
                 (
-                        self.found_count
-                        / self.total_rows
+                    self.found_count
+                    / self.total_rows
                 ) * 100,
-                2
+                2,
             )
 
-            self.log(f"Успешность: " f"{percent}%")
+            self.log(
+                f"Успешность: "
+                f"{percent}%"
+            )
+
         self.log("=" * 60)
-        elapsed = round(time.time() - self.start_time)
-        self.log(f"Время работы: " f"{elapsed} сек.")
+
+        elapsed = round(
+            time.time()
+            - self.start_time
+        )
+
+        self.log(
+            f"Время работы: "
+            f"{elapsed} сек."
+        )
 
         if self.processed_rows:
+
             avg = (
-                    elapsed
-                    / self.processed_rows
+                elapsed
+                / self.processed_rows
             )
-            self.log(f"Среднее на товар: " f"{avg:.2f} сек.")
+
+            self.log(
+                f"Среднее на товар: "
+                f"{avg:.2f} сек."
+            )
 
         if self.stats_callback:
+
             self.stats_callback(
                 self.total_rows,
                 self.total_rows,
                 self.found_count,
-                self.not_found_count
+                self.not_found_count,
             )
