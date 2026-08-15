@@ -2,10 +2,11 @@ import threading
 import traceback
 import time
 import queue
+import asyncio
 import openpyxl
 
 from learning.importer import load_learning_history
-from parser.cdp_product_parser import CDPProductParser
+from parser.cdp_product_parser import CDPProductParser, BLOCKED_RESOURCE_TYPES, log
 from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
 
@@ -41,9 +42,6 @@ class OzonAutoProcessor:
 
         self.pause_event = threading.Event()
         self.pause_event.set()
-        self.worker_local = threading.local()
-        self.worker_result_queue = queue.Queue()
-        self.worker_threads = []
 
         self.total_rows = 0
         self.processed_rows = 0
@@ -146,6 +144,454 @@ class OzonAutoProcessor:
         self.log(
             "Получена команда остановки..."
         )
+
+    async def async_worker(
+            self,
+            worker_id,
+            page,
+            task_queue,
+            result_queue,
+            engine,
+    ):
+        """
+        Один постоянный worker.
+
+        У worker-а одна постоянная вкладка.
+
+        Например:
+
+            Worker 1 -> Page 1
+            Worker 2 -> Page 2
+            Worker 3 -> Page 3
+            Worker 4 -> Page 4
+        """
+
+        parser = self.async_parser
+
+        self.log(
+            f"[OzonWorker-{worker_id}] "
+            f"готов"
+        )
+
+        while True:
+
+            task = await task_queue.get()
+
+            try:
+
+                if task is None:
+                    return
+
+                row, url, excel_name = task
+
+                # ==================================================
+                # STOP
+                # ==================================================
+
+                if self.stop_requested:
+                    await result_queue.put({
+                        "row": row,
+                        "url": url,
+                        "stopped": True,
+                    })
+
+                    continue
+
+                # ==================================================
+                # PAUSE
+                # ==================================================
+
+                while self.pause_requested:
+                    await asyncio.sleep(
+                        0.2
+                    )
+
+                if self.stop_requested:
+                    await result_queue.put({
+                        "row": row,
+                        "url": url,
+                        "stopped": True,
+                    })
+
+                    continue
+
+                # ==================================================
+                # CACHE
+                # ==================================================
+
+                cached_card = (
+                    self.get_cached_card(
+                        url
+                    )
+                )
+
+                if cached_card:
+                    await result_queue.put({
+                        "row": row,
+                        "url": url,
+                        "cached": True,
+                        "cached_card": cached_card,
+                    })
+
+                    continue
+
+                # ==================================================
+                # LOG
+                # ==================================================
+
+                self.log(
+                    f"[OzonWorker-{worker_id}] "
+                    f"Строка {row}: {url}"
+                )
+
+                # ==================================================
+                # PARSE
+                # ==================================================
+
+                card = await parser.parse_url_async(
+                    page,
+                    url,
+                )
+
+                # ==================================================
+                # EXCEL TITLE
+                # ==================================================
+
+                if excel_name:
+                    card.excel_title = (
+                        excel_name
+                    )
+
+                # ==================================================
+                # RESULT
+                # ==================================================
+
+                await result_queue.put({
+                    "row": row,
+                    "url": url,
+                    "cached": False,
+                    "card": card,
+                })
+
+            except Exception as exc:
+
+                await result_queue.put({
+                    "row": task[0],
+                    "url": task[1],
+                    "error": exc,
+                    "traceback": traceback.format_exc(),
+                })
+
+            finally:
+
+                task_queue.task_done()
+
+    async def _run_async(
+            self,
+            rows_to_process,
+            ws,
+            wb,
+            engine,
+    ):
+        """
+        Главный async pipeline.
+
+        Один Playwright connection.
+        Один Browser Context.
+        Четыре постоянные страницы.
+        """
+
+        self.async_parser = (
+            CDPProductParser()
+        )
+
+        # ======================================================
+        # ONE CDP CONNECTION
+        # ======================================================
+
+        await self.async_parser.connect_async()
+
+        context = (
+            self.async_parser.async_context
+        )
+
+        self.log(
+            "CDP подключён. "
+            "Создаём постоянные вкладки..."
+        )
+
+        # ======================================================
+        # 4 ПОСТОЯННЫЕ ВКЛАДКИ
+        # ======================================================
+
+        worker_count = min(
+            self.MAX_WORKERS,
+            len(rows_to_process),
+        )
+
+        pages = []
+
+        for index in range(
+                worker_count
+        ):
+
+            page = await context.new_page()
+
+            # Блокируем только тяжёлые ресурсы.
+            # Картинки блокируем как раньше —
+            # URL изображений берутся из HTML/srcset.
+            async def route_handler(
+                    route
+            ):
+
+                try:
+
+                    if (
+                            route.request.resource_type
+                            in BLOCKED_RESOURCE_TYPES
+                    ):
+
+                        await route.abort()
+
+                    else:
+
+                        await route.continue_()
+
+                except Exception:
+
+                    try:
+                        await route.continue_()
+                    except Exception:
+                        pass
+
+            await page.route(
+                "**/*",
+                route_handler,
+            )
+
+            pages.append(page)
+
+            self.log(
+                f"[OzonWorker-{index + 1}] "
+                f"Page создана"
+            )
+
+        # ======================================================
+        # QUEUES
+        # ======================================================
+
+        task_queue = asyncio.Queue()
+
+        result_queue = asyncio.Queue()
+
+        # ======================================================
+        # ЗАДАЧИ
+        # ======================================================
+
+        for task in rows_to_process:
+
+            if self.stop_requested:
+                break
+
+            await task_queue.put(
+                task
+            )
+
+        # ======================================================
+        # WORKERS
+        # ======================================================
+
+        workers = []
+
+        for index, page in enumerate(
+                pages
+        ):
+            workers.append(
+                asyncio.create_task(
+                    self.async_worker(
+                        index + 1,
+                        page,
+                        task_queue,
+                        result_queue,
+                        engine,
+                    )
+                )
+            )
+
+        # ======================================================
+        # STOP SIGNAL
+        # ======================================================
+
+        for _ in workers:
+            await task_queue.put(
+                None
+            )
+
+        # ======================================================
+        # RESULTS
+        # ======================================================
+
+        completed = 0
+
+        try:
+
+            while (
+                    completed
+                    < len(rows_to_process)
+            ):
+
+                result_data = (
+                    await result_queue.get()
+                )
+
+                completed += 1
+
+                try:
+
+                    # ==============================================
+                    # ERROR
+                    # ==============================================
+
+                    if "error" in result_data:
+                        self.log(
+                            result_data.get(
+                                "traceback",
+                                "Неизвестная ошибка",
+                            )
+                        )
+
+                        self.processed_rows += 1
+
+                        self.print_progress()
+
+                        continue
+
+                    # ==============================================
+                    # STOP
+                    # ==============================================
+
+                    if result_data.get(
+                            "stopped"
+                    ):
+                        self.processed_rows += 1
+
+                        self.print_progress()
+
+                        continue
+
+                    row = result_data[
+                        "row"
+                    ]
+
+                    # ==============================================
+                    # CACHE
+                    # ==============================================
+
+                    if result_data.get(
+                            "cached"
+                    ):
+
+                        self.apply_cached_result(
+                            ws,
+                            row,
+                            result_data[
+                                "cached_card"
+                            ],
+                        )
+
+                        self.cached_count += 1
+
+                    # ==============================================
+                    # NORMAL CARD
+                    # ==============================================
+
+                    else:
+
+                        card = result_data[
+                            "card"
+                        ]
+
+                        # ------------------------------------------
+                        # DecisionEngine теперь выполняется здесь
+                        # ------------------------------------------
+
+                        with self.engine_lock:
+
+                            result = engine.decide(
+                                card
+                            )
+
+                        self.apply_result(
+                            ws,
+                            row,
+                            card,
+                            result,
+                        )
+
+                    # ==============================================
+                    # PROGRESS
+                    # ==============================================
+
+                    self.processed_rows += 1
+
+                    self.print_progress()
+
+                    # ==============================================
+                    # SAVE
+                    # ==============================================
+
+                    if (
+                            self.processed_rows
+                            % 20
+                            == 0
+                    ):
+                        wb.save(
+                            self.result_path
+                        )
+
+                        self.log(
+                            "Файл сохранён"
+                        )
+
+                finally:
+
+                    result_queue.task_done()
+
+        finally:
+
+            # ==================================================
+            # WAIT WORKERS
+            # ==================================================
+
+            await asyncio.gather(
+                *workers,
+                return_exceptions=True,
+            )
+
+            # ==================================================
+            # CLOSE 4 PAGES
+            # ==================================================
+
+            for page in pages:
+
+                try:
+
+                    await page.close()
+
+                except Exception:
+
+                    log.debug(
+                        "Ошибка закрытия страницы",
+                        exc_info=True,
+                    )
+
+            # ==================================================
+            # CLOSE PLAYWRIGHT
+            # ==================================================
+
+            await self.async_parser.disconnect_async(
+                close_browser=False
+            )
 
     # ==========================================================
     # URL
@@ -503,6 +949,24 @@ class OzonAutoProcessor:
         engine = DecisionEngine(
             learning_history
         )
+        try:
+
+            asyncio.run(
+                self._run_async(
+                    rows_to_process,
+                    ws,
+                    wb,
+                    engine,
+                )
+            )
+
+        finally:
+
+            wb.save(
+                self.result_path
+            )
+
+        self.print_summary()
 
         # ==========================================================
         # ЗАПУСК CDP
