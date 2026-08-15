@@ -17,16 +17,19 @@ Ozon не может менять без поломки собственной S
 """
 
 import json
+import asyncio
 import re
+import logging
 from bs4 import BeautifulSoup
 
+
+log = logging.getLogger(__name__)
 
 def parse_ozon_html(html: str) -> dict:
     # html.parser - встроен в стандартную библиотеку Python, не требует
     # установки внешних пакетов (в отличие от lxml). На размере одной
     # карточки товара разница в скорости не заметна.
     soup = BeautifulSoup(html, "html.parser")
-
     result = {
         "title": "",
         "description": "",
@@ -40,7 +43,6 @@ def parse_ozon_html(html: str) -> dict:
         "specs_count": 0,
         "material": "",
     }
-
     _parse_ld_json(soup, result)
     _parse_specs(soup, result)
     _parse_images(soup, result)
@@ -58,7 +60,6 @@ _MATERIAL_KEY_PRIORITY = (
     "материал изделия",
     "состав",
 )
-
 
 def _extract_material(result: dict) -> None:
     specs = result.get("specs", {})
@@ -225,21 +226,83 @@ def parse_ozon_page(page) -> dict:
     return parse_ozon_html(html)
 
 
-async def parse_ozon_page_async(page) -> dict:
+# Единый селектор для ожидания ЛЮБОГО признака готовой карточки товара.
+# ВАЖНО: это ОДИН вызов wait_for_selector с CSS-объединением через
+# запятую, а НЕ последовательный перебор селекторов в цикле. Playwright
+# возвращает управление, как только появляется ХОТЯ БЫ ОДИН из них -
+# в худшем случае ждём timeout один раз, а не N раз подряд (раньше тут
+# был цикл по 3 селектора с отдельным таймаутом на каждый - в худшем
+# случае 3x5с=15с впустую на один товар, и это же било по общей
+# скорости параллельной обработки).
+_READY_SELECTOR = (
+    "[data-widget='webCharacteristics'], "
+    "[data-widget='webGallery'], "
+    "script[type='application/ld+json']"
+)
+
+
+async def parse_ozon_page_async(page, timeout=15000) -> dict:
     """
-    То же самое, но для Playwright async API (используется в
-    AsyncCDPProductParser для параллельной обработки нескольких
-    товаров одновременно).
+    Асинхронный разбор уже открытой страницы Ozon.
+
+    ВАЖНО: таймаут ожидания селекторов НЕ считается фатальной ошибкой.
+    У Ozon бывают карточки без доставки в регион / снятые с продажи -
+    на такой странице нужных виджетов (webCharacteristics, webGallery,
+    ld+json) может не быть ВООБЩЕ, это не гонка времени, а факт. Раньше
+    в этом случае мы бросали исключение и весь товар пропускался
+    целиком - хотя build_product_card() умеет подставить название
+    товара из slug URL как fallback (card.slug), но до этого fallback
+    дело просто не доходило.
+
+    Теперь при таймауте мы не прерываем обработку, а пробуем всё равно
+    забрать HTML как есть (там может не быть характеристик/описания,
+    но build_product_card() возьмёт название из slug ссылки - товар
+    хотя бы попадёт в классификацию, а не потеряется полностью).
     """
-    await page.wait_for_selector(
-        "[data-widget='webCharacteristics'], "
-        "[data-widget='webGallery'], "
-        "script[type='application/ld+json']",
-        state="attached",
-        timeout=15000,
-    )
-    html = await page.content()
-    return parse_ozon_html(html)
+    selector_found = True
+
+    try:
+        await page.wait_for_selector(
+            _READY_SELECTOR,
+            state="attached",
+            timeout=timeout,
+        )
+    except Exception:
+        selector_found = False
+
+        try:
+            current_url = page.url
+        except Exception:
+            current_url = "<unknown>"
+
+        try:
+            title = await page.title()
+        except Exception:
+            title = "<unknown>"
+
+        log.warning(
+            "OZON SELECTOR TIMEOUT (не фатально, продолжаем с "
+            "тем что есть): url=%s title=%s",
+            current_url,
+            title,
+        )
+
+    try:
+        html = await page.content()
+    except Exception:
+        log.exception(
+            "Не удалось получить content() страницы даже после "
+            "таймаута селектора - страница, вероятно, недоступна"
+        )
+        html = ""
+
+    # ======================================================
+    # СИНХРОННЫЙ HTML PARSER НЕ ДОЛЖЕН БЛОКИРОВАТЬ
+    # ASYNCIO EVENT LOOP
+    # ======================================================
+    data = await asyncio.to_thread(parse_ozon_html, html)
+    data["selector_found"] = selector_found
+    return data
 
 
 if __name__ == "__main__":

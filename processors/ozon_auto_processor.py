@@ -1,6 +1,7 @@
 import threading
 import traceback
 import time
+import random
 import asyncio
 import openpyxl
 
@@ -18,9 +19,27 @@ class OzonAutoProcessor:
 
     # ==========================================================
     # НАСТРОЙКА МНОГОПОТОЧНОСТИ
+    #
+    # Снижено с 4 до 2: на 4 воркерах результат стабильно хуже
+    # однопоточного (11/37 вместо ожидаемого улучшения) - похоже на
+    # антибот/перегрузку браузера при параллельной отрисовке тяжёлых
+    # SPA-страниц. Начинайте с 2 и поднимайте постепенно, только
+    # если на реальном файле результат стабильно не хуже, чем при
+    # меньшем значении.
     # ==========================================================
 
-    MAX_WORKERS = 4
+    MAX_WORKERS = 2
+
+    # Пауза между запросами ОДНОГО воркера. Без неё 4 вкладки бьют по
+    # Ozon без остановки, и после ~8-15 быстрых запросов подряд
+    # срабатывает антибот-защита - страница отдаётся урезанной, без
+    # нужных виджетов, и парсинг падает по таймауту сразу на всех
+    # товарах. Раньше эта пауза (random 2.0-4.0с) была в однопоточном
+    # коде между КАЖДЫМ товаром; теперь она на уровне каждого воркера -
+    # общая скорость всё равно кратно выше, потому что 4 воркера ждут
+    # параллельно, а не по очереди.
+    WORKER_DELAY_MIN = 1.5
+    WORKER_DELAY_MAX = 3.0
 
     def __init__(
             self,
@@ -117,30 +136,28 @@ class OzonAutoProcessor:
         self.pause_event.set()
         self.log("Получена команда остановки...")
 
-    async def async_worker(
-            self,
-            worker_id,
-            page,
-            task_queue,
-            result_queue,
-            engine,
-    ):
-        """
-        Один постоянный worker.
-        У worker-а одна постоянная вкладка.
-        Например:
-            Worker 1 -> Page 1
-            Worker 2 -> Page 2
-            Worker 3 -> Page 3
-            Worker 4 -> Page 4
-        """
-
-        parser = self.async_parser
+    async def async_worker(self, worker_id, page, task_queue, result_queue, engine):
 
         self.log(
             f"[OzonWorker-{worker_id}] "
-            f"готов"
+            f"запущен"
         )
+        first_task = True
+
+        # ==================================================
+        # СТАРТОВЫЙ РАЗБРОС
+        #
+        # Раньше пауза пропускалась перед ПЕРВЫМ запросом каждого
+        # воркера ("if not first_task") - из-за этого все N воркеров
+        # стартовали и били по Ozon ОДНОВРЕМЕННО в первую же секунду,
+        # что и приводило к пачке из 2-4 вкладок, открывающихся разом,
+        # и повышенному риску капчи. Теперь у каждого воркера свой
+        # стартовый сдвиг, пропорциональный его номеру - они расходятся
+        # во времени с самого начала, а не только начиная со второго
+        # запроса.
+        # ==================================================
+        startup_delay = worker_id * random.uniform(1.0, 2.0)
+        await asyncio.sleep(startup_delay)
 
         while True:
 
@@ -189,6 +206,20 @@ class OzonAutoProcessor:
                     })
                     continue
                 # ==================================================
+                # АНТИБОТ-ПАУЗА (между запросами ОДНОГО воркера,
+                # включая первый - стартовый разброс выше решает
+                # только проблему одновременного старта ВСЕХ воркеров,
+                # а эта пауза нужна для каждого следующего запроса
+                # того же воркера).
+                # ==================================================
+                if not first_task:
+                    delay = random.uniform(
+                        self.WORKER_DELAY_MIN,
+                        self.WORKER_DELAY_MAX,
+                    )
+                    await asyncio.sleep(delay)
+                first_task = False
+                # ==================================================
                 # LOG
                 # ==================================================
                 self.log(
@@ -198,12 +229,12 @@ class OzonAutoProcessor:
                 # ==================================================
                 # PARSE
                 # ==================================================
-                card = await parser.parse_url_async(page, url)
+                card = await self.async_parser.parse_url_async(page, url)
                 # ==================================================
                 # EXCEL TITLE
                 # ==================================================
                 if excel_name:
-                    card.excel_title = (excel_name)
+                    card.excel_title = excel_name
                 # ==================================================
                 # RESULT
                 # ==================================================
@@ -224,13 +255,7 @@ class OzonAutoProcessor:
 
                 task_queue.task_done()
 
-    async def _run_async(
-            self,
-            rows_to_process,
-            ws,
-            wb,
-            engine,
-    ):
+    async def _run_async(self, rows_to_process, ws, wb, engine):
         """
         Главный async pipeline.
         Один Playwright connection.
@@ -252,46 +277,93 @@ class OzonAutoProcessor:
         # ======================================================
         # 4 ПОСТОЯННЫЕ ВКЛАДКИ
         # ======================================================
-        worker_count = min(
-            self.MAX_WORKERS,
-            len(rows_to_process),
-        )
-        pages = []
+        worker_count = min(self.MAX_WORKERS, len(rows_to_process))
+        # ======================================================
+        # ROUTE HANDLER (единственное определение - используется
+        # для ВСЕХ вкладок, и существующих, и новых. Раньше был
+        # дублирующийся локальный route_handler внутри цикла добора
+        # вкладок, из-за чего на новых вкладках регистрировалось
+        # ДВА обработчика маршрутов на один и тот же паттерн "**/*" -
+        # лишние накладные расходы на каждый сетевой запрос.)
+        # ======================================================
+        async def route_handler(route):
 
-        for index in range(
-                worker_count
-        ):
-            page = await context.new_page()
+            try:
+                if (
+                        route.request.resource_type
+                        in BLOCKED_RESOURCE_TYPES
+                ):
+                    await route.abort()
 
-            # Блокируем только тяжёлые ресурсы.
-            # Картинки блокируем как раньше —
-            # URL изображений берутся из HTML/srcset.
-            async def route_handler(
-                    route
-            ):
+                else:
+                    await route.continue_()
+            except Exception:
                 try:
-                    if (
-                            route.request.resource_type
-                            in BLOCKED_RESOURCE_TYPES
-                    ):
-                        await route.abort()
-                    else:
-                        await route.continue_()
+                    await route.continue_()
                 except Exception:
-                    try:
-                        await route.continue_()
-                    except Exception:
-                        pass
+                    pass
+        # ======================================================
+        # ПОЛУЧАЕМ УЖЕ СУЩЕСТВУЮЩИЕ ВКЛАДКИ
+        # ======================================================
+        pages = [
+            page
+            for page in context.pages
+            if not page.is_closed()
+        ]
+        self.log(f"Существующих вкладок: {len(pages)}")
+        # ======================================================
+        # ЕСЛИ НЕТ ВКЛАДОК — СОЗДАЁМ ПЕРВУЮ
+        # ======================================================
+        if not pages:
+
+            page = (await self.async_parser.async_browser.new_page())
+            pages.append(page)
+        # ======================================================
+        # ДОБИРАЕМ ВКЛАДКИ ДО worker_count
+        # ======================================================
+        while len(pages) < worker_count:
+
+            page = await context.new_page()
+            pages.append(page)
+
+            self.log(
+                f"[OzonWorker-{len(pages)}] "
+                f"Page готова: {page.url}"
+            )
+            # --------------------------------------------------
+            # Пауза между созданием вкладок
+            # --------------------------------------------------
+            if len(pages) < worker_count:
+                await asyncio.sleep(0.5)
+        # ======================================================
+        # НАСТРАИВАЕМ ВСЕ РАБОЧИЕ ВКЛАДКИ (ровно один route на
+        # каждую, включая уже существующие)
+        # ======================================================
+        for index, page in enumerate(
+                pages[:worker_count],
+                start=1,
+        ):
             await page.route(
                 "**/*",
                 route_handler,
             )
-            pages.append(page)
-
             self.log(
-                f"[OzonWorker-{index + 1}] "
-                f"Page создана"
+                f"[OzonWorker-{index}] "
+                f"Page готова: {page.url}"
             )
+        # ======================================================
+        # ЕСЛИ БРАУЗЕР БЫЛ ЗАПУЩЕН С ЛИШНИМИ ВКЛАДКАМИ
+        # ======================================================
+        if len(pages) > worker_count:
+
+            for page in pages[worker_count:]:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+
+            pages = pages[:worker_count]
+        self.log(f"Рабочих вкладок: {len(pages)}")
         # ======================================================
         # QUEUES
         # ======================================================
@@ -416,17 +488,11 @@ class OzonAutoProcessor:
                             % 20
                             == 0
                     ):
-                        wb.save(
-                            self.result_path
-                        )
+                        wb.save(self.result_path)
+                        self.log("Файл сохранён")
 
-                        self.log(
-                            "Файл сохранён"
-                        )
                 finally:
-
                     result_queue.task_done()
-
         finally:
             # ==================================================
             # WAIT WORKERS
@@ -519,17 +585,7 @@ class OzonAutoProcessor:
     # APPLY NORMAL RESULT
     # ==========================================================
 
-    def apply_result(
-            self,
-            ws,
-            row,
-            card,
-            result,
-    ):
-        # ------------------------------------------------------
-        # Excel title
-        # ------------------------------------------------------
-
+    def apply_result(self, ws, row, card, result):
         # ВАЖНО:
         # card.excel_title должен быть установлен ДО decide().
         #
@@ -572,28 +628,19 @@ class OzonAutoProcessor:
         original = ws[f"B{row}"].value
 
         if result.dropdown:
-
             ws[f"B{row}"] = (result.dropdown)
-
         elif result.product:
-
             ws[f"B{row}"] = (result.product)
-
         else:
-
             ws[f"B{row}"] = original
         # ------------------------------------------------------
         # C
         # ------------------------------------------------------
         if result.code:
             try:
-                ws[f"C{row}"] = int(
-                    result.code
-                )
+                ws[f"C{row}"] = int(result.code)
             except ValueError:
-                ws[f"C{row}"] = (
-                    result.code
-                )
+                ws[f"C{row}"] = (result.code)
         # ------------------------------------------------------
         # Statistics
         # ------------------------------------------------------
@@ -601,633 +648,100 @@ class OzonAutoProcessor:
         if result.code:
 
             self.found_count += 1
-
-            self.log(
-                f"Описание: {result.dropdown}"
-            )
-
-            self.log(
-                f"Товар: {result.product}"
-            )
-
-            self.log(
-                f"Материал: {result.material}"
-            )
-
-            self.log(
-                f"Код: {result.code}"
-            )
-
-            self.log(
-                f"Источник: {result.source}"
-            )
-
+            self.log(f"Описание: {result.dropdown}")
+            self.log(f"Товар: {result.product}")
+            self.log(f"Материал: {result.material}")
+            self.log(f"Код: {result.code}")
+            self.log(f"Источник: {result.source}")
             self.log(
                 f"Уверенность: "
                 f"{result.confidence}%"
             )
-
             if result.review:
                 self.log(
                     "⚠ Требуется проверка"
                 )
-
         else:
 
             self.not_found_count += 1
-
             self.log(
                 f"Описание: "
                 f"{result.product}"
             )
-
-            self.log(
-                "Код не найден"
-            )
-
+            self.log("Код не найден")
     # ==========================================================
     # RUN
     # ==========================================================
-
     def run(self):
 
         self.start_time = time.time()
-
-        self.log(
-            "Открытие Excel..."
-        )
-
-        wb = openpyxl.load_workbook(
-            self.excel_path
-        )
-
+        self.log("Открытие Excel...")
+        wb = openpyxl.load_workbook(self.excel_path)
         ws = wb.active
-
         rows_to_process = []
-
         # ==========================================================
         # СОБИРАЕМ СТРОКИ
         # ==========================================================
+        for row in range(2, ws.max_row + 1):
 
-        for row in range(
-                2,
-                ws.max_row + 1
-        ):
-
-            url = self.get_url_from_row(
-                ws,
-                row,
-            )
-
-            current_code = (
-                ws[f"C{row}"].value
-            )
+            url = self.get_url_from_row(ws, row)
+            current_code = ws[f"C{row}"].value
 
             if self.skip_filled:
 
-                if current_code not in (
-                        None,
-                        "",
-                        0,
-                ):
+                if current_code not in (None, "", 0):
                     continue
 
             if url:
-                excel_name = str(
-                    ws[f"B{row}"].value
-                    or ""
-                ).strip()
-
-                rows_to_process.append(
-                    (
-                        row,
-                        url,
-                        excel_name,
-                    )
-                )
+                excel_name = str(ws[f"B{row}"].value or "").strip()
+                rows_to_process.append((row, url, excel_name))
         # ==========================================================
         # LIMIT
         # ==========================================================
         if self.limit:
-            rows_to_process = (
-                rows_to_process[
-                :self.limit
-                ]
-            )
-        self.total_rows = len(
-            rows_to_process
-        )
+            rows_to_process = (rows_to_process[ :self.limit])
+        self.total_rows = len(rows_to_process)
         self.log(
             f"Всего строк: "
             f"{self.total_rows}"
         )
+
         if not rows_to_process:
-            wb.save(
-                self.result_path
-            )
+
+            wb.save(self.result_path)
             self.print_summary()
 
             return
         # ==========================================================
         # LEARNING HISTORY
         # ==========================================================
-
         learning_history = (load_learning_history(self.excel_path))
-        engine = DecisionEngine(learning_history
-                                )
+        engine = DecisionEngine(learning_history)
+        # ==========================================================
+        # ASYNC PARSING
+        # ==========================================================
         try:
 
-            asyncio.run(
-                self._run_async(
-                    rows_to_process,
-                    ws,
-                    wb,
-                    engine,
-                )
-            )
+            asyncio.run(self._run_async(rows_to_process, ws, wb, engine))
+
+        except Exception:
+
+            self.log(traceback.format_exc())
+
+            raise
         finally:
 
             wb.save(self.result_path)
         self.print_summary()
-        # ==========================================================
-        # ЗАПУСК CDP
-        # ==========================================================
-        #
-        # Этот parser нужен только для гарантированного запуска
-        # браузера/CDP.
-        #
-        # Он НЕ занимается товарами.
-        # ==========================================================
-
-        bootstrap_parser = (CDPProductParser())
-        bootstrap_parser.connect()
-
-        self.log(
-            "CDP браузер готов."
-        )
-
-        # ==========================================================
-        # ОЧЕРЕДЬ ЗАДАЧ
-        # ==========================================================
-
-        task_queue = queue.Queue()
-
-        # ==========================================================
-        # СОЗДАЁМ 4 ПОСТОЯННЫХ WORKER-А
-        # ==========================================================
-
-        worker_count = min(
-            self.MAX_WORKERS,
-            len(rows_to_process),
-        )
-
-        self.log(
-            f"Запускаем "
-            f"{worker_count} worker-а"
-        )
-
-        self.worker_threads = []
-
-        for index in range(
-                worker_count
-        ):
-            thread = threading.Thread(
-                target=self.worker_loop,
-                args=(
-                    task_queue,
-                    engine,
-                ),
-                name=f"OzonWorker-{index + 1}",
-                daemon=True,
-            )
-
-            thread.start()
-
-            self.worker_threads.append(
-                thread
-            )
-
-        # ==========================================================
-        # ЗАПОЛНЯЕМ ОЧЕРЕДЬ
-        # ==========================================================
-
-        for task in rows_to_process:
-
-            if self.stop_requested:
-                break
-
-            task_queue.put(task)
-
-        # ==========================================================
-        # СТОП-СИГНАЛЫ ДЛЯ WORKER-ОВ
-        # ==========================================================
-        #
-        # Каждый worker получает None и завершает свой цикл.
-        # ==========================================================
-
-        for _ in range(worker_count):
-            task_queue.put(None)
-
-        # ==========================================================
-        # ГЛАВНЫЙ ЦИКЛ
-        # ==========================================================
-        #
-        # Worker-ы парсят.
-        #
-        # Главный поток получает готовые результаты
-        # и единственный изменяет Excel.
-        # ==========================================================
-
-        completed = 0
-
-        try:
-
-            while completed < len(
-                    rows_to_process
-            ):
-
-                try:
-
-                    result_data = (
-                        self.worker_result_queue.get(
-                            timeout=0.5
-                        )
-                    )
-
-                except queue.Empty:
-
-                    # Проверяем, не завершились ли worker-ы
-                    # неожиданно.
-
-                    if all(
-                            not thread.is_alive()
-                            for thread in self.worker_threads
-                    ):
-                        break
-
-                    continue
-
-                try:
-
-                    completed += 1
-
-                    # ==================================================
-                    # ОШИБКА WORKER
-                    # ==================================================
-
-                    if "error" in result_data:
-                        self.log(
-                            result_data.get(
-                                "traceback",
-                                "Неизвестная ошибка",
-                            )
-                        )
-
-                        self.processed_rows += 1
-
-                        self.print_progress()
-
-                        continue
-
-                    # ==================================================
-                    # STOP
-                    # ==================================================
-
-                    if result_data.get(
-                            "stopped"
-                    ):
-                        self.processed_rows += 1
-
-                        self.print_progress()
-
-                        continue
-
-                    row = result_data[
-                        "row"
-                    ]
-
-                    # ==================================================
-                    # CACHE
-                    # ==================================================
-
-                    if result_data.get(
-                            "cached"
-                    ):
-
-                        cached_card = (
-                            result_data[
-                                "cached_card"
-                            ]
-                        )
-
-                        self.apply_cached_result(
-                            ws,
-                            row,
-                            cached_card,
-                        )
-
-                        self.cached_count += 1
-
-                    # ==================================================
-                    # NORMAL RESULT
-                    # ==================================================
-
-                    else:
-
-                        card = (
-                            result_data[
-                                "card"
-                            ]
-                        )
-
-                        result = (
-                            result_data[
-                                "result"
-                            ]
-                        )
-
-                        self.apply_result(
-                            ws,
-                            row,
-                            card,
-                            result,
-                        )
-
-                    # ==================================================
-                    # PROGRESS
-                    # ==================================================
-
-                    self.processed_rows += 1
-
-                    self.print_progress()
-
-                    # ==================================================
-                    # SAVE EVERY 20
-                    # ==================================================
-
-                    if (
-                            self.processed_rows
-                            % 20
-                            == 0
-                    ):
-                        wb.save(
-                            self.result_path
-                        )
-
-                        self.log(
-                            "Файл сохранён"
-                        )
-
-                finally:
-
-                    self.worker_result_queue.task_done()
-
-        except Exception:
-
-            self.log(
-                traceback.format_exc()
-            )
-
-        finally:
-
-            # ======================================================
-            # ЖДЁМ ЗАВЕРШЕНИЯ ВСЕХ WORKER-ОВ
-            # ======================================================
-
-            for thread in self.worker_threads:
-                thread.join()
-
-            # ======================================================
-            # ФИНАЛЬНОЕ СОХРАНЕНИЕ EXCEL
-            # ======================================================
-
-            wb.save(
-                self.result_path
-            )
-
-            # ======================================================
-            # ТОЛЬКО ЗДЕСЬ закрываем bootstrap parser.
-            #
-            # close_browser=True закрывает общий браузер.
-            # ======================================================
-
-            try:
-
-                bootstrap_parser.disconnect(
-                    close_browser=True
-                )
-
-            except Exception:
-
-                self.log(
-                    traceback.format_exc()
-                )
-
-        self.print_summary()
-
-    def worker_loop(self, task_queue, engine):
-        """
-        Постоянный worker-поток.
-
-        Один поток:
-            1. создаёт свой CDPProductParser
-            2. подключается к браузеру
-            3. обрабатывает несколько URL
-            4. отключает parser
-            5. завершается
-
-        В результате Playwright никогда не передаётся
-        между потоками.
-        """
-
-        parser = None
-
-        try:
-            # ------------------------------------------------------
-            # Каждый worker получает СОБСТВЕННЫЙ parser
-            # ------------------------------------------------------
-
-            parser = CDPProductParser()
-            parser.connect()
-
-            self.log(
-                f"[{threading.current_thread().name}] "
-                f"CDP parser подключён"
-            )
-
-            # ------------------------------------------------------
-            # Обрабатываем задачи
-            # ------------------------------------------------------
-
-            while True:
-
-                task = task_queue.get()
-
-                try:
-
-                    # Специальная команда завершения
-                    if task is None:
-                        return
-
-                    row, url, excel_name = task
-
-                    # ----------------------------------------------
-                    # STOP
-                    # ----------------------------------------------
-
-                    if self.stop_requested:
-                        self.worker_result_queue.put({
-                            "row": row,
-                            "url": url,
-                            "stopped": True,
-                        })
-
-                        continue
-
-                    # ----------------------------------------------
-                    # PAUSE
-                    # ----------------------------------------------
-
-                    self.pause_event.wait()
-
-                    if self.stop_requested:
-                        self.worker_result_queue.put({
-                            "row": row,
-                            "url": url,
-                            "stopped": True,
-                        })
-
-                        continue
-
-                    # ----------------------------------------------
-                    # CACHE
-                    # ----------------------------------------------
-
-                    cached_card = self.get_cached_card(url)
-
-                    if cached_card:
-                        self.worker_result_queue.put({
-                            "row": row,
-                            "url": url,
-                            "cached": True,
-                            "cached_card": cached_card,
-                        })
-
-                        continue
-
-                    # ----------------------------------------------
-                    # LOG
-                    # ----------------------------------------------
-
-                    self.log(
-                        f"[{threading.current_thread().name}] "
-                        f"Строка {row}: {url}"
-                    )
-
-                    # ----------------------------------------------
-                    # Ozon
-                    # ----------------------------------------------
-
-                    card = parser.parse_url(url)
-
-                    # ----------------------------------------------
-                    # Excel title
-                    # ----------------------------------------------
-
-                    if excel_name:
-                        card.excel_title = excel_name
-
-                    # ----------------------------------------------
-                    # Pause
-                    # ----------------------------------------------
-
-                    self.pause_event.wait()
-
-                    if self.stop_requested:
-                        self.worker_result_queue.put({
-                            "row": row,
-                            "url": url,
-                            "card": card,
-                            "stopped": True,
-                        })
-
-                        continue
-
-                    # ----------------------------------------------
-                    # DecisionEngine
-                    #
-                    # Он изменяет общий CardRepository.
-                    # Поэтому только один worker за раз.
-                    # ----------------------------------------------
-
-                    with self.engine_lock:
-
-                        result = engine.decide(card)
-
-                    # ----------------------------------------------
-                    # Передаём результат главному потоку
-                    # ----------------------------------------------
-
-                    self.worker_result_queue.put({
-                        "row": row,
-                        "url": url,
-                        "cached": False,
-                        "card": card,
-                        "result": result,
-                    })
-
-                except Exception as e:
-
-                    self.worker_result_queue.put({
-                        "row": row,
-                        "url": url,
-                        "error": e,
-                        "traceback": traceback.format_exc(),
-                    })
-
-                finally:
-
-                    task_queue.task_done()
-
-        finally:
-
-            # ------------------------------------------------------
-            # КРИТИЧЕСКИ ВАЖНО:
-            #
-            # parser отключается внутри ТОГО ЖЕ потока,
-            # в котором был создан.
-            # ------------------------------------------------------
-
-            if parser is not None:
-
-                try:
-
-                    parser.disconnect(
-                        close_browser=False
-                    )
-
-                    self.log(
-                        f"[{threading.current_thread().name}] "
-                        f"CDP parser отключён"
-                    )
-
-                except Exception:
-
-                    self.log(
-                        traceback.format_exc()
-                    )
-
     # ==========================================================
     # PROGRESS
     # ==========================================================
-
     def print_progress(self):
 
         remaining = (
             self.total_rows
             - self.processed_rows
         )
-
         self.log(
             (
                 f"Обработано: "
@@ -1237,7 +751,6 @@ class OzonAutoProcessor:
                 f"{remaining}"
             )
         )
-
         if self.stats_callback:
 
             self.stats_callback(
@@ -1246,38 +759,24 @@ class OzonAutoProcessor:
                 self.found_count,
                 self.not_found_count,
             )
-
     # ==========================================================
     # SUMMARY
     # ==========================================================
-
     def print_summary(self):
 
         self.log("\n")
         self.log("=" * 60)
-
-        self.log(
-            "ОБРАБОТКА ЗАВЕРШЕНА"
-        )
-
-        self.log(
-            f"Всего: {self.total_rows}"
-        )
-
-        self.log(
-            f"Найдено: {self.found_count}"
-        )
-
+        self.log("ОБРАБОТКА ЗАВЕРШЕНА")
+        self.log(f"Всего: {self.total_rows}")
+        self.log(f"Найдено: {self.found_count}")
         self.log(
             f"Не найдено: "
             f"{self.not_found_count}"
         )
-
         self.log(
             f"Из кеша: "
             f"{self.cached_count}"
         )
-
         if self.total_rows:
 
             percent = round(
@@ -1287,36 +786,29 @@ class OzonAutoProcessor:
                 ) * 100,
                 2,
             )
-
             self.log(
                 f"Успешность: "
                 f"{percent}%"
             )
-
         self.log("=" * 60)
-
         elapsed = round(
             time.time()
             - self.start_time
         )
-
         self.log(
             f"Время работы: "
             f"{elapsed} сек."
         )
-
         if self.processed_rows:
 
             avg = (
                 elapsed
                 / self.processed_rows
             )
-
             self.log(
                 f"Среднее на товар: "
                 f"{avg:.2f} сек."
             )
-
         if self.stats_callback:
 
             self.stats_callback(

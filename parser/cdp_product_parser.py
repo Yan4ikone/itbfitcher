@@ -1,9 +1,7 @@
-import inspect
 import logging
 import os
 import subprocess
 import time
-import json
 
 import requests
 from playwright.async_api import async_playwright
@@ -13,8 +11,6 @@ from models.card_builder import build_product_card
 from parser.ozon_html_parser import (
     parse_ozon_page_async,
 )
-from parser.ozon_parser import OzonParser
-from parser.wb_parser import WBParser
 from processors.card_image_processor import CardImageProcessor
 from services.image_description_service import ImageDescriptionService
 
@@ -56,88 +52,220 @@ class CDPProductParser:
             return False
 
     def start_yandex_browser(self):
-        browser_path = r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe"
+        browser_path = (
+            r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe"
+        )
+
         if not os.path.exists(browser_path):
-            raise RuntimeError("Не найден Яндекс.Браузер")
+            raise RuntimeError(
+                f"Не найден Яндекс.Браузер: {browser_path}"
+            )
 
-        subprocess.Popen([browser_path, "--remote-debugging-port=9222"])
+        # ВАЖНО: НЕ используем повседневный профиль пользователя.
+        # Если параллельно открыт обычный Yandex Browser с тем же
+        # user-data-dir, Chromium просто активирует существующее окно
+        # и ПОЛНОСТЬЮ ИГНОРИРУЕТ новые флаги командной строки (включая
+        # --remote-debugging-port). В таком случае скрипт по факту
+        # подключается к порту 9222 от какого-то более раннего,
+        # осиротевшего процесса без реальных вкладок - отсюда
+        # "Существующих вкладок: 0" и ошибка при создании новой вкладки.
+        #
+        # Отдельный профиль для автоматизации решает проблему раз
+        # и навсегда: один раз залогиньтесь на Ozon в этом профиле
+        # вручную (запустите browser.exe с этим же --user-data-dir
+        # БЕЗ --remote-debugging-port и залогиньтесь), дальше сессия
+        # сохранится, и конфликтов с обычным браузером не будет,
+        # даже если он открыт параллельно на другом профиле.
+        user_data_dir = (
+            r"C:\Users\Yan\AppData\Local\YandexAutomationProfile"
+        )
+        profile_directory = "Default"
+        profile_path = os.path.join(
+            user_data_dir,
+            profile_directory,
+        )
 
-        for _ in range(20):
+        os.makedirs(profile_path, exist_ok=True)
+
+        log.info(
+            "Запускаем Yandex Browser (автоматизационный профиль)"
+        )
+        log.info(
+            "User Data: %s",
+            user_data_dir,
+        )
+        log.info(
+            "Profile: %s",
+            profile_directory,
+        )
+
+        subprocess.Popen(
+            [
+                browser_path,
+                # CDP
+                "--remote-debugging-port=9222",
+                "--remote-debugging-address=127.0.0.1",
+                f"--user-data-dir={user_data_dir}",
+                f"--profile-directory={profile_directory}",
+
+                "--no-first-run",
+                "--no-default-browser-check",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        # --------------------------------------------------
+        # Ждём CDP
+        # --------------------------------------------------
+        for attempt in range(30):
+
             if self.is_cdp_running():
+                log.info(
+                    "CDP 9222 доступен "
+                    "(попытка %d/30)",
+                    attempt + 1,
+                )
                 return
+
             time.sleep(1)
 
-        raise RuntimeError("Не удалось запустить CDP порт 9222")
+        raise RuntimeError(
+            "Yandex Browser запущен, "
+            "но CDP 9222 не стал доступен за 30 секунд"
+        )
 
     async def connect_async(self):
         """
-        Одно асинхронное Playwright/CDP-соединение
-        с уже работающим Yandex Browser.
-
-        ВАЖНО:
-        Этот объект должен использоваться только внутри
-        одного asyncio event loop.
+        Подключение к уже работающему Yandex Browser.
+        Если CDP 9222 уже доступен — НИЧЕГО не запускаем.
+        Если CDP отсутствует — запускаем Yandex и ждём CDP.
         """
+
         if not self.is_cdp_running():
+            log.info(
+                "CDP 9222 не найден. "
+                "Запускаем Yandex Browser."
+            )
             self.start_yandex_browser()
 
+        else:
+            log.info(
+                "CDP 9222 уже работает. "
+                "Используем существующий Yandex Browser."
+            )
+        # --------------------------------------------------
+        # Playwright
+        # --------------------------------------------------
         self.async_playwright = (
             await async_playwright().start()
         )
-
-        try:
-
-            self.async_browser = (
-                await self.async_playwright.chromium.connect_over_cdp(
-                    self.cdp_url
-                )
+        # --------------------------------------------------
+        # Подключение к CDP
+        # --------------------------------------------------
+        self.async_browser = (
+            await self.async_playwright.chromium.connect_over_cdp(
+                self.cdp_url
             )
+        )
+        # --------------------------------------------------
+        # Контекст
+        # --------------------------------------------------
+        if not self.async_browser.contexts:
+            raise RuntimeError(
+                "CDP подключён, но BrowserContext отсутствует"
+            )
+        self.async_context = (self.async_browser.contexts[0])
 
-        except Exception:
-
+        # --------------------------------------------------
+        # ЗАЩИТА ОТ "ОСИРОТЕВШЕГО" ПОДКЛЮЧЕНИЯ.
+        #
+        # Если сразу после connect_over_cdp вкладок 0 - это почти
+        # всегда значит, что порт 9222 отвечает от более раннего,
+        # уже мёртвого процесса браузера (например, оставшегося от
+        # предыдущего запуска скрипта), а не от только что стартовавшего
+        # us. Работать с таким контекстом нельзя - new_page() будет
+        # падать с "Cannot read properties of undefined (reading
+        # '_page')", потому что внутри browser process нет ни одного
+        # живого target'а, к которому можно прикрепиться.
+        #
+        # Даём процессу секунду на то, чтобы создать свою первую
+        # вкладку, и перепроверяем. Если и после этого пусто -
+        # считаем подключение нерабочим, убиваем browser.exe и
+        # заставляем вызывающий код начать заново (переподключиться
+        # к чистому процессу).
+        # --------------------------------------------------
+        if not self.async_context.pages:
             log.warning(
-                "Не удалось подключиться по CDP, "
-                "перезапускаю браузер",
-                exc_info=True,
+                "Сразу после подключения 0 вкладок - "
+                "возможно, порт 9222 отвечает от старого процесса. "
+                "Жду 1.5 сек и перепроверяю..."
             )
+            import asyncio
+            await asyncio.sleep(1.5)
 
+            if not self.async_context.pages:
+                log.error(
+                    "Вкладок всё ещё нет. Похоже, CDP-подключение "
+                    "ведёт к осиротевшему процессу браузера. "
+                    "Перезапускаю browser.exe с нуля."
+                )
+                try:
+                    await self.async_browser.close()
+                except Exception:
+                    pass
+                try:
+                    await self.async_playwright.stop()
+                except Exception:
+                    pass
+
+                self.kill_yandex_browser()
+                self.start_yandex_browser()
+
+                self.async_playwright = await async_playwright().start()
+                self.async_browser = (
+                    await self.async_playwright.chromium.connect_over_cdp(
+                        self.cdp_url
+                    )
+                )
+                if not self.async_browser.contexts:
+                    raise RuntimeError(
+                        "CDP подключён повторно, но BrowserContext "
+                        "всё равно отсутствует"
+                    )
+                self.async_context = self.async_browser.contexts[0]
+
+                if not self.async_context.pages:
+                    raise RuntimeError(
+                        "После перезапуска браузера вкладок всё ещё "
+                        "нет. Проверьте вручную: не открыт ли где-то "
+                        "ваш ОБЫЧНЫЙ Yandex Browser с тем же "
+                        "user-data-dir - это блокирует запуск нового "
+                        "процесса с флагом --remote-debugging-port."
+                    )
+
+        # --------------------------------------------------
+        # DEBUG
+        # --------------------------------------------------
+        log.info(
+            "CDP подключён. "
+            "Contexts=%d Pages=%d",
+            len(self.async_browser.contexts),
+            len(self.async_context.pages),
+        )
+        for index, page in enumerate(
+                self.async_context.pages,
+                start=1,
+        ):
             try:
-                await self.async_playwright.stop()
+                log.info(
+                    "CDP PAGE %d: %s",
+                    index,
+                    page.url,
+                )
             except Exception:
                 pass
 
-            self.kill_yandex_browser()
-            self.start_yandex_browser()
-
-            self.async_playwright = (
-                await async_playwright().start()
-            )
-
-            self.async_browser = (
-                await self.async_playwright.chromium.connect_over_cdp(
-                    self.cdp_url
-                )
-            )
-
-        if not self.async_browser.contexts:
-            raise RuntimeError(
-                "Не найден ни один контекст браузера"
-            )
-
-        self.async_context = (
-            self.async_browser.contexts[0]
-        )
-
-        log.info(
-            "Async CDP подключен"
-        )
-
-    async def parse_url_async(
-            self,
-            page,
-            url,
-            timeout=30000,
-    ):
+    async def parse_url_async(self, page, url, timeout=30000,):
         """
         Парсит URL в уже существующей вкладке.
         Вкладка НЕ создаётся и НЕ закрывается здесь.
@@ -149,13 +277,10 @@ class CDPProductParser:
             "OZON OPEN: %s",
             url,
         )
-        # ======================================================
-        # Навигация
-        # ======================================================
         try:
             await page.goto(
                 url,
-                wait_until="domcontentloaded",
+                wait_until="commit",
                 timeout=timeout,
             )
         except Exception as exc:
@@ -165,21 +290,12 @@ class CDPProductParser:
                 url,
                 exc_info=True,
             )
-            # --------------------------------------------------
-            # Не создаём новую вкладку.
-            #
-            # Останавливаем текущую навигацию.
-            # --------------------------------------------------
             try:
                 await page.evaluate(
                     "() => window.stop()"
                 )
             except Exception:
                 pass
-            # --------------------------------------------------
-            # Сбрасываем текущую страницу.
-            # Это та же самая вкладка.
-            # --------------------------------------------------
             try:
                 await page.goto(
                     "about:blank",
@@ -193,20 +309,13 @@ class CDPProductParser:
                     "на about:blank",
                     exc_info=True,
                 )
-            # --------------------------------------------------
-            # Одна повторная попытка
-            # --------------------------------------------------
-
             try:
 
-                log.info(
-                    "Повторный переход: %s",
-                    url,
-                )
+                log.info("Повторный переход: %s", url)
                 await page.goto(
                     url,
-                    wait_until="domcontentloaded",
-                    timeout=30000,
+                    wait_until="commit",
+                    timeout=timeout,
                 )
             except Exception:
 
@@ -216,20 +325,11 @@ class CDPProductParser:
                 )
                 raise
 
-        # Парсим DOM
-
         data = await parse_ozon_page_async(page)
-
-        # ProductCard
-
         card = build_product_card(
             url,
             data,
-            raw_text=data.get(
-                "description",
-                "",
-            ),
-        )
+            raw_text=data.get("description", ""))
         log.info(
             "Карточка построена: "
             "TITLE=%s "
@@ -295,146 +395,3 @@ class CDPProductParser:
                     "Ошибка остановки async Playwright",
                     exc_info=True,
                 )
-    # ------------------------------------------------------------------
-    # LEGACY / MULTI-MARKETPLACE PATH (уже открытые вкладки в браузере)
-    # ------------------------------------------------------------------
-
-    def wait_page_ready(self, page):
-        try:
-            page.wait_for_load_state("networkidle", timeout=7000)
-        except Exception:
-            log.debug("networkidle не наступил вовремя", exc_info=True)
-
-    def parse_page_text(self, page):
-        url = page.url.lower()
-
-        if "wildberries.ru" in url:
-            parser = WBParser()
-        else:
-            parser = OzonParser()
-
-        log.debug("Используется парсер: %s", inspect.getfile(type(parser)))
-
-        parsed = parser.parse_page(page)
-
-        try:
-            page.evaluate("() => window.stop()")
-        except Exception:
-            log.debug("Не удалось остановить загрузку страницы", exc_info=True)
-
-        card = build_product_card(page.url, parsed, parsed["raw_text"])
-        log.info(
-            "Карточка построена (legacy): TITLE=%s DESCRIPTION=%d IMAGES=%d",
-            bool(card.title),
-            len(card.description or ""),
-            len(card.images),
-        )
-        return card
-
-    def get_marketplace_pages(self):
-        result = []
-        for page in self.context.pages:
-            try:
-                url = page.url.lower()
-                if "ozon.ru" in url:
-                    result.append(("ozon", page))
-                elif "wildberries.ru" in url:
-                    result.append(("wb", page))
-            except Exception:
-                continue
-        return result
-
-    def parse_marketplace_page(self, page):
-        return self.parse_page_text(page)
-
-    def parse_open_pages(self):
-        result = []
-        for marketplace, page in self.get_marketplace_pages():
-            try:
-                result.append(self.parse_marketplace_page(page))
-            except Exception:
-                log.exception("Ошибка при парсинге открытой вкладки: %s", marketplace)
-        return result
-    # ------------------------------------------------------------------
-    # DEBUG-ONLY: ручная инспекция сетевых запросов страницы.
-    # Не используется в основном пайплайне. Пишет захваченные запросы/
-    # ответы в network_capture.json. Печатает только итог, не каждый
-    # запрос - если нужен подробный вывод при отладке, включите DEBUG
-    # уровень логирования для этого модуля.
-    # ------------------------------------------------------------------
-    def inspect_url_network(self, url, out_file="network_capture.json"):
-
-        captured = []
-        page = None
-
-        def on_request(request):
-            if request.resource_type not in ("xhr", "fetch"):
-                return
-            try:
-                captured.append({
-                    "type": "request",
-                    "method": request.method,
-                    "url": request.url,
-                    "resource_type": request.resource_type,
-                    "post_data": request.post_data,
-                })
-            except Exception:
-                log.debug("Не удалось прочитать request", exc_info=True)
-
-        def on_response(response):
-            request = response.request
-            if request.resource_type not in ("xhr", "fetch"):
-                return
-            try:
-                content_type = response.headers.get("content-type", "")
-                body = response.json() if "application/json" in content_type.lower() else response.text()
-            except Exception:
-                body = None
-
-            captured.append({
-                "type": "response",
-                "status": response.status,
-                "url": response.url,
-                "method": request.method,
-                "body": body,
-            })
-
-        try:
-            page = self.context.new_page()
-            page.route(
-                "**/*",
-                lambda route: route.abort()
-                if route.request.resource_type in ("image", "media", "font", "stylesheet")
-                else route.continue_(),
-            )
-            page.on("request", on_request)
-            page.on("response", on_response)
-
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            try:
-                page.wait_for_load_state("networkidle", timeout=10000)
-            except Exception:
-                pass
-            page.wait_for_timeout(3000)
-
-            unique_requests = {
-                (item["method"], item["url"]): item
-                for item in captured
-                if item.get("type") == "request"
-            }
-
-            with open(out_file, "w", encoding="utf-8") as f:
-                json.dump(captured, f, ensure_ascii=False, indent=2, default=str)
-
-            log.info(
-                "Сетевая инспекция сохранена: %s (%d уникальных запросов)",
-                out_file,
-                len(unique_requests),
-            )
-            return captured
-        finally:
-            if page:
-                try:
-                    page.close()
-                except Exception:
-                    pass
