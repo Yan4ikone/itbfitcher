@@ -1,7 +1,6 @@
 import threading
 import traceback
 import time
-import queue
 import asyncio
 import openpyxl
 
@@ -61,44 +60,28 @@ class OzonAutoProcessor:
 
         self.decision_logger = DecisionLogger()
         self.card_repository = CardRepository()
-
         # ------------------------------------------------------
         # Защита общей статистики
         # ------------------------------------------------------
-
         self.stats_lock = threading.Lock()
-
         # ------------------------------------------------------
         # DecisionEngine нельзя одновременно заставлять
         # писать CardRepository из нескольких потоков.
         # Поэтому decide() будет защищён этим lock.
         # ------------------------------------------------------
-
         self.engine_lock = threading.Lock()
-
-        # ------------------------------------------------------
-        # Thread-local storage.
-        #
-        # У каждого worker будет свой CDPProductParser.
-        # ------------------------------------------------------
-
-        self.worker_local = threading.local()
-
     # ==========================================================
     # LOG
     # ==========================================================
-
     def log(self, text):
 
         print(text)
 
         if self.logger:
             self.logger(text)
-
     # ==========================================================
     # CACHE
     # ==========================================================
-
     def get_cached_card(self, url):
 
         if not url:
@@ -110,28 +93,20 @@ class OzonAutoProcessor:
             return card
 
         return self.card_repository.find_by_normalized_url(url)
-
     # ==========================================================
     # PAUSE / RESUME / STOP
     # ==========================================================
-
     def pause(self):
 
         self.pause_requested = True
         self.pause_event.clear()
-
-        self.log(
-            "Обработка приостановлена"
-        )
+        self.log("Обработка приостановлена")
 
     def resume(self):
 
         self.pause_requested = False
         self.pause_event.set()
-
-        self.log(
-            "Обработка продолжена"
-        )
+        self.log("Обработка продолжена")
 
     def stop(self):
 
@@ -140,10 +115,7 @@ class OzonAutoProcessor:
         # Разбудить ожидающие worker,
         # чтобы они могли увидеть stop_requested.
         self.pause_event.set()
-
-        self.log(
-            "Получена команда остановки..."
-        )
+        self.log("Получена команда остановки...")
 
     async def async_worker(
             self,
@@ -155,11 +127,8 @@ class OzonAutoProcessor:
     ):
         """
         Один постоянный worker.
-
         У worker-а одна постоянная вкладка.
-
         Например:
-
             Worker 1 -> Page 1
             Worker 2 -> Page 2
             Worker 3 -> Page 3
@@ -178,52 +147,38 @@ class OzonAutoProcessor:
             task = await task_queue.get()
 
             try:
-
                 if task is None:
                     return
 
                 row, url, excel_name = task
-
                 # ==================================================
                 # STOP
                 # ==================================================
-
                 if self.stop_requested:
                     await result_queue.put({
                         "row": row,
                         "url": url,
                         "stopped": True,
                     })
-
                     continue
-
                 # ==================================================
                 # PAUSE
                 # ==================================================
-
                 while self.pause_requested:
                     await asyncio.sleep(
                         0.2
                     )
-
                 if self.stop_requested:
                     await result_queue.put({
                         "row": row,
                         "url": url,
                         "stopped": True,
                     })
-
                     continue
-
                 # ==================================================
                 # CACHE
                 # ==================================================
-
-                cached_card = (
-                    self.get_cached_card(
-                        url
-                    )
-                )
+                cached_card = (self.get_cached_card(url))
 
                 if cached_card:
                     await result_queue.put({
@@ -232,56 +187,39 @@ class OzonAutoProcessor:
                         "cached": True,
                         "cached_card": cached_card,
                     })
-
                     continue
-
                 # ==================================================
                 # LOG
                 # ==================================================
-
                 self.log(
                     f"[OzonWorker-{worker_id}] "
                     f"Строка {row}: {url}"
                 )
-
                 # ==================================================
                 # PARSE
                 # ==================================================
-
-                card = await parser.parse_url_async(
-                    page,
-                    url,
-                )
-
+                card = await parser.parse_url_async(page, url)
                 # ==================================================
                 # EXCEL TITLE
                 # ==================================================
-
                 if excel_name:
-                    card.excel_title = (
-                        excel_name
-                    )
-
+                    card.excel_title = (excel_name)
                 # ==================================================
                 # RESULT
                 # ==================================================
-
                 await result_queue.put({
                     "row": row,
                     "url": url,
                     "cached": False,
                     "card": card,
                 })
-
             except Exception as exc:
-
                 await result_queue.put({
                     "row": task[0],
                     "url": task[1],
                     "error": exc,
                     "traceback": traceback.format_exc(),
                 })
-
             finally:
 
                 task_queue.task_done()
@@ -295,46 +233,34 @@ class OzonAutoProcessor:
     ):
         """
         Главный async pipeline.
-
         Один Playwright connection.
         Один Browser Context.
         Четыре постоянные страницы.
         """
-
-        self.async_parser = (
-            CDPProductParser()
-        )
-
+        self.async_parser = (CDPProductParser())
         # ======================================================
         # ONE CDP CONNECTION
         # ======================================================
-
         await self.async_parser.connect_async()
 
-        context = (
-            self.async_parser.async_context
-        )
+        context = (self.async_parser.async_context)
 
         self.log(
             "CDP подключён. "
             "Создаём постоянные вкладки..."
         )
-
         # ======================================================
         # 4 ПОСТОЯННЫЕ ВКЛАДКИ
         # ======================================================
-
         worker_count = min(
             self.MAX_WORKERS,
             len(rows_to_process),
         )
-
         pages = []
 
         for index in range(
                 worker_count
         ):
-
             page = await context.new_page()
 
             # Блокируем только тяжёлые ресурсы.
@@ -343,64 +269,46 @@ class OzonAutoProcessor:
             async def route_handler(
                     route
             ):
-
                 try:
-
                     if (
                             route.request.resource_type
                             in BLOCKED_RESOURCE_TYPES
                     ):
-
                         await route.abort()
-
                     else:
-
                         await route.continue_()
-
                 except Exception:
-
                     try:
                         await route.continue_()
                     except Exception:
                         pass
-
             await page.route(
                 "**/*",
                 route_handler,
             )
-
             pages.append(page)
 
             self.log(
                 f"[OzonWorker-{index + 1}] "
                 f"Page создана"
             )
-
         # ======================================================
         # QUEUES
         # ======================================================
-
         task_queue = asyncio.Queue()
-
         result_queue = asyncio.Queue()
-
         # ======================================================
         # ЗАДАЧИ
         # ======================================================
-
         for task in rows_to_process:
-
             if self.stop_requested:
                 break
-
             await task_queue.put(
                 task
             )
-
         # ======================================================
         # WORKERS
         # ======================================================
-
         workers = []
 
         for index, page in enumerate(
@@ -417,41 +325,32 @@ class OzonAutoProcessor:
                     )
                 )
             )
-
         # ======================================================
         # STOP SIGNAL
         # ======================================================
-
         for _ in workers:
             await task_queue.put(
                 None
             )
-
         # ======================================================
         # RESULTS
         # ======================================================
-
         completed = 0
 
         try:
-
             while (
                     completed
                     < len(rows_to_process)
             ):
-
                 result_data = (
                     await result_queue.get()
                 )
-
                 completed += 1
 
                 try:
-
                     # ==============================================
                     # ERROR
                     # ==============================================
-
                     if "error" in result_data:
                         self.log(
                             result_data.get(
@@ -459,37 +358,24 @@ class OzonAutoProcessor:
                                 "Неизвестная ошибка",
                             )
                         )
-
                         self.processed_rows += 1
-
                         self.print_progress()
 
                         continue
-
                     # ==============================================
                     # STOP
                     # ==============================================
-
-                    if result_data.get(
-                            "stopped"
-                    ):
+                    if result_data.get("stopped"):
                         self.processed_rows += 1
-
                         self.print_progress()
 
                         continue
 
-                    row = result_data[
-                        "row"
-                    ]
-
+                    row = result_data["row"]
                     # ==============================================
                     # CACHE
                     # ==============================================
-
-                    if result_data.get(
-                            "cached"
-                    ):
+                    if result_data.get("cached"):
 
                         self.apply_cached_result(
                             ws,
@@ -498,48 +384,33 @@ class OzonAutoProcessor:
                                 "cached_card"
                             ],
                         )
-
                         self.cached_count += 1
-
                     # ==============================================
                     # NORMAL CARD
                     # ==============================================
-
                     else:
 
-                        card = result_data[
-                            "card"
-                        ]
-
+                        card = result_data["card"]
                         # ------------------------------------------
                         # DecisionEngine теперь выполняется здесь
                         # ------------------------------------------
-
                         with self.engine_lock:
 
-                            result = engine.decide(
-                                card
-                            )
-
+                            result = engine.decide(card)
                         self.apply_result(
                             ws,
                             row,
                             card,
                             result,
                         )
-
                     # ==============================================
                     # PROGRESS
                     # ==============================================
-
                     self.processed_rows += 1
-
                     self.print_progress()
-
                     # ==============================================
                     # SAVE
                     # ==============================================
-
                     if (
                             self.processed_rows
                             % 20
@@ -552,47 +423,34 @@ class OzonAutoProcessor:
                         self.log(
                             "Файл сохранён"
                         )
-
                 finally:
 
                     result_queue.task_done()
 
         finally:
-
             # ==================================================
             # WAIT WORKERS
             # ==================================================
-
             await asyncio.gather(
                 *workers,
                 return_exceptions=True,
             )
-
             # ==================================================
             # CLOSE 4 PAGES
             # ==================================================
-
             for page in pages:
-
                 try:
-
                     await page.close()
-
                 except Exception:
 
                     log.debug(
                         "Ошибка закрытия страницы",
                         exc_info=True,
                     )
-
             # ==================================================
             # CLOSE PLAYWRIGHT
             # ==================================================
-
-            await self.async_parser.disconnect_async(
-                close_browser=False
-            )
-
+            await self.async_parser.disconnect_async(close_browser=False)
     # ==========================================================
     # URL
     # ==========================================================
@@ -613,36 +471,7 @@ class OzonAutoProcessor:
                     and value.startswith("http")
             ):
                 return value
-
         return None
-
-    # ==========================================================
-    # WORKER PARSER
-    # ==========================================================
-
-    def get_worker_parser(self):
-
-        parser = getattr(
-            self.worker_local,
-            "parser",
-            None,
-        )
-
-        if parser is None:
-
-            parser = CDPProductParser()
-
-            parser.connect()
-
-            self.worker_local.parser = parser
-
-            self.log(
-                f"Worker parser подключён: "
-                f"{threading.current_thread().name}"
-            )
-
-        return parser
-
     # ==========================================================
     # APPLY CACHE RESULT
     # ==========================================================
@@ -653,14 +482,12 @@ class OzonAutoProcessor:
             row,
             cached_card,
     ):
-
         description = (
             cached_card.get("display_name")
             or cached_card.get("product")
             or cached_card.get("description")
             or ""
         )
-
         code = str(
             cached_card.get(
                 "code",
@@ -675,21 +502,14 @@ class OzonAutoProcessor:
                 "0",
                 "nan",
         ):
-
             try:
                 ws[f"C{row}"] = int(code)
             except ValueError:
                 ws[f"C{row}"] = code
 
             self.found_count += 1
-
-            self.log(
-                f"CACHE Описание: {description}"
-            )
-
-            self.log(
-                f"CACHE Код: {code}"
-            )
+            self.log(f"CACHE Описание: {description}")
+            self.log(f"CACHE Код: {code}")
 
         else:
 
@@ -706,7 +526,6 @@ class OzonAutoProcessor:
             card,
             result,
     ):
-
         # ------------------------------------------------------
         # Excel title
         # ------------------------------------------------------
@@ -720,32 +539,23 @@ class OzonAutoProcessor:
         #
         # Поэтому ниже ничего не меняем.
         # ------------------------------------------------------
-
         ws[f"K{row}"] = (
             "Да"
             if result.new_product
             else ""
         )
-
         ws[f"L{row}"] = (
             "Да"
             if result.new_dropdown
             else ""
         )
-
         # ------------------------------------------------------
         # Decision Logger
         # ------------------------------------------------------
-
-        self.decision_logger.save(
-            card,
-            result,
-        )
-
+        self.decision_logger.save(card, result)
         # ------------------------------------------------------
         # Learning buffer
         # ------------------------------------------------------
-
         self.learning_buffer.append(
             {
                 "url": card.url,
@@ -756,45 +566,34 @@ class OzonAutoProcessor:
                 "material": result.material,
             }
         )
-
         # ------------------------------------------------------
         # B
         # ------------------------------------------------------
-
         original = ws[f"B{row}"].value
 
         if result.dropdown:
 
-            ws[f"B{row}"] = (
-                result.dropdown
-            )
+            ws[f"B{row}"] = (result.dropdown)
 
         elif result.product:
 
-            ws[f"B{row}"] = (
-                result.product
-            )
+            ws[f"B{row}"] = (result.product)
 
         else:
 
             ws[f"B{row}"] = original
-
         # ------------------------------------------------------
         # C
         # ------------------------------------------------------
-
         if result.code:
-
             try:
                 ws[f"C{row}"] = int(
                     result.code
                 )
-
             except ValueError:
                 ws[f"C{row}"] = (
                     result.code
                 )
-
         # ------------------------------------------------------
         # Statistics
         # ------------------------------------------------------
@@ -906,49 +705,36 @@ class OzonAutoProcessor:
                         excel_name,
                     )
                 )
-
         # ==========================================================
         # LIMIT
         # ==========================================================
-
         if self.limit:
             rows_to_process = (
                 rows_to_process[
                 :self.limit
                 ]
             )
-
         self.total_rows = len(
             rows_to_process
         )
-
         self.log(
             f"Всего строк: "
             f"{self.total_rows}"
         )
-
         if not rows_to_process:
             wb.save(
                 self.result_path
             )
-
             self.print_summary()
 
             return
-
         # ==========================================================
         # LEARNING HISTORY
         # ==========================================================
 
-        learning_history = (
-            load_learning_history(
-                self.excel_path
-            )
-        )
-
-        engine = DecisionEngine(
-            learning_history
-        )
+        learning_history = (load_learning_history(self.excel_path))
+        engine = DecisionEngine(learning_history
+                                )
         try:
 
             asyncio.run(
@@ -959,15 +745,10 @@ class OzonAutoProcessor:
                     engine,
                 )
             )
-
         finally:
 
-            wb.save(
-                self.result_path
-            )
-
+            wb.save(self.result_path)
         self.print_summary()
-
         # ==========================================================
         # ЗАПУСК CDP
         # ==========================================================
@@ -978,10 +759,7 @@ class OzonAutoProcessor:
         # Он НЕ занимается товарами.
         # ==========================================================
 
-        bootstrap_parser = (
-            CDPProductParser()
-        )
-
+        bootstrap_parser = (CDPProductParser())
         bootstrap_parser.connect()
 
         self.log(
