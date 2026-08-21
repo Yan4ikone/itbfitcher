@@ -1,11 +1,8 @@
 import re
+from functools import lru_cache
 
 from dictionaries.all_dictionaries import REMOVE_WORDS
 
-
-# ==========================================================
-# REGEX
-# ==========================================================
 
 COUNT_PATTERNS = [
     r"\b\d+\s*шт\b",
@@ -19,10 +16,11 @@ COUNT_PATTERNS = [
     r"\b\d+\b",
 ]
 
+_COMPILED_COUNT_PATTERNS = [
+    re.compile(pattern, flags=re.IGNORECASE)
+    for pattern in COUNT_PATTERNS
+]
 
-# ==========================================================
-# TEXT CLEAN
-# ==========================================================
 
 def clean_dictionary_name(text: str) -> str:
 
@@ -38,13 +36,8 @@ def clean_dictionary_name(text: str) -> str:
     text = text.replace(")", " ")
     text = text.replace("-", " ")
 
-    for pattern in COUNT_PATTERNS:
-        text = re.sub(
-            pattern,
-            " ",
-            text,
-            flags=re.IGNORECASE,
-        )
+    for pattern in _COMPILED_COUNT_PATTERNS:
+        text = pattern.sub(" ", text)
 
     text = re.sub(r"\s+", " ", text)
 
@@ -62,11 +55,7 @@ def clean_dictionary_name(text: str) -> str:
 
     return " ".join(words).strip()
 
-
-# ==========================================================
-# FOR PRODUCTS
-# ==========================================================
-
+@lru_cache(maxsize=8192)
 def normalize_dictionary_name(text: str) -> str:
 
     return clean_dictionary_name(text)

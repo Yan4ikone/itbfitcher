@@ -176,6 +176,24 @@ class LearningAnalyzer:
             product_info = (self.runtime.get_product(product_name) or {})
 
             return (product_name, product_info)
+        # --------------------------------------------------
+        # КОД УЖЕ ИЗВЕСТЕН КАК ВАРИАНТ В DROPDOWN_LISTS.PY
+        #
+        # products.py и dropdown_lists.py - два разных словаря, и
+        # раньше сопоставление смотрело только в products.py. Если
+        # код уже существует как вариант дропдауна какого-то товара
+        # (например "контейнер" -> вариант "Текстиль" с этим кодом),
+        # это ЗНАКОМЫЙ код, а не новый товар - нельзя заводить для
+        # него отдельную несвязанную запись в products.py.
+        # --------------------------------------------------
+        dropdown_product = self._find_product_by_dropdown_code(code)
+        print("DROPDOWN MATCH:", dropdown_product)
+
+        if dropdown_product:
+            self._add_alias(report, dropdown_product, description)
+            product_info = (self.runtime.get_product(dropdown_product) or {})
+
+            return (dropdown_product, product_info)
 
         report.new_products.append(
             NewProduct(
@@ -187,6 +205,27 @@ class LearningAnalyzer:
         print("NEW PRODUCT:", description, code)
 
         return None, {}
+
+    # ==========================================================
+    # DROPDOWN CODE REVERSE LOOKUP
+    # ==========================================================
+    def _find_product_by_dropdown_code(self, code):
+
+        code = str(code).strip()
+
+        if not code:
+            return None
+
+        for product_name, dropdown in (self.runtime.dropdowns or {}).items():
+
+            variants = dropdown.get("variants", []) or []
+
+            for variant in variants:
+
+                if str(variant.get("code", "")).strip() == code:
+                    return product_name
+
+        return None
     # ==========================================================
     # PRODUCT NAME
     # ==========================================================
@@ -446,7 +485,7 @@ class LearningAnalyzer:
         if not alias:
             return
 
-        if not is_valid_alias(alias):
+        if not is_valid_alias(alias, product):
             print(
                 "ALIAS FILTER:",
                 repr(alias)
@@ -502,7 +541,7 @@ class LearningAnalyzer:
             if alias in aliases:
                 continue
 
-            if not is_valid_alias(alias):
+            if not is_valid_alias(alias, product_name):
                 print("ALIAS FILTER:", repr(alias))
                 continue
 

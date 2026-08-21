@@ -39,6 +39,8 @@ class ManualTeacher:
                 )
                 card = self.card_repository.find_by_url(url)
 
+                if not card:
+                    card = self.card_repository.find_by_normalized_url(url)
                 if card:
                     card["manual_description"] = description
                     card["manual_code"] = code

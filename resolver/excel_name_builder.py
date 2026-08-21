@@ -20,7 +20,6 @@ class ExcelNameBuilder:
             "ароматизатор",
             "диффузор",
         ]
-
         return any(x in text for x in keywords)
 
     def build(self, card, product):

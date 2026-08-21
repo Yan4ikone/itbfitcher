@@ -9,14 +9,9 @@ class ProductCandidates:
         self.extractor = ProductExtractor()
         self.variants = ProductVariants()
 
-    # ==========================================================
-    # PUBLIC
-    # ==========================================================
-
     def build(self, card):
 
         candidates = []
-
         self._append(
             candidates,
             card.clean_title,
@@ -24,7 +19,6 @@ class ProductCandidates:
             "TITLE",
             100,
         )
-
         self._append(
             candidates,
             card.clean_slug,
@@ -32,7 +26,6 @@ class ProductCandidates:
             "URL",
             90,
         )
-
         self._append(
             candidates,
             card.clean_description,
@@ -40,11 +33,6 @@ class ProductCandidates:
             "DESCRIPTION",
             70,
         )
-
-        #
-        # убираем дубли
-        #
-
         unique = {}
 
         for item in candidates:
@@ -56,36 +44,18 @@ class ProductCandidates:
                 or item["weight"] > unique[name]["weight"]
             ):
                 unique[name] = item
-
-        #
-        # сортировка
-        #
-
         result = sorted(
             unique.values(),
             key=lambda x: x["weight"],
             reverse=True,
         )
-
-        #
-        # сохраняем в карточку
-        #
-
         card.product_candidates = result
-
-        #
-        # совместимость
-        #
 
         if result:
 
             card.cleaned_text = result[0]["product"]
 
         return card
-
-    # ==========================================================
-    # INTERNAL
-    # ==========================================================
 
     def _append(self, result, text, quantity, source, weight):
 

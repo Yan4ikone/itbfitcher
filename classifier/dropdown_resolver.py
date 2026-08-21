@@ -43,19 +43,19 @@ class DropdownResolver:
 
                 return
 
-        first = data["variants"][0]
+        variants = data.get("variants", [])
 
+        if not variants:
+            return
+
+        first = variants[0]
         result.code = first["code"]
         result.dropdown_group = first.get("group", "")
-
         result.review = True
         result.source = "DROPDOWN_FIRST"
         result.confidence = 60
 
         result.alternatives = {
-
             item["code"]: item["name"]
-
             for item in data["variants"]
-
         }

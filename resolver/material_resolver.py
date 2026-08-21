@@ -6,10 +6,6 @@ class MaterialResolver:
     def __init__(self):
         pass
 
-    # ==========================================================
-    # PUBLIC
-    # ==========================================================
-
     def resolve(self, candidate, parsed):
 
         material_codes = candidate.info.get("material_codes", {})
@@ -29,24 +25,14 @@ class MaterialResolver:
         if code:
             candidate.material_code = str(code)
             return str(code)
-
         return ""
 
-    # ==========================================================
-    # TEXT
-    # ==========================================================
 
     def _collect_text(self, parsed):
 
         parts = []
 
-        for key in (
-                "title",
-                "slug",
-                "description",
-                "cleaned_text",
-                "material",
-        ):
+        for key in ("title", "slug", "description", "cleaned_text", "material"):
 
             value = parsed.get(key)
 
@@ -63,26 +49,14 @@ class MaterialResolver:
 
         return " ".join(parts)
 
-    # ==========================================================
-    # MATERIAL SEARCH
-    # ==========================================================
 
     def _find_material(self, text):
 
         if not text:
             return ""
 
-        priority = [
-            "силикон",
-            "смола",
-            "пластик",
-            "abs пластик",
-            "искусственная кожа",
-            "натуральная кожа",
-            "текстиль",
-            "металл",
-            "стекло",
-        ]
+        priority = ["силикон", "смола", "пластик", "abs пластик", "искусственная кожа", "натуральная кожа",
+            "текстиль", "металл", "стекло"]
 
         for wanted in priority:
 
@@ -94,8 +68,6 @@ class MaterialResolver:
             variants = [wanted] + aliases
 
             for variant in variants:
-
                 if variant.lower() in text:
                     return wanted
-
         return ""

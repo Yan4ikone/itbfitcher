@@ -9,9 +9,7 @@ from learning.importer import load_learning_history
 from parser.cdp_product_parser import CDPProductParser, BLOCKED_RESOURCE_TYPES, log
 from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
-
 from pathlib import Path
-
 from repositories.card_repository import CardRepository
 
 
@@ -27,9 +25,7 @@ class OzonAutoProcessor:
     # если на реальном файле результат стабильно не хуже, чем при
     # меньшем значении.
     # ==========================================================
-
     MAX_WORKERS = 2
-
     # Пауза между запросами ОДНОГО воркера. Без неё 4 вкладки бьют по
     # Ozon без остановки, и после ~8-15 быстрых запросов подряд
     # срабатывает антибот-защита - страница отдаётся урезанной, без
@@ -54,29 +50,22 @@ class OzonAutoProcessor:
         self.logger = logger
         self.limit = limit
         self.stats_callback = stats_callback
-
         self.stop_requested = False
         self.pause_requested = False
-
         self.pause_event = threading.Event()
         self.pause_event.set()
-
         self.total_rows = 0
         self.processed_rows = 0
         self.found_count = 0
         self.not_found_count = 0
         self.cached_count = 0
-
         self.learning_buffer = []
-
         p = Path(excel_path)
-
         self.result_path = str(
             p.with_name(
                 f"{p.stem}_RESULT{p.suffix}"
             )
         )
-
         self.decision_logger = DecisionLogger()
         self.card_repository = CardRepository()
         # ------------------------------------------------------
@@ -143,7 +132,6 @@ class OzonAutoProcessor:
             f"запущен"
         )
         first_task = True
-
         # ==================================================
         # СТАРТОВЫЙ РАЗБРОС
         #

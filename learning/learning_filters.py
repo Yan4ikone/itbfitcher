@@ -3,7 +3,7 @@ import re
 from dictionaries.all_dictionaries import IGNORED_ALIAS_WORDS
 
 
-def is_valid_alias(alias):
+def is_valid_alias(alias, product_name=""):
 
     alias = (alias or "").strip().lower()
 
@@ -27,6 +27,38 @@ def is_valid_alias(alias):
         for word in words
     ):
         return False
+
+    # ------------------------------------------------------
+    # ПОДМНОЖЕСТВО / НАДМНОЖЕСТВО НАЗВАНИЯ ТОВАРА
+    #   товар = "маска косметическая"
+    #   "маска" - подмножество (минус слово) - НЕ алиас
+    #   "маска косметическая очищение всех типов кожи" -
+    #       надмножество (название + хвост) - НЕ алиас
+    #   "маска для лица" - другой состав слов - алиас, ок
+    # ------------------------------------------------------
+    if product_name:
+
+        product_normalized = re.sub(
+            r"\s+", " ", (product_name or "").strip().lower()
+        )
+        product_words = set(product_normalized.split())
+        alias_words = set(words)
+
+        if product_words and alias_words:
+
+            if alias_words == product_words:
+                return False
+
+            if alias_words < product_words:
+                # алиас - строгое подмножество названия
+                # (название минус одно или несколько слов)
+                return False
+
+            if product_words < alias_words:
+                # алиас - строгое надмножество названия
+                # (название плюс хвост)
+                return False
+
     return True
 
 
@@ -51,18 +83,15 @@ def normalize_material(material):
         металл
             -> металл
     """
-
     material = (material or "").strip().lower()
 
     if not material:
         return ""
 
     material = re.sub(r"\s+", " ", material)
-
     # --------------------------------------------------
     # Сначала ищем материалы с процентами
     # --------------------------------------------------
-
     percentage_matches = re.findall(
         r"(\d+(?:[.,]\d+)?)\s*%\s*([^,;]+)",
         material,

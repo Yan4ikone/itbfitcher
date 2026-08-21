@@ -1,6 +1,7 @@
 # Версия: v1 GUI
 # pyinstaller --onefile --noconsole MainApp.py
 # pyinstaller --clean MainApp.spec
+# "C:\Program Files\Yandex\YandexBrowser\Application\browser.exe" --user-data-dir="C:\Users\Yan\AppData\Local\YandexAutomationProfile" --profile-directory=Default --remote-debugging-port=9222
 import os
 import sys
 

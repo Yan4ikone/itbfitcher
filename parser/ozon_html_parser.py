@@ -26,10 +26,14 @@ from bs4 import BeautifulSoup
 log = logging.getLogger(__name__)
 
 def parse_ozon_html(html: str) -> dict:
-    # html.parser - встроен в стандартную библиотеку Python, не требует
-    # установки внешних пакетов (в отличие от lxml). На размере одной
-    # карточки товара разница в скорости не заметна.
-    soup = BeautifulSoup(html, "html.parser")
+    # lxml - C-расширение, заметно (обычно в разы) быстрее html.parser
+    # на больших документах вроде страниц Ozon. Фоллбэк на html.parser,
+    # если lxml не установлен в окружении - тогда всё равно работает,
+    # просто медленнее.
+    try:
+        soup = BeautifulSoup(html, "lxml")
+    except Exception:
+        soup = BeautifulSoup(html, "html.parser")
     result = {
         "title": "",
         "description": "",
@@ -48,7 +52,69 @@ def parse_ozon_html(html: str) -> dict:
     _parse_images(soup, result)
     _extract_material(result)
 
+    # ------------------------------------------------------
+    # FALLBACK: <title> СТРАНИЦЫ
+    #
+    # Бывает, что Ozon вместо карточки товара отдаёт другую
+    # страницу (например, редирект на /search/, если конкретный
+    # SKU недоступен) - там нет ни ld+json Product, ни характеристик,
+    # но тег <title> почти всегда содержит осмысленное название
+    # ("Платье - купить на OZON"). Используем как резерв, когда
+    # ld+json ничего не дал.
+    # ------------------------------------------------------
+    if not result["title"]:
+        result["title"] = _extract_title_tag(soup)
+
+    if not result["description"] and result["title"]:
+        result["description"] = result["title"]
+
     return result
+
+
+def _extract_title_tag(soup: BeautifulSoup) -> str:
+    tag = soup.find("title")
+
+    if not tag:
+        return ""
+
+    text = tag.get_text(strip=True)
+
+    if not text:
+        return ""
+
+    # Ozon обычно приписывает маркетинговый хвост вида
+    # "Платье - купить на OZON по низкой цене (123456)" -
+    # обрезаем всё после " - купить", оставляя только название.
+    text = re.split(r"\s*[-–—]\s*купить\b", text, maxsplit=1, flags=re.IGNORECASE)[0]
+
+    return text.strip()
+
+
+def extract_search_query_hint(url: str) -> str:
+    """
+    Ещё один резервный источник названия - специфично для страниц
+    поиска Ozon (.../search/?...&text=<название>&product_id=...).
+    Ozon сам кладёт туда текст запроса, обычно это и есть название
+    товара. Используется, когда даже <title> страницы не дал ничего
+    полезного.
+    """
+    from urllib.parse import urlparse, parse_qs, unquote
+
+    try:
+        parsed = urlparse(url)
+
+        if "/search" not in parsed.path:
+            return ""
+
+        params = parse_qs(parsed.query)
+        text_values = params.get("text")
+
+        if not text_values:
+            return ""
+
+        return unquote(text_values[0]).strip()
+    except Exception:
+        return ""
 
 
 # Порядок важен: сначала точное совпадение "Материал", затем более
@@ -301,6 +367,20 @@ async def parse_ozon_page_async(page, timeout=15000) -> dict:
     # ASYNCIO EVENT LOOP
     # ======================================================
     data = await asyncio.to_thread(parse_ozon_html, html)
+
+    # Последний резерв - специфично для редиректов на /search/,
+    # когда даже <title> страницы не дал ничего полезного.
+    if not data.get("title") and not data.get("description"):
+        try:
+            hint = extract_search_query_hint(page.url)
+        except Exception:
+            hint = ""
+
+        if hint:
+            data["title"] = hint
+            data["description"] = hint
+            log.info("OZON SEARCH HINT: использован text= из URL: %s", hint)
+
     data["selector_found"] = selector_found
     return data
 

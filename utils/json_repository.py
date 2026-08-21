@@ -35,5 +35,11 @@ class JsonRepository:
 
     def flush(self):
         if self._dirty:
+            print(
+                "[CARD FLUSH]",
+                self.file,
+                "cards=",
+                len(self.data),
+            )
             self.save()
             self._dirty = False

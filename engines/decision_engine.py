@@ -22,8 +22,14 @@ class DecisionEngine:
         self.trace_classifier = TraceClassifier()
         self.product_engine = ResolverEngine(self.knowledge)
         self.special_products = SpecialProductResolver()
+        self._decide_count = 0
+        self._flush_every = 20
 
-    def decide(self, card):
+    def decide(self, card, remember=True):
+
+        # ==========================================================
+        # 1. SPECIAL PRODUCT
+        # ==========================================================
         special = self.special_products.resolve(card)
 
         if special:
@@ -36,34 +42,109 @@ class DecisionEngine:
             result.source = special["source"]
             result.confidence = special["confidence"]
             result.review = special["review"]
-
             result.quantity = getattr(card, "quantity", "")
             result.material = getattr(card, "material", "")
-
             result.trace.add(
                 "SPECIAL_PRODUCT",
                 f"Специальное правило: {special['source']}"
             )
+            print(
+                "[DECISION] SPECIAL:",
+                card.url,
+                "->",
+                result.product,
+                result.code,
+            )
             return result
-
+        # ==========================================================
+        # 2. ОСНОВНАЯ КЛАССИФИКАЦИЯ
+        # ==========================================================
         result = self.product_engine.classify(card)
         result.quantity = getattr(card, "quantity", "")
         result.material = getattr(card, "material", "")
+        # ==========================================================
+        # 3. DROPDOWN
+        # ==========================================================
+        if self.dropdown.resolve(result.product):
+            self.dropdown.resolve_code(result, card)
+            print(
+                "DROPDOWN RESOLVED:",
+                result.product,
+                "-> код:",
+                result.code,
+                "источник:",
+                result.source,
+            )
+            result.trace.add(
+                "DROPDOWN",
+                f"Вариант по материалу/спекам: "
+                f"код={result.code}, "
+                f"источник={result.source}, "
+                f"уверенность={result.confidence}"
+            )
+        # ==========================================================
+        # 4. CARD CACHE
+        # ==========================================================
         result_from_card = self.card_classifier.apply(card, result)
 
         if result_from_card:
+            print(
+                "[DECISION] CARD_CACHE:",
+                card.url,
+                "->",
+                result_from_card.product,
+                result_from_card.code,
+            )
             return result_from_card
-
+        # ==========================================================
+        # 5. TRACE
+        # ==========================================================
         result = self.trace_classifier.apply(card, result)
+        # ==========================================================
+        # 6. HISTORY
+        # ==========================================================
         result = self.history_classifier.apply(result, card)
+        # ==========================================================
+        # 7. LEARNING
+        # ==========================================================
         result = self.learning_classifier.apply(result)
+        # ==========================================================
+        # 8. EXCEL NAME
+        # ==========================================================
         builder = ExcelNameBuilder()
         result.dropdown = builder.build(card, result.product)
         result.display_name = result.dropdown
-        self.knowledge.card_repository.remember(card, result)
-        self.knowledge.card_repository.flush()
-        print(self.knowledge.card_repository.file)
-        print(self.knowledge.card_repository.data.keys())
+        # ==========================================================
+        # 9. SAVE CARD
+        # ==========================================================
+        if remember:
+
+            self.knowledge.card_repository.remember(card, result)
+            self._decide_count += 1
+            print(
+                "[CARD SAVE]",
+                card.url,
+                "code=",
+                result.code,
+                "product=",
+                result.product,
+            )
+            print(
+                "[CARD COUNT]",
+                self._decide_count,
+                "/",
+                self._flush_every,
+            )
+            if self._decide_count % self._flush_every == 0:
+                print(
+                    "[CARD FLUSH]",
+                    "count=",
+                    self._decide_count,
+                )
+                self.knowledge.card_repository.flush()
+        # ==========================================================
+        # 10. FINAL
+        # ==========================================================
         result.trace.add(
             "FINAL",
             f"Итог: код={result.code or '-'}, "
@@ -71,5 +152,4 @@ class DecisionEngine:
             f"уверенность={result.confidence}, "
             f"проверка={result.review}"
         )
-
         return result

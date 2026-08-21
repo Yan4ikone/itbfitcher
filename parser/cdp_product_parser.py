@@ -16,10 +16,12 @@ from services.image_description_service import ImageDescriptionService
 
 log = logging.getLogger(__name__)
 
-# Ресурсы, которые блокируем при загрузке карточки товара: парсер читает
-# только HTML/JSON (ld+json, dl/dt/dd), картинки/шрифты/css/медиа ему не
-# нужны и их загрузка - основная причина медленного открытия страницы.
+# Ресурсы, которые блокируем при загрузке карточки товара
 BLOCKED_RESOURCE_TYPES = ("media", "font", "stylesheet", "image")
+# (таймаут / временная сетевая ошибка / антибот-заглушка).
+GOTO_MAX_ATTEMPTS = 3
+# Пауза между повторными попытками.
+GOTO_RETRY_DELAY = 1.5
 
 
 class CDPProductParser:
@@ -32,11 +34,9 @@ class CDPProductParser:
         self.async_playwright = None
         self.async_browser = None
         self.async_context = None
-
     # ------------------------------------------------------------------
     # BROWSER LIFECYCLE
     # ------------------------------------------------------------------
-
     def kill_yandex_browser(self):
         subprocess.run(
             ["taskkill", "/F", "/IM", "browser.exe"],
@@ -61,35 +61,12 @@ class CDPProductParser:
                 f"Не найден Яндекс.Браузер: {browser_path}"
             )
 
-        # ВАЖНО: НЕ используем повседневный профиль пользователя.
-        # Если параллельно открыт обычный Yandex Browser с тем же
-        # user-data-dir, Chromium просто активирует существующее окно
-        # и ПОЛНОСТЬЮ ИГНОРИРУЕТ новые флаги командной строки (включая
-        # --remote-debugging-port). В таком случае скрипт по факту
-        # подключается к порту 9222 от какого-то более раннего,
-        # осиротевшего процесса без реальных вкладок - отсюда
-        # "Существующих вкладок: 0" и ошибка при создании новой вкладки.
-        #
-        # Отдельный профиль для автоматизации решает проблему раз
-        # и навсегда: один раз залогиньтесь на Ozon в этом профиле
-        # вручную (запустите browser.exe с этим же --user-data-dir
-        # БЕЗ --remote-debugging-port и залогиньтесь), дальше сессия
-        # сохранится, и конфликтов с обычным браузером не будет,
-        # даже если он открыт параллельно на другом профиле.
-        user_data_dir = (
-            r"C:\Users\Yan\AppData\Local\YandexAutomationProfile"
-        )
+        # Отдельный профиль для автоматизации
+        user_data_dir = r"C:\Users\Yan\AppData\Local\YandexAutomationProfile"
         profile_directory = "Default"
-        profile_path = os.path.join(
-            user_data_dir,
-            profile_directory,
-        )
-
+        profile_path = os.path.join(user_data_dir, profile_directory)
         os.makedirs(profile_path, exist_ok=True)
-
-        log.info(
-            "Запускаем Yandex Browser (автоматизационный профиль)"
-        )
+        log.info("Запускаем Yandex Browser (автоматизационный профиль)")
         log.info(
             "User Data: %s",
             user_data_dir,
@@ -98,25 +75,19 @@ class CDPProductParser:
             "Profile: %s",
             profile_directory,
         )
-
         subprocess.Popen(
             [
                 browser_path,
-                # CDP
                 "--remote-debugging-port=9222",
                 "--remote-debugging-address=127.0.0.1",
                 f"--user-data-dir={user_data_dir}",
                 f"--profile-directory={profile_directory}",
-
                 "--no-first-run",
                 "--no-default-browser-check",
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        # --------------------------------------------------
-        # Ждём CDP
-        # --------------------------------------------------
         for attempt in range(30):
 
             if self.is_cdp_running():
@@ -153,47 +124,25 @@ class CDPProductParser:
                 "CDP 9222 уже работает. "
                 "Используем существующий Yandex Browser."
             )
-        # --------------------------------------------------
-        # Playwright
-        # --------------------------------------------------
+
         self.async_playwright = (
             await async_playwright().start()
         )
-        # --------------------------------------------------
-        # Подключение к CDP
-        # --------------------------------------------------
         self.async_browser = (
             await self.async_playwright.chromium.connect_over_cdp(
                 self.cdp_url
             )
         )
-        # --------------------------------------------------
-        # Контекст
-        # --------------------------------------------------
         if not self.async_browser.contexts:
             raise RuntimeError(
                 "CDP подключён, но BrowserContext отсутствует"
             )
         self.async_context = (self.async_browser.contexts[0])
 
-        # --------------------------------------------------
-        # ЗАЩИТА ОТ "ОСИРОТЕВШЕГО" ПОДКЛЮЧЕНИЯ.
-        #
-        # Если сразу после connect_over_cdp вкладок 0 - это почти
-        # всегда значит, что порт 9222 отвечает от более раннего,
-        # уже мёртвого процесса браузера (например, оставшегося от
-        # предыдущего запуска скрипта), а не от только что стартовавшего
-        # us. Работать с таким контекстом нельзя - new_page() будет
-        # падать с "Cannot read properties of undefined (reading
-        # '_page')", потому что внутри browser process нет ни одного
-        # живого target'а, к которому можно прикрепиться.
-        #
-        # Даём процессу секунду на то, чтобы создать свою первую
-        # вкладку, и перепроверяем. Если и после этого пусто -
-        # считаем подключение нерабочим, убиваем browser.exe и
-        # заставляем вызывающий код начать заново (переподключиться
-        # к чистому процессу).
-        # --------------------------------------------------
+        # Защита от "осиротевшего" подключения: если сразу после
+        # connect_over_cdp вкладок 0 - порт 9222, вероятно, отвечает
+        # от более раннего, уже мёртвого процесса. Ждём и перепроверяем,
+        # при необходимости перезапускаем браузер с нуля.
         if not self.async_context.pages:
             log.warning(
                 "Сразу после подключения 0 вкладок - "
@@ -239,13 +188,9 @@ class CDPProductParser:
                         "После перезапуска браузера вкладок всё ещё "
                         "нет. Проверьте вручную: не открыт ли где-то "
                         "ваш ОБЫЧНЫЙ Yandex Browser с тем же "
-                        "user-data-dir - это блокирует запуск нового "
-                        "процесса с флагом --remote-debugging-port."
+                        "user-data-dir."
                     )
 
-        # --------------------------------------------------
-        # DEBUG
-        # --------------------------------------------------
         log.info(
             "CDP подключён. "
             "Contexts=%d Pages=%d",
@@ -265,7 +210,40 @@ class CDPProductParser:
             except Exception:
                 pass
 
-    async def parse_url_async(self, page, url, timeout=30000,):
+    async def _goto_with_retry(self, page, url, timeout):
+
+        import asyncio
+
+        last_exc = None
+
+        for attempt in range(1, GOTO_MAX_ATTEMPTS + 1):
+            try:
+                await page.goto(
+                    url,
+                    wait_until="commit",
+                    timeout=timeout,
+                )
+                return
+            except Exception as exc:
+                last_exc = exc
+                log.warning(
+                    "Переход не удался (попытка %d/%d): %s",
+                    attempt,
+                    GOTO_MAX_ATTEMPTS,
+                    url,
+                    exc_info=True,
+                )
+                if attempt < GOTO_MAX_ATTEMPTS:
+                    await asyncio.sleep(GOTO_RETRY_DELAY)
+
+        log.error(
+            "Не удалось перейти по URL после %d попыток: %s",
+            GOTO_MAX_ATTEMPTS,
+            url,
+        )
+        raise last_exc
+
+    async def parse_url_async(self, page, url, timeout=30000):
         """
         Парсит URL в уже существующей вкладке.
         Вкладка НЕ создаётся и НЕ закрывается здесь.
@@ -277,57 +255,25 @@ class CDPProductParser:
             "OZON OPEN: %s",
             url,
         )
-        try:
-            await page.goto(
-                url,
-                wait_until="commit",
-                timeout=timeout,
-            )
-        except Exception as exc:
 
-            log.warning(
-                "Таймаут/ошибка перехода по URL: %s",
-                url,
-                exc_info=True,
-            )
-            try:
-                await page.evaluate(
-                    "() => window.stop()"
-                )
-            except Exception:
-                pass
-            try:
-                await page.goto(
-                    "about:blank",
-                    wait_until="commit",
-                    timeout=5000,
-                )
-            except Exception:
-
-                log.debug(
-                    "Не удалось сбросить страницу "
-                    "на about:blank",
-                    exc_info=True,
-                )
-            try:
-
-                log.info("Повторный переход: %s", url)
-                await page.goto(
-                    url,
-                    wait_until="commit",
-                    timeout=timeout,
-                )
-            except Exception:
-
-                log.exception(
-                    "Повторный переход не удался: %s",
-                    url,
-                )
-                raise
+        await self._goto_with_retry(page, url, timeout)
 
         data = await parse_ozon_page_async(page)
+
+        # ВАЖНО: строим карточку из page.url (реальный адрес ПОСЛЕ
+        # перехода), а не из исходного запрошенного url. Ozon сам
+        # переписывает адресную строку на URL со слагом
+        # (.../mayka-4080045591/?sh=...), даже если исходная ссылка
+        # была голой (.../product/4080045591/). Слаг - это резервный
+        # источник названия товара (card.slug в build_product_card),
+        # который выручает, когда title/description не нашлись
+        # вообще (например, товар недоступен в регионе). Если по
+        # какой-то причине page.url пустой - откатываемся на
+        # исходный url.
+        final_url = page.url or url
+
         card = build_product_card(
-            url,
+            final_url,
             data,
             raw_text=data.get("description", ""))
         log.info(
