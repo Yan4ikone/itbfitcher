@@ -666,7 +666,7 @@ class LearningAnalyzer:
 
         word = product_words[0]
 
-        if len(word) < 5:
+        if len(word) < 9:
             return
 
         # --------------------------------------------------

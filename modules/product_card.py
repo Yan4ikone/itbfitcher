@@ -20,6 +20,7 @@ class ProductCard:
     product_candidates: list = field(default_factory=list)
     material: str = ""
     quantity: str = ""
+    volume: str = ""
     package: str = ""
     images: list = field(default_factory=list)
     image_description: str = ""

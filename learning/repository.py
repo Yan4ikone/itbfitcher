@@ -71,12 +71,13 @@ class LearningRepository:
     # Manual
     # ==========================================================
 
-    def remember_manual(self, url, description, code):
+    def remember_manual(self, url, description, code, material=""):
 
         self.data.setdefault("manual", {})[url] = {
 
             "description": description,
             "code": code,
+            "material": material,
             "approved": True
 
         }

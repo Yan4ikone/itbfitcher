@@ -90,8 +90,7 @@ class ProductResolver:
 
         # 3. Материал
 
-        material_code = self.materials.resolve(winner, parsed,)
-
+        material_code = self.materials.resolve(winner, parsed)
         t_material = time.perf_counter()
 
         if material_code:
@@ -150,9 +149,7 @@ class ProductResolver:
     def find_candidates(self, parsed):
 
         t0 = time.perf_counter()
-
         candidates = self.finder.find(parsed)
-
         t_find = time.perf_counter()
 
         if not candidates:

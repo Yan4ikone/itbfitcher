@@ -1,5 +1,3 @@
-# ozon_fast_parser.py
-
 import json
 import queue
 import threading
@@ -14,22 +12,14 @@ from playwright.sync_api import sync_playwright
 # =============================================================================
 # CONFIG
 # =============================================================================
-
 CDP_URL = "http://127.0.0.1:9222"
-
 WORKERS = 2
-
 NAVIGATION_TIMEOUT = 30_000
-
 RESULT_FILE = Path("ozon_fast_results.json")
-
 LOG_FILE = Path("ozon_fast_results.log")
-
-
 # =============================================================================
 # TEST URLS
 # =============================================================================
-
 TEST_URLS = [
     "https://www.ozon.ru/product/5293991761/",
     "https://www.ozon.ru/product/4852033249/",
@@ -43,12 +33,9 @@ TEST_URLS = [
     "https://www.ozon.ru/product/4951373458/",
     "https://www.ozon.ru/product/5149698916/",
 ]
-
-
 # =============================================================================
 # PARSER
 # =============================================================================
-
 try:
 
     from parser.ozon_html_parser import parse_ozon_html
@@ -58,86 +45,54 @@ try:
 except Exception as exc:
 
     parse_ozon_html = None
-
     PARSER_AVAILABLE = False
 
     print(
         "[INIT] ✗ Не удалось импортировать "
         "parse_ozon_html()"
     )
-
     print(
         "[INIT] ERROR:",
         repr(exc),
     )
-
-
 # =============================================================================
 # LOGGER
 # =============================================================================
-
-
 class Logger:
 
-    def __init__(
-        self,
-        filename: Path,
-    ):
+    def __init__(self, filename: Path):
 
         self.filename = filename
-
         self.lock = threading.Lock()
-
         self.filename.write_text(
             "",
             encoding="utf-8",
         )
 
-    def log(
-        self,
-        message: str,
-    ):
+    def log(self, message: str):
 
         with self.lock:
 
-            print(
-                message,
-                flush=True,
-            )
+            print(message, flush=True)
 
             with self.filename.open(
                 "a",
                 encoding="utf-8",
             ) as file:
 
-                file.write(
-                    message + "\n"
-                )
-
-
+                file.write(message + "\n")
 # =============================================================================
 # WORK ITEM
 # =============================================================================
-
-
 class WorkItem:
 
-    def __init__(
-        self,
-        index: int,
-        url: str,
-    ):
+    def __init__(self, index: int, url: str):
 
         self.index = index
-
         self.url = url
-
-
 # =============================================================================
 # FAST PARSER
 # =============================================================================
-
-
 class OzonFastParser:
 
     def __init__(
@@ -145,53 +100,27 @@ class OzonFastParser:
         workers: int = 2,
         logger: Logger | None = None,
     ):
-
         self.workers = workers
-
-        self.logger = logger or Logger(
-            LOG_FILE
-        )
-
+        self.logger = logger or Logger(LOG_FILE)
         self.results = []
-
         self.results_lock = threading.Lock()
-
         self.stop_event = threading.Event()
-
         self.work_queue = queue.Queue()
-
         self.start_time = None
-
     # =========================================================================
     # WORKER
     # =========================================================================
 
-    def worker(
-        self,
-        worker_id: int,
-    ):
+    def worker(self, worker_id: int):
 
         """
-        ВАЖНО:
-
-        sync_playwright() создаётся ВНУТРИ worker thread.
-
         Нельзя создать Playwright в main thread
         и передавать page/context в другой thread.
         """
 
-        self.logger.log(
-            ""
-        )
-
-        self.logger.log(
-            "=" * 90
-        )
-
-        self.logger.log(
-            f"[WORKER {worker_id}] START"
-        )
-
+        self.logger.log("")
+        self.logger.log("=" * 90)
+        self.logger.log(f"[WORKER {worker_id}] START")
         # =====================================================================
         # СОЗДАЁМ PLAYWRIGHT ВНУТРИ ЭТОГО THREAD
         # =====================================================================
@@ -632,18 +561,14 @@ class OzonFastParser:
         # =====================================================================
 
         parser_start = time.perf_counter()
-
         parsed = {}
-
         parser_error = None
 
         if PARSER_AVAILABLE:
 
             try:
 
-                parsed = parse_ozon_html(
-                    html
-                )
+                parsed = parse_ozon_html(html)
 
             except Exception as exc:
 
@@ -658,61 +583,36 @@ class OzonFastParser:
                     f"✗ PARSER ERROR: "
                     f"{repr(exc)}"
                 )
-
         else:
 
-            parser_error = (
-                "parse_ozon_html unavailable"
-            )
-
+            parser_error = ("parse_ozon_html unavailable")
         parser_time = (
             time.perf_counter()
             - parser_start
         )
-
         if not isinstance(
             parsed,
             dict,
         ):
-
             parsed = {}
-
-        title = parsed.get(
-            "title",
-            "",
-        )
-
-        sku = parsed.get(
-            "sku",
-            "",
-        )
-
-        price = parsed.get(
-            "price"
-        )
-
-        images = parsed.get(
-            "images",
-            [],
-        )
+        title = parsed.get("title", "")
+        sku = parsed.get("sku", "")
+        price = parsed.get("price")
+        images = parsed.get("images", [])
 
         if not isinstance(
             images,
             list,
         ):
-
             images = []
-
         specs = parsed.get(
             "specs",
             {},
         )
-
         if not isinstance(
             specs,
             dict,
         ):
-
             specs = {}
 
         # =====================================================================
@@ -823,13 +723,9 @@ class OzonFastParser:
     # RUN
     # =========================================================================
 
-    def run(
-        self,
-        urls,
-    ):
+    def run(self, urls):
 
         self.start_time = time.perf_counter()
-
         # =====================================================================
         # QUEUE
         # =====================================================================
@@ -984,94 +880,52 @@ class OzonFastParser:
             else 0
         )
 
-        per_hour = (
-            throughput * 3600
-        )
-
-        per_day = (
-            throughput * 86400
-        )
-
-        self.logger.log(
-            ""
-        )
-
-        self.logger.log(
-            ""
-        )
-
-        self.logger.log(
-            "=" * 90
-        )
-
-        self.logger.log(
-            "ИТОГ FAST TEST"
-        )
-
-        self.logger.log(
-            "=" * 90
-        )
-
+        per_hour = (throughput * 3600)
+        per_day = (throughput * 86400)
+        self.logger.log("")
+        self.logger.log("")
+        self.logger.log("=" * 90)
+        self.logger.log("ИТОГ FAST TEST")
+        self.logger.log("=" * 90)
         self.logger.log(
             f"Всего URL:                 {total}"
         )
-
         self.logger.log(
             f"HTTP 200:                  {status_200}"
         )
-
         self.logger.log(
             f"Успешно:                   {successful}"
         )
-
         self.logger.log(
             f"Ошибки:                    {failed}"
         )
-
         self.logger.log(
             f"CAPTCHA:                   {captcha}"
         )
-
-        self.logger.log(
-            ""
-        )
-
+        self.logger.log("")
         self.logger.log(
             f"Общее время:               "
             f"{run_time:.3f} сек"
         )
-
         self.logger.log(
             f"Среднее время URL:         "
             f"{avg_time:.3f} сек"
         )
-
-        self.logger.log(
-            ""
-        )
-
+        self.logger.log("")
         self.logger.log(
             f"Пропускная способность:    "
             f"{throughput:.3f} URL/сек"
         )
-
         self.logger.log(
             f"Расчётно в час:            "
             f"{per_hour:,.0f}"
         )
-
         self.logger.log(
             f"Расчётно за 24 часа:       "
             f"{per_day:,.0f}"
         )
-
-        self.logger.log(
-            ""
-        )
-
-        self.logger.log(
-            "РАСПРЕДЕЛЕНИЕ WORKERS:"
-        )
+        self.logger.log("")
+        self.logger.log("РАСПРЕДЕЛЕНИЕ WORKERS:")
 
         for worker_id in range(
             1,
@@ -1108,18 +962,11 @@ class OzonFastParser:
                 f"avg {worker_avg:.3f}s"
             )
 
-        self.logger.log(
-            "=" * 90
-        )
-
+        self.logger.log("=" * 90)
     # =========================================================================
     # SAVE
     # =========================================================================
-
-    def save_results(
-        self,
-        run_time,
-    ):
+    def save_results(self, run_time,):
 
         data = {
             "config": {
@@ -1143,12 +990,9 @@ class OzonFastParser:
         self.logger.log(
             f"[SAVE] ✓ {RESULT_FILE}"
         )
-
-
 # =============================================================================
 # MAIN
 # =============================================================================
-
 
 def main():
 
@@ -1156,52 +1000,26 @@ def main():
     print("=" * 90)
     print("OZON FAST PARSER")
     print("=" * 90)
-
-    print(
-        f"CDP:     {CDP_URL}"
-    )
-
-    print(
-        f"Workers: {WORKERS}"
-    )
-
-    print(
-        f"URLs:    {len(TEST_URLS)}"
-    )
-
+    print(f"CDP:     {CDP_URL}")
+    print(f"Workers: {WORKERS}")
+    print(f"URLs:    {len(TEST_URLS)}")
     print(
         f"Parser:  "
         f"{'OK' if PARSER_AVAILABLE else 'ERROR'}"
     )
-
     print("=" * 90)
-
-    logger = Logger(
-        LOG_FILE
-    )
-
+    logger = Logger(LOG_FILE)
     parser = OzonFastParser(
         workers=WORKERS,
         logger=logger,
     )
-
-    parser.run(
-        TEST_URLS
-    )
-
+    parser.run(TEST_URLS)
     print()
     print("=" * 90)
     print("FINISHED")
     print("=" * 90)
-
-    print(
-        f"Log:     {LOG_FILE}"
-    )
-
-    print(
-        f"Results: {RESULT_FILE}"
-    )
-
+    print(f"Log:     {LOG_FILE}")
+    print(f"Results: {RESULT_FILE}")
     print("=" * 90)
 
 

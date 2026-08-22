@@ -92,13 +92,22 @@ def build_product_card(url, parsed, raw_text):
                 or "в упаковке" in key_l
                 or "комплект" in key_l
                 or "набор" in key_l
-                or "объем" in key_l
-                or "объём" in key_l
         ):
             quantity = _extract_quantity(value_str)
 
             if quantity:
                 card.quantity = quantity
+        # ======================================================
+        # VOLUME
+        # ======================================================
+        if (
+                "объем" in key_l
+                or "объём" in key_l
+        ):
+            volume = _extract_volume(value_str)
+
+            if volume:
+                card.volume = volume
         # ======================================================
         # COUNTRY
         # ======================================================
@@ -111,8 +120,6 @@ def build_product_card(url, parsed, raw_text):
         if "бренд" in key_l:
             if not card.brand:
                 card.brand = value_str
-
-    print("QUANTITY =", card.quantity)
     card.sections = parsed.get("sections", {})
     card.parser_log = parsed.get("parser_log", [])
 
@@ -168,10 +175,23 @@ def _extract_quantity(value):
             return value
         return ""
 
+
+    return ""
+
+def _extract_volume(value):
+
+    value = str(value or "").strip().lower()
+
+    if not value:
+        return ""
+
+    value = re.sub(r"\s+", " ", value)
+
     match = re.fullmatch(
-        r"(\d+(?:[.,]\d+)?)\s*мл",
+        r"(\d+(?:[.,]\d+)?)\s*(мл|л)",
         value,
     )
     if match:
-        return value
+        return f"{match.group(1)} {match.group(2)}"
+
     return ""

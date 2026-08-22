@@ -17,13 +17,6 @@ class OzonAutoProcessor:
 
     # ==========================================================
     # НАСТРОЙКА МНОГОПОТОЧНОСТИ
-    #
-    # Снижено с 4 до 2: на 4 воркерах результат стабильно хуже
-    # однопоточного (11/37 вместо ожидаемого улучшения) - похоже на
-    # антибот/перегрузку браузера при параллельной отрисовке тяжёлых
-    # SPA-страниц. Начинайте с 2 и поднимайте постепенно, только
-    # если на реальном файле результат стабильно не хуже, чем при
-    # меньшем значении.
     # ==========================================================
     MAX_WORKERS = 2
     # Пауза между запросами ОДНОГО воркера. Без неё 4 вкладки бьют по
@@ -61,11 +54,7 @@ class OzonAutoProcessor:
         self.cached_count = 0
         self.learning_buffer = []
         p = Path(excel_path)
-        self.result_path = str(
-            p.with_name(
-                f"{p.stem}_RESULT{p.suffix}"
-            )
-        )
+        self.result_path = str(p.with_name(f"{p.stem}_RESULT{p.suffix}"))
         self.decision_logger = DecisionLogger()
         self.card_repository = CardRepository()
         # ------------------------------------------------------
@@ -119,7 +108,6 @@ class OzonAutoProcessor:
     def stop(self):
 
         self.stop_requested = True
-
         # Разбудить ожидающие worker,
         # чтобы они могли увидеть stop_requested.
         self.pause_event.set()
@@ -134,15 +122,6 @@ class OzonAutoProcessor:
         first_task = True
         # ==================================================
         # СТАРТОВЫЙ РАЗБРОС
-        #
-        # Раньше пауза пропускалась перед ПЕРВЫМ запросом каждого
-        # воркера ("if not first_task") - из-за этого все N воркеров
-        # стартовали и били по Ozon ОДНОВРЕМЕННО в первую же секунду,
-        # что и приводило к пачке из 2-4 вкладок, открывающихся разом,
-        # и повышенному риску капчи. Теперь у каждого воркера свой
-        # стартовый сдвиг, пропорциональный его номеру - они расходятся
-        # во времени с самого начала, а не только начиная со второго
-        # запроса.
         # ==================================================
         startup_delay = worker_id * random.uniform(1.0, 2.0)
         await asyncio.sleep(startup_delay)
@@ -170,9 +149,7 @@ class OzonAutoProcessor:
                 # PAUSE
                 # ==================================================
                 while self.pause_requested:
-                    await asyncio.sleep(
-                        0.2
-                    )
+                    await asyncio.sleep(0.2)
                 if self.stop_requested:
                     await result_queue.put({
                         "row": row,
@@ -194,11 +171,7 @@ class OzonAutoProcessor:
                     })
                     continue
                 # ==================================================
-                # АНТИБОТ-ПАУЗА (между запросами ОДНОГО воркера,
-                # включая первый - стартовый разброс выше решает
-                # только проблему одновременного старта ВСЕХ воркеров,
-                # а эта пауза нужна для каждого следующего запроса
-                # того же воркера).
+                # АНТИБОТ-ПАУЗА (между запросами ОДНОГО воркера)
                 # ==================================================
                 if not first_task:
                     delay = random.uniform(
@@ -257,7 +230,6 @@ class OzonAutoProcessor:
         await self.async_parser.connect_async()
 
         context = (self.async_parser.async_context)
-
         self.log(
             "CDP подключён. "
             "Создаём постоянные вкладки..."
@@ -313,7 +285,6 @@ class OzonAutoProcessor:
 
             page = await context.new_page()
             pages.append(page)
-
             self.log(
                 f"[OzonWorker-{len(pages)}] "
                 f"Page готова: {page.url}"
@@ -363,17 +334,13 @@ class OzonAutoProcessor:
         for task in rows_to_process:
             if self.stop_requested:
                 break
-            await task_queue.put(
-                task
-            )
+            await task_queue.put(task)
         # ======================================================
         # WORKERS
         # ======================================================
         workers = []
 
-        for index, page in enumerate(
-                pages
-        ):
+        for index, page in enumerate(pages):
             workers.append(
                 asyncio.create_task(
                     self.async_worker(
@@ -389,9 +356,7 @@ class OzonAutoProcessor:
         # STOP SIGNAL
         # ======================================================
         for _ in workers:
-            await task_queue.put(
-                None
-            )
+            await task_queue.put(None)
         # ======================================================
         # RESULTS
         # ======================================================
@@ -402,9 +367,7 @@ class OzonAutoProcessor:
                     completed
                     < len(rows_to_process)
             ):
-                result_data = (
-                    await result_queue.get()
-                )
+                result_data = (await result_queue.get())
                 completed += 1
 
                 try:
@@ -543,19 +506,12 @@ class OzonAutoProcessor:
             or ""
         )
         code = str(
-            cached_card.get(
-                "code",
-                "",
-            )
-        ).strip()
+            cached_card.get("code", "")).strip()
 
         if description:
             ws[f"B{row}"] = description
 
-        if code and code not in (
-                "0",
-                "nan",
-        ):
+        if code and code not in ("0", "nan"):
             try:
                 ws[f"C{row}"] = int(code)
             except ValueError:
@@ -566,13 +522,10 @@ class OzonAutoProcessor:
             self.log(f"CACHE Код: {code}")
 
         else:
-
             self.not_found_count += 1
-
     # ==========================================================
     # APPLY NORMAL RESULT
     # ==========================================================
-
     def apply_result(self, ws, row, card, result):
         # ВАЖНО:
         # card.excel_title должен быть установлен ДО decide().
@@ -593,6 +546,7 @@ class OzonAutoProcessor:
             if result.new_dropdown
             else ""
         )
+        ws[f"M{row}"] = result.material or ""
         # ------------------------------------------------------
         # Decision Logger
         # ------------------------------------------------------
@@ -632,7 +586,6 @@ class OzonAutoProcessor:
         # ------------------------------------------------------
         # Statistics
         # ------------------------------------------------------
-
         if result.code:
 
             self.found_count += 1

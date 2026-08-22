@@ -18,6 +18,7 @@ class ExcelNameBuilder:
             "туалетная вода",
             "одеколон",
             "ароматизатор",
+            "эфирное масло",
             "диффузор",
         ]
         return any(x in text for x in keywords)
@@ -82,6 +83,11 @@ class ExcelNameBuilder:
 
     def _volume(self, card):
 
+        volume = str(getattr(card, "volume", "") or "").strip()
+
+        if volume:
+            return volume
+
         specs = getattr(card, "specs", {}) or {}
 
         fields = [
@@ -100,7 +106,6 @@ class ExcelNameBuilder:
                 return value
 
         text = self._text(card)
-
         m = re.search(r"(\d+)\s?(мл|л)", text)
 
         if m:

@@ -369,6 +369,26 @@ class ProductRepository:
             []
         )
 
+    def get_variants(self, product):
+
+        info = self.get(product)
+
+        if not info:
+            return []
+
+        return info.get("variants", [])
+
+    def has_variants(self, product):
+
+        info = self.get(product)
+
+        if not info:
+            return False
+
+        return bool(
+            info.get("variants", [])
+        )
+
     def get_display_name(self, product):
 
         if isinstance(product, list):

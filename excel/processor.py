@@ -31,7 +31,6 @@ def process_file_with_normalization(
     progress_callback=None,
 ):
     print("PROCESS_FILE_WITH_NORMALIZATION")
-
     learning_history = load_learning_history(input_path)
     data = load_input(input_path)
     df = data["dataframe"]
@@ -114,23 +113,16 @@ def process_file_with_normalization(
             )
             print("CARD TITLE :", card.title)
             print("CARD CLEAN :", card.cleaned_text)
-
             result = engine.decide(card)
             print("DECIDE FINISHED")
-
-            history = learning_history.get(
-                normalized_name.lower()
-            )
-
+            history = learning_history.get(normalized_name.lower())
             add_history_warning(
                 ws=ws,
                 row=row,
                 code_column=code_cell_idx,
                 history=history,
             )
-
             stats.add(result)
-
             write_result(
                 ws=ws,
                 row=row,
@@ -140,27 +132,23 @@ def process_file_with_normalization(
                 result=result,
                 apply_result=apply_result,
             )
-
             processed_rows += 1
 
             if (
                     processed_rows % 10 == 0
                     or processed_rows == total_rows
             ):
-
                 if progress_callback:
                     progress_callback(
                         total_rows,
                         processed_rows,
                     )
-
                 _log(
                     f"Обработано "
                     f"{processed_rows}/"
                     f"{total_rows}",
                     logger,
                 )
-
         except Exception as error:
 
             _log(
@@ -168,27 +156,10 @@ def process_file_with_normalization(
                 f"{row}: {error}",
                 logger,
             )
-
-    fill_surname_column(
-        ws,
-        surname_col_idx,
-    )
-
-    _log(
-        "Сортировка...",
-        logger,
-    )
-
-    sort_by_description(
-        ws,
-        desc_cell_idx,
-        last_row,
-    )
-
-    _log(
-        "Выпадающие списки...",
-        logger,
-    )
+    fill_surname_column(ws, surname_col_idx)
+    _log("Сортировка...", logger)
+    sort_by_description(ws, desc_cell_idx, last_row)
+    _log("Выпадающие списки...", logger)
 
     apply_specific_dropdowns(
         ws,
@@ -196,7 +167,6 @@ def process_file_with_normalization(
         code_cell_idx,
         max_row=last_row,
     )
-
     _log(
         "Проверка ограничений...",
         logger,
@@ -260,7 +230,6 @@ def process_file_with_normalization(
 def recalculate_codes(input_path, logger=None, progress_callback=None,):
 
     learning_history = load_learning_history(input_path)
-
     data = load_input(input_path)
     df = data["dataframe"]
     desc_col = data["columns"]["description"]
@@ -283,18 +252,12 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
     )
 
     copy_sheet(source_ws, ws)
-    header = [
-        cell.value
-        for cell in ws[1]
-    ]
-
+    header = [cell.value
+        for cell in ws[1]]
     try:
-
         desc_cell_idx = (header.index(desc_col) + 1)
         code_cell_idx = (header.index(code_col) + 1)
-
     except ValueError:
-
         raise Exception("Не удалось определить колонки.")
 
     status_column = None
@@ -308,14 +271,11 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
                 "можно",
                 "разреш",
             )
-
         ):
-
             status_column = column
             break
 
     if status_column:
-
         status_cell_idx = (header.index(status_column) + 1)
 
     else:
@@ -324,11 +284,9 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
 
     engine = DecisionEngine(learning_history)
     processed_rows = 0
-
     _log(f"Всего строк: {total_rows}", logger)
 
     for row in range(2, last_row + 1):
-
         try:
 
             description = ws.cell(
@@ -348,12 +306,10 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
                         characteristics_col,
                     ]
                 )
-
             card = build_from_excel(
                 description=str(description),
                 characteristics=characteristics,
             )
-
             result = engine.decide(card)
             processed_rows += 1
 
@@ -361,21 +317,18 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
                 processed_rows % 10 == 0
                 or processed_rows == total_rows
             ):
-
                 if progress_callback:
 
                     progress_callback(
                         total_rows,
                         processed_rows,
                     )
-
                 _log(
                     f"Пересчитано "
                     f"{processed_rows}/"
                     f"{total_rows}",
                     logger,
                 )
-
         except Exception as error:
 
             _log(
@@ -383,7 +336,6 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
                 f"{row}: {error}",
                 logger,
             )
-
     apply_restrictions(
         ws,
         code_cell_idx,
@@ -392,13 +344,11 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
         is_first_pass=False,
         max_row=last_row,
     )
-
     apply_description_warnings(
         ws,
         desc_cell_idx,
         max_row=last_row,
     )
-
     base, _ = os.path.splitext(input_path)
     output_path = (f"{base}_recalc_result.xlsm")
     save_workbook(wb, output_path)
@@ -409,11 +359,9 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
             total_rows,
             total_rows,
         )
-
     _log(
         f"Готово: "
         f"{os.path.basename(output_path)}",
         logger,
     )
-
     return output_path

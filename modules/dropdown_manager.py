@@ -5,7 +5,7 @@ from openpyxl.comments import Comment
 from openpyxl.styles import PatternFill
 
 from dictionaries.all_dictionaries import MATERIAL_COLORS
-from dictionaries.dropdown_lists import DROPDOWN_LISTS
+
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -39,14 +39,35 @@ def generate_tnved_codes():
 
         if code and code.isdigit() and code != "0":
             unique_codes.add(int(code))
-
         for mk, mv in info.items():
-            if "material" in str(mk).lower() and isinstance(mv, dict):
+            if (
+                    "material" in str(mk).lower()
+                    and isinstance(mv, dict)
+            ):
                 for material, mat_code in mv.items():
                     mat_code_str = str(mat_code).strip()
-                    if mat_code_str.isdigit() and mat_code_str != "0":
-                        unique_codes.add(int(mat_code_str))
 
+                    if (
+                            mat_code_str.isdigit()
+                            and mat_code_str != "0"
+                    ):
+                        unique_codes.add(
+                            int(mat_code_str)
+                        )
+            if mk == "dropdown" and isinstance(mv, dict):
+                for variant in mv.get("variants", []):
+                    if not isinstance(variant, dict):
+                        continue
+
+                    variant_code = str(variant.get("code", "")).strip()
+
+                    if (
+                            variant_code.isdigit()
+                            and variant_code != "0"
+                    ):
+                        unique_codes.add(
+                            int(variant_code)
+                        )
     return sorted(list(unique_codes))
 
 
@@ -56,8 +77,12 @@ def apply_specific_dropdowns(
         code_col_idx,
         max_row=None
 ):
+    """
+    Выпадающие списки берутся непосредственно из PRODUCTS.
+    PRODUCTS[product]["dropdown"]:
+    """
 
-    if not DROPDOWN_LISTS:
+    if not PRODUCTS:
         return
 
     limit = max_row if max_row else ws.max_row
@@ -72,100 +97,177 @@ def apply_specific_dropdowns(
         if not prod_cell.value:
             continue
 
-        prod_name = str(prod_cell.value).lower()
+        prod_name = str(
+            prod_cell.value
+        ).strip().lower()
 
-        for key, codes_dict in DROPDOWN_LISTS.items():
+        # --------------------------------------------------
+        # Ищем товар в PRODUCTS
+        # --------------------------------------------------
 
-            if key.lower() not in prod_name:
+        product_info = None
+
+        for product_name, info in PRODUCTS.items():
+
+            if not isinstance(info, dict):
                 continue
 
-            # -----------------------------------
-            # Выпадающий список только из кодов
-            # -----------------------------------
+            if str(product_name).strip().lower() in prod_name:
+                product_info = info
+                break
 
-            if isinstance(codes_dict, dict) and "variants" in codes_dict:
+        if not product_info:
+            continue
 
-                codes = [
-                    str(item["code"])
-                    for item in codes_dict["variants"]
-                ]
+        dropdown = product_info.get(
+            "dropdown"
+        )
 
+        if not isinstance(dropdown, dict):
+            continue
+
+        variants = dropdown.get(
+            "variants",
+            []
+        )
+
+        if not variants:
+            continue
+
+        # --------------------------------------------------
+        # Коды
+        # --------------------------------------------------
+
+        codes = []
+
+        for item in variants:
+
+            if not isinstance(item, dict):
+                continue
+
+            code = str(
+                item.get("code", "")
+            ).strip()
+
+            if code and code not in codes:
+                codes.append(code)
+
+        if not codes:
+            continue
+
+        # --------------------------------------------------
+        # DataValidation
+        # --------------------------------------------------
+
+        formula = '"' + ",".join(codes) + '"'
+
+        dv = DataValidation(
+            type="list",
+            formula1=formula,
+            allow_blank=True
+        )
+
+        dv.prompt = dropdown.get(
+            "title",
+            "Выберите вариант"
+        )
+
+        dv.showInputMessage = True
+
+        cell = ws.cell(
+            row=row,
+            column=code_col_idx
+        )
+
+        dv.add(cell)
+        ws.add_data_validation(dv)
+
+        # --------------------------------------------------
+        # Комментарий
+        # --------------------------------------------------
+
+        comment_lines = []
+
+        for item in variants:
+
+            if not isinstance(item, dict):
+                continue
+
+            code = str(
+                item.get("code", "")
+            ).strip()
+
+            name = str(
+                item.get("name", "")
+            ).strip()
+
+            group = str(
+                item.get("group", "")
+            ).strip()
+
+            if not code:
+                continue
+
+            if name and group:
+                comment_lines.append(
+                    f"{code} - {name} ({group})"
+                )
+            elif name:
+                comment_lines.append(
+                    f"{code} - {name}"
+                )
             else:
+                comment_lines.append(
+                    code
+                )
 
-                codes = [
-                    str(code)
-                    for code in codes_dict.keys()
-                ]
-            formula = '"' + ",".join(codes) + '"'
+        if comment_lines:
 
-            dv = DataValidation(
-                type="list",
-                formula1=formula,
-                allow_blank=True
-            )
-
-            dv.prompt = "Выберите код"
-            dv.showInputMessage = True
-
-            cell = ws.cell(
-                row=row,
-                column=code_col_idx
-            )
-            dv.add(cell)
-            ws.add_data_validation(dv)
-
-            # -----------------------------------------
-            # Подсказка
-            # -----------------------------------------
-
-            comment_lines = []
-
-            if "variants" in codes_dict:
-
-                for item in codes_dict["variants"]:
-                    comment_lines.append(
-                        f'{item["code"]} - {item["name"]}'
-                    )
-            else:
-                for code, material in codes_dict.items():
-                    comment_lines.append(
-                        f"{code} - {str(material).capitalize()}"
-                    )
             cell.comment = Comment(
                 "\n".join(comment_lines),
                 "Classifier"
             )
 
-            # -----------------------------------------
-            # Цвет
-            # -----------------------------------------
+        # --------------------------------------------------
+        # Цвет
+        #
+        # Оставляем старую логику для случаев,
+        # когда dropdown фактически представляет
+        # один материал.
+        # --------------------------------------------------
 
-            materials = set()
+        materials = set()
 
-            for material in codes_dict.values():
+        for item in variants:
 
-                if isinstance(material, list):
+            if not isinstance(item, dict):
+                continue
 
-                    for item in material:
-                        materials.add(
-                            str(item).lower()
-                        )
+            name = str(
+                item.get("name", "")
+            ).strip().lower()
 
-                else:
-                    materials.add(
-                        str(material).lower()
-                    )
-            if len(materials) == 1:
+            if name:
+                materials.add(name)
 
-                material = next(iter(materials))
-                color = MATERIAL_COLORS.get(material)
+        if len(materials) == 1:
 
-                if color:
-                    cell.fill = PatternFill(
-                        fill_type="solid",
-                        fgColor=color
-                    )
-            break
+            material = next(
+                iter(materials)
+            )
+
+            color = MATERIAL_COLORS.get(
+                material
+            )
+
+            if color:
+
+                cell.fill = PatternFill(
+                    fill_type="solid",
+                    fgColor=color
+                )
+
+        break
 
 
 def apply_dropdowns(wb, ws):

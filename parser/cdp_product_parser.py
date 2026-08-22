@@ -55,12 +55,10 @@ class CDPProductParser:
         browser_path = (
             r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe"
         )
-
         if not os.path.exists(browser_path):
             raise RuntimeError(
                 f"Не найден Яндекс.Браузер: {browser_path}"
             )
-
         # Отдельный профиль для автоматизации
         user_data_dir = r"C:\Users\Yan\AppData\Local\YandexAutomationProfile"
         profile_directory = "Default"
@@ -104,14 +102,12 @@ class CDPProductParser:
             "Yandex Browser запущен, "
             "но CDP 9222 не стал доступен за 30 секунд"
         )
-
     async def connect_async(self):
         """
         Подключение к уже работающему Yandex Browser.
         Если CDP 9222 уже доступен — НИЧЕГО не запускаем.
         Если CDP отсутствует — запускаем Yandex и ждём CDP.
         """
-
         if not self.is_cdp_running():
             log.info(
                 "CDP 9222 не найден. "
@@ -124,19 +120,11 @@ class CDPProductParser:
                 "CDP 9222 уже работает. "
                 "Используем существующий Yandex Browser."
             )
-
-        self.async_playwright = (
-            await async_playwright().start()
-        )
+        self.async_playwright = (await async_playwright().start())
         self.async_browser = (
-            await self.async_playwright.chromium.connect_over_cdp(
-                self.cdp_url
-            )
-        )
+            await self.async_playwright.chromium.connect_over_cdp(self.cdp_url))
         if not self.async_browser.contexts:
-            raise RuntimeError(
-                "CDP подключён, но BrowserContext отсутствует"
-            )
+            raise RuntimeError("CDP подключён, но BrowserContext отсутствует")
         self.async_context = (self.async_browser.contexts[0])
 
         # Защита от "осиротевшего" подключения: если сразу после
@@ -169,7 +157,6 @@ class CDPProductParser:
 
                 self.kill_yandex_browser()
                 self.start_yandex_browser()
-
                 self.async_playwright = await async_playwright().start()
                 self.async_browser = (
                     await self.async_playwright.chromium.connect_over_cdp(
@@ -190,7 +177,6 @@ class CDPProductParser:
                         "ваш ОБЫЧНЫЙ Yandex Browser с тем же "
                         "user-data-dir."
                     )
-
         log.info(
             "CDP подключён. "
             "Contexts=%d Pages=%d",
@@ -251,31 +237,16 @@ class CDPProductParser:
         и использует её для последовательной обработки
         своих URL.
         """
-        log.info(
-            "OZON OPEN: %s",
-            url,
-        )
+        log.info("OZON OPEN: %s", url,)
 
         await self._goto_with_retry(page, url, timeout)
 
         data = await parse_ozon_page_async(page)
 
         # ВАЖНО: строим карточку из page.url (реальный адрес ПОСЛЕ
-        # перехода), а не из исходного запрошенного url. Ozon сам
-        # переписывает адресную строку на URL со слагом
-        # (.../mayka-4080045591/?sh=...), даже если исходная ссылка
-        # была голой (.../product/4080045591/). Слаг - это резервный
-        # источник названия товара (card.slug в build_product_card),
-        # который выручает, когда title/description не нашлись
-        # вообще (например, товар недоступен в регионе). Если по
-        # какой-то причине page.url пустой - откатываемся на
-        # исходный url.
+        # перехода), а не из исходного запрошенного url.
         final_url = page.url or url
-
-        card = build_product_card(
-            final_url,
-            data,
-            raw_text=data.get("description", ""))
+        card = build_product_card(final_url, data, raw_text=data.get("description", ""))
         log.info(
             "Карточка построена: "
             "TITLE=%s "
@@ -283,29 +254,12 @@ class CDPProductParser:
             "SPECS=%d "
             "IMAGES=%d",
             bool(card.title),
-            len(
-                card.description
-                or ""
-            ),
-            len(
-                data.get(
-                    "specs",
-                    {},
-                )
-            ),
-            len(
-                data.get(
-                    "images",
-                    [],
-                )
-            ),
-        )
+            len(card.description or ""),
+            len(data.get("specs", {})),
+            len(data.get("images", [])),)
         return card
 
-    async def disconnect_async(
-            self,
-            close_browser=False,
-    ):
+    async def disconnect_async(self, close_browser=False):
         """
         Закрывает async Playwright.
         close_browser=True используется только
@@ -313,31 +267,17 @@ class CDPProductParser:
         """
         try:
             if close_browser:
-                if getattr(
-                        self,
-                        "async_browser",
-                        None,
-                ):
+                if getattr(self, "async_browser", None):
                     try:
                         await self.async_browser.close()
 
                     except Exception:
 
-                        log.debug(
-                            "Ошибка закрытия async browser",
-                            exc_info=True,
-                        )
+                        log.debug("Ошибка закрытия async browser", exc_info=True)
         finally:
             try:
-                if getattr(
-                        self,
-                        "async_playwright",
-                        None,
-                ):
+                if getattr(self, "async_playwright", None):
                     await self.async_playwright.stop()
             except Exception:
 
-                log.debug(
-                    "Ошибка остановки async Playwright",
-                    exc_info=True,
-                )
+                log.debug("Ошибка остановки async Playwright", exc_info=True)

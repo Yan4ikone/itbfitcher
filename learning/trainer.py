@@ -1,6 +1,7 @@
 from pprint import pformat
 
 from dictionaries.dropdown_lists import DROPDOWN_LISTS
+from dictionaries.all_dictionaries import TRASH_MARKETING, TRASH_MARKETPLACE, TRASH_PACKAGE
 from learning.pending import load_pending_products, PENDING_PRODUCTS
 from modules.learning_filter import is_good_alias
 
@@ -47,7 +48,23 @@ class Trainer:
 
         alias = (alias or "").strip().lower()
 
+        trash = TRASH_MARKETING | TRASH_MARKETPLACE | TRASH_PACKAGE
+
+        words = [
+            word
+            for word in alias.split()
+            if word not in trash
+        ]
+
+        alias = " ".join(words)
+
         if not is_good_alias(alias):
+            return
+
+        product_words = set((product or "").strip().lower().split())
+        alias_words = set(words)
+
+        if alias_words and alias_words <= product_words:
             return
 
         self.repository.add_alias(product, alias)

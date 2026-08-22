@@ -44,6 +44,25 @@ class SpecialProductResolver:
             "review": False,
         }
 
+    def _structured_text(self, card):
+
+        parts = [
+            getattr(card, "title", ""),
+        ]
+
+        specs = getattr(card, "specs", {}) or {}
+
+        for key, value in specs.items():
+
+            parts.append(str(key))
+            parts.append(str(value))
+
+        return " ".join(
+            str(value)
+            for value in parts
+            if value
+        ).lower()
+
     # ==========================================================
     # AIR CONDITIONER
     # ==========================================================
@@ -66,10 +85,7 @@ class SpecialProductResolver:
 
     def _is_book(self, card):
 
-        text = self._text(card)
-
-        if not text:
-            return False
+        structured = self._structured_text(card)
 
         strong_keywords = (
             "книга",
@@ -82,11 +98,16 @@ class SpecialProductResolver:
             "печатное издание",
         )
 
-        if any(
-                self._contains_phrase(text, keyword)
+        if structured and any(
+                self._contains_phrase(structured, keyword)
                 for keyword in strong_keywords
         ):
             return True
+
+        text = self._text(card)
+
+        if not text:
+            return False
 
         literary_keywords = (
             "роман",
@@ -110,11 +131,8 @@ class SpecialProductResolver:
             "страниц",
             "страница",
             "страниц.",
-            "печат",
             "книжн",
-            "издание",
             "год издания",
-            "формат",
         )
         has_literary = any(
             self._contains_phrase(text, keyword)
@@ -128,10 +146,7 @@ class SpecialProductResolver:
 
     def _is_air_conditioner(self, card):
 
-        text = self._text(card)
-
-        if not text:
-            return False
+        structured = self._structured_text(card)
 
         strong_keywords = (
             "сплит-система",
@@ -142,45 +157,29 @@ class SpecialProductResolver:
             "кондиционер напольный",
             "кондиционер оконный",
         )
-        if any(
-                self._contains_phrase(text, keyword)
+        if structured and any(
+                self._contains_phrase(structured, keyword)
                 for keyword in strong_keywords
         ):
             return True
+
+        text = self._text(card)
+
+        if not text:
+            return False
 
         if not self._contains_phrase(text, "кондиционер"):
             return False
 
         climate_context = (
-            "охлаждение",
-            "охлаждать",
-            "охлаждает",
-            "охлаждающий",
-            "обогрев",
-            "обогреватель",
-            "тепло",
-            "холод",
-            "климат",
-            "климатический",
-            "воздух",
-            "воздушный поток",
-            "температура помещения",
-            "температура воздуха",
-            "комната",
-            "помещение",
-            "мощность охлаждения",
-            "хладагент",
-            "фреон",
-            "компрессор",
-            "наружный блок",
-            "внутренний блок",
-            "внешний блок",
-            "вентилятор",
-            "инверторный",
-            "инвертор",
-            "btu",
-            "бту",
-            "сплит",
+            "охлаждение", "охлаждать", "охлаждает", "охлаждающий",
+            "обогрев", "обогреватель", "тепло", "холод", "климат",
+            "климатический", "воздух", "воздушный поток",
+            "температура помещения", "температура воздуха", "комната",
+            "помещение", "мощность охлаждения", "хладагент", "фреон",
+            "компрессор", "наружный блок", "внутренний блок",
+            "внешний блок", "инверторный", "инвертор",
+            "btu", "бту", "сплит",
         )
         return any(
             self._contains_phrase(text, keyword)
@@ -373,4 +372,5 @@ class SpecialProductResolver:
 
     def _contains_phrase(self, text, phrase):
 
-        return phrase.lower() in text
+        pattern = r'(?<!\w)' + re.escape(phrase.lower()) + r'(?!\w)'
+        return re.search(pattern, text) is not None

@@ -15,7 +15,7 @@ class DecisionEngine:
     def __init__(self, learning_history):
         self.learning_history = learning_history
         self.knowledge = KnowledgeEngine()
-        self.dropdown = DropdownResolver()
+        self.dropdown = DropdownResolver(self.knowledge.product_repository)
         self.history_classifier = HistoryClassifier(self.knowledge, learning_history)
         self.card_classifier = CardClassifier(self.knowledge)
         self.learning_classifier = LearningClassifier(self.knowledge)
@@ -61,7 +61,8 @@ class DecisionEngine:
         # ==========================================================
         result = self.product_engine.classify(card)
         result.quantity = getattr(card, "quantity", "")
-        result.material = getattr(card, "material", "")
+        if not result.material:
+            result.material = getattr(card, "material", "")
         # ==========================================================
         # 3. DROPDOWN
         # ==========================================================
@@ -88,6 +89,13 @@ class DecisionEngine:
         result_from_card = self.card_classifier.apply(card, result)
 
         if result_from_card:
+            builder = ExcelNameBuilder()
+            result_from_card.dropdown = builder.build(
+                card,
+                result_from_card.product,
+            )
+            result_from_card.display_name = result_from_card.dropdown
+
             print(
                 "[DECISION] CARD_CACHE:",
                 card.url,

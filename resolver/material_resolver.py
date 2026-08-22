@@ -14,7 +14,7 @@ class MaterialResolver:
             return ""
 
         text = self._collect_text(parsed)
-        material = self._find_material(text)
+        material = self._find_material(text, material_codes)
 
         if not material:
             return ""
@@ -47,18 +47,17 @@ class MaterialResolver:
         elif isinstance(specs, str):
             parts.append(specs.lower())
 
+        elif isinstance(specs, dict):
+            parts.extend(f"{k} {v}" for k, v in specs.items())
+
         return " ".join(parts)
 
-
-    def _find_material(self, text):
+    def _find_material(self, text, material_codes):
 
         if not text:
             return ""
 
-        priority = ["силикон", "смола", "пластик", "abs пластик", "искусственная кожа", "натуральная кожа",
-            "текстиль", "металл", "стекло"]
-
-        for wanted in priority:
+        for wanted in material_codes.keys():
 
             aliases = MATERIAL_ALIASES.get(wanted, [])
 
