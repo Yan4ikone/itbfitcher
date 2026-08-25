@@ -285,36 +285,70 @@ class CDPProductParser:
         )
 
     async def _goto_with_retry(self, page, url, timeout):
-
         import asyncio
+
+        if not url:
+            raise ValueError("Нельзя открыть пустой URL")
 
         last_exc = None
 
         for attempt in range(1, GOTO_MAX_ATTEMPTS + 1):
             try:
+                log.info(
+                    "[GOTO] attempt=%d/%d url=%s current=%s",
+                    attempt,
+                    GOTO_MAX_ATTEMPTS,
+                    url,
+                    page.url,
+                )
+
                 await page.goto(
                     url,
                     wait_until="commit",
                     timeout=timeout,
                 )
+
+                # Даём браузеру завершить минимальную навигацию.
+                await asyncio.sleep(0.2)
+
+                current_url = page.url
+
+                log.info(
+                    "[GOTO] success attempt=%d url=%s",
+                    attempt,
+                    current_url,
+                )
+
+                if not current_url or current_url == "about:blank":
+                    raise RuntimeError(
+                        f"После page.goto() страница осталась "
+                        f"на {current_url!r}"
+                    )
+
                 return
+
             except Exception as exc:
                 last_exc = exc
+
                 log.warning(
-                    "Переход не удался (попытка %d/%d): %s",
+                    "[GOTO] failed attempt=%d/%d "
+                    "requested=%s current=%s error=%s",
                     attempt,
                     GOTO_MAX_ATTEMPTS,
                     url,
+                    page.url,
+                    exc,
                     exc_info=True,
                 )
+
                 if attempt < GOTO_MAX_ATTEMPTS:
                     await asyncio.sleep(GOTO_RETRY_DELAY)
 
         log.error(
-            "Не удалось перейти по URL после %d попыток: %s",
-            GOTO_MAX_ATTEMPTS,
+            "[GOTO] окончательно не удалось открыть URL: %s",
             url,
         )
+
         raise last_exc
 
     async def parse_url_async(self, page, url, timeout=30000):
@@ -337,8 +371,37 @@ class CDPProductParser:
         # --------------------------------------------------
         # OPEN
         # --------------------------------------------------
-        if is_wb:
-            await self._goto_with_retry(page, url, timeout)
+        if not url:
+            raise ValueError(
+                f"{marketplace}: получен пустой URL"
+            )
+
+        log.info(
+            "%s PAGE BEFORE GOTO: %s",
+            marketplace,
+            page.url,
+        )
+
+        await self._goto_with_retry(
+            page,
+            url,
+            timeout,
+        )
+
+        log.info(
+            "%s PAGE AFTER GOTO: %s",
+            marketplace,
+            page.url,
+        )
+
+        # Защита от ситуации, когда браузер остался на about:blank
+        # или переход фактически не произошёл.
+        if not page.url or page.url == "about:blank":
+            raise RuntimeError(
+                f"{marketplace}: страница не открылась. "
+                f"Ожидался URL: {url!r}, "
+                f"фактический URL: {page.url!r}"
+            )
         # ==================================================
         # WILDBERRIES
         # ==================================================
