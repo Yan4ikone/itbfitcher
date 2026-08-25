@@ -1,7 +1,9 @@
 from pathlib import Path
 from pprint import pformat
+import importlib
 
 from dictionaries.dropdown_lists import DROPDOWN_LISTS
+import dictionaries.products as products_dictionary
 from dictionaries.products import PRODUCTS
 
 
@@ -128,6 +130,12 @@ class LearningBuilder:
             / "dictionaries"
             / "products.py"
         )
+        importlib.invalidate_caches()
+        fresh_module = importlib.reload(products_dictionary)
+        current_on_disk = fresh_module.PRODUCTS
+
+        merged = self._merge_products(current_on_disk, self.products)
+
         with open(
             path,
             "w",
@@ -136,11 +144,53 @@ class LearningBuilder:
             f.write("PRODUCTS = ")
             f.write(
                 pformat(
-                    self.products,
+                    merged,
                     width=140,
                     sort_dicts=False
                 )
             )
+
+        self.products = merged
+
+    @staticmethod
+    def _merge_products(current, ours):
+
+        merged = {
+            product: dict(info)
+            for product, info in current.items()
+        }
+
+        for product, info in ours.items():
+
+            if product not in merged:
+                merged[product] = info
+                continue
+
+            target = merged[product]
+
+            for key in ("aliases", "patterns"):
+
+                existing = list(target.get(key, []) or [])
+                incoming = info.get(key, []) or []
+
+                for value in incoming:
+                    if value not in existing:
+                        existing.append(value)
+
+                target[key] = existing
+
+            existing_materials = dict(
+                target.get("material_codes", {}) or {}
+            )
+            existing_materials.update(
+                info.get("material_codes", {}) or {}
+            )
+            target["material_codes"] = existing_materials
+
+            if not target.get("code") and info.get("code"):
+                target["code"] = info["code"]
+
+        return merged
     # ==========================================================
     # SAVE DROPDOWNS
     # ==========================================================

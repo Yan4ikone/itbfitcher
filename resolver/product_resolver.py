@@ -1,10 +1,11 @@
 import time
 
 from resolver.candidate import Candidate
-from resolver.product_parser import ProductParser
+from parser.product_parser import ProductParser
 from resolver.candidate_finder import CandidateFinder
 from resolver.candidate_scorer import CandidateScorer
 from resolver.material_resolver import MaterialResolver
+from utils.debug import debug_print
 
 
 class ProductResolver:
@@ -20,6 +21,8 @@ class ProductResolver:
         # Последний замер по стадиям - для диагностики, где реально
         # уходит время (parse/find/score/material). Читается вызывающим
         # кодом через resolver.last_timing после resolve().
+        # Данные считаются ВСЕГДА, печатаются - только
+        # если DEBUG=True в config.py.
         self.last_timing = {}
 
     # ==========================================================
@@ -34,12 +37,12 @@ class ProductResolver:
 
         t_parse = time.perf_counter()
 
-        print()
-        print("=" * 80)
-        print("PARSED PRODUCT")
-        print(parsed["product_name"])
-        print("=" * 80)
-        print()
+        debug_print()
+        debug_print("=" * 80)
+        debug_print("PARSED PRODUCT")
+        debug_print(parsed["product_name"])
+        debug_print("=" * 80)
+        debug_print()
 
         candidates = self.find_candidates(parsed)
 
@@ -134,7 +137,7 @@ class ProductResolver:
             "candidates_count": candidates_count,
         })
 
-        print(
+        debug_print(
             f"[TIMING] parse={self.last_timing['parse']:.3f}s  "
             f"find={self.last_timing['find']:.3f}s  "
             f"score={self.last_timing['score']:.3f}s  "
@@ -165,48 +168,12 @@ class ProductResolver:
 
             if candidate.score > 0:
                 result.append(candidate)
-
         t_score = time.perf_counter()
-
         self.last_timing["find"] = t_find - t0
         self.last_timing["score"] = t_score - t_find
 
         result.sort(
-            key=lambda x: x.score,
+            key=lambda x: (x.score, bool(x.code)),
             reverse=True,
         )
         return result
-
-    # ==========================================================
-    # DEBUG
-    # ==========================================================
-    def print_candidates(self, candidates):
-
-        print("=" * 70)
-
-        for candidate in candidates[:10]:
-
-            print()
-            print(candidate.product)
-            print("SCORE :", candidate.score)
-            print("CODE  :", candidate.code)
-
-            if candidate.material:
-                print("MATERIAL :", candidate.material)
-
-            if candidate.material_code:
-                print("MAT CODE :", candidate.material_code)
-            print("BREAKDOWN")
-
-            for key, value in sorted(
-                    candidate.breakdown.items()
-            ):
-                print(f"   {key:25} {value}")
-            print("MATCHES")
-
-            for item in candidate.matches:
-                print(
-                    f"   +{item['points']:4} "
-                    f"{item['type']:20} "
-                    f"{item['text']}"
-                )

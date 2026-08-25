@@ -11,6 +11,7 @@ from models.card_builder import build_product_card
 from parser.ozon_html_parser import (
     parse_ozon_page_async,
 )
+from parser.wb_parser import WBParser
 from processors.card_image_processor import CardImageProcessor
 from services.image_description_service import ImageDescriptionService
 
@@ -31,6 +32,8 @@ class CDPProductParser:
         image_engine = ImageDescriptionEngine()
         image_service = ImageDescriptionService(image_engine)
         self.image_processor = CardImageProcessor(image_service)
+        self.wb_parser = WBParser()
+        self._wb_responses = {}
         self.async_playwright = None
         self.async_browser = None
         self.async_context = None
@@ -196,6 +199,91 @@ class CDPProductParser:
             except Exception:
                 pass
 
+    def _attach_wb_response_listener(self, page):
+        """
+        Перехватывает JSON/XHR/fetch ответы WB непосредственно
+        из Playwright network layer.
+        """
+
+        self._wb_responses[page] = []
+
+        async def handle_response(response):
+
+            try:
+                request = response.request
+
+                resource_type = request.resource_type
+
+                if resource_type not in ("xhr", "fetch"):
+                    return
+
+                url = response.url
+
+                # Не собираем служебный мусор
+                low = url.lower()
+
+                if any(
+                        x in low
+                        for x in (
+                                "sentry",
+                                "antibot",
+                                "find-frontend-settings",
+                        )
+                ):
+                    return
+
+                print(
+                    f"[WB NETWORK] "
+                    f"{response.status} "
+                    f"{resource_type} "
+                    f"{url}"
+                )
+
+                try:
+                    content_type = (
+                        response.headers.get(
+                            "content-type",
+                            ""
+                        ).lower()
+                    )
+                except Exception:
+                    content_type = ""
+
+                # Нас интересует JSON
+                if (
+                        "json" not in content_type
+                        and not url.lower().endswith(".json")
+                ):
+                    return
+
+                try:
+                    body = await response.json()
+                except Exception:
+                    return
+
+                if body:
+                    self._wb_responses[page].append({
+                        "url": url,
+                        "status": response.status,
+                        "data": body,
+                    })
+
+                    print(
+                        "[WB NETWORK JSON] FOUND:",
+                        url
+                    )
+
+            except Exception:
+                log.debug(
+                    "WB response listener error",
+                    exc_info=True,
+                )
+
+        page.on(
+            "response",
+            handle_response,
+        )
+
     async def _goto_with_retry(self, page, url, timeout):
 
         import asyncio
@@ -232,31 +320,82 @@ class CDPProductParser:
     async def parse_url_async(self, page, url, timeout=30000):
         """
         Парсит URL в уже существующей вкладке.
-        Вкладка НЕ создаётся и НЕ закрывается здесь.
-        Один worker получает одну постоянную page
-        и использует её для последовательной обработки
-        своих URL.
+        Ozon и Wildberries используют разные HTML/API-парсеры,
+        но дальше обе карточки проходят через один build_product_card().
         """
-        log.info("OZON OPEN: %s", url,)
-
-        await self._goto_with_retry(page, url, timeout)
-
-        data = await parse_ozon_page_async(page)
-
-        # ВАЖНО: строим карточку из page.url (реальный адрес ПОСЛЕ
-        # перехода), а не из исходного запрошенного url.
-        final_url = page.url or url
-        card = build_product_card(final_url, data, raw_text=data.get("description", ""))
+        url_lower = (url or "").lower()
+        is_wb = (
+                "wildberries.ru" in url_lower
+                or "wb.ru" in url_lower
+        )
+        marketplace = "WB" if is_wb else "OZON"
         log.info(
-            "Карточка построена: "
-            "TITLE=%s "
-            "DESCRIPTION=%d "
-            "SPECS=%d "
-            "IMAGES=%d",
+            "%s OPEN: %s",
+            marketplace,
+            url,
+        )
+        # --------------------------------------------------
+        # OPEN
+        # --------------------------------------------------
+        if is_wb:
+            await self._goto_with_retry(page, url, timeout)
+        # ==================================================
+        # WILDBERRIES
+        # ==================================================
+
+        if is_wb:
+
+            log.info(
+                "WB PARSER: начинаем разбор %s",
+                page.url or url,
+            )
+            responses = self._wb_responses.get(
+                page,
+                []
+            )
+            log.info(
+                "WB NETWORK RESPONSES: %d",
+                len(responses),
+            )
+            data = await self.wb_parser.parse_page(
+                page,
+                responses=responses,
+            )
+            log.info(
+                "WB PARSED: TITLE=%s DESCRIPTION=%d SPECS=%d",
+                bool(data.get("title")),
+                len(data.get("description", "") or ""),
+                len(data.get("specs", {}) or {}),
+            )
+        # ==================================================
+        # OZON
+        # ==================================================
+        else:
+
+            data = await parse_ozon_page_async(page)
+            log.info(
+                "OZON PARSED: TITLE=%s DESCRIPTION=%d SPECS=%d",
+                bool(data.get("title")),
+                len(data.get("description", "") or ""),
+                len(data.get("specs", {}) or {}),
+            )
+        # --------------------------------------------------
+        # BUILD CARD
+        # --------------------------------------------------
+        # ВАЖНО:
+        # используем фактический URL после редиректа.
+        final_url = page.url or url
+        card = build_product_card(final_url, data,
+            raw_text=data.get("raw_text", "")
+                     or data.get("description", ""),
+        )
+        log.info(
+            "%s CARD BUILT: TITLE=%s DESCRIPTION=%d SPECS=%d",
+            marketplace,
             bool(card.title),
             len(card.description or ""),
-            len(data.get("specs", {})),
-            len(data.get("images", [])),)
+            len(data.get("specs", {}) or {}),
+        )
         return card
 
     async def disconnect_async(self, close_browser=False):

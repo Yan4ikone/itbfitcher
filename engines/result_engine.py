@@ -5,7 +5,6 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 from dictionaries.all_dictionaries import MATERIAL_COLORS
 from dictionaries.dropdown_lists import DROPDOWN_LISTS
-from tools.convert_dropdowns import variants
 
 
 def apply_result(ws, row, code_col, result):
@@ -45,61 +44,34 @@ def set_comment(ws, row, code_col, result):
 def set_dropdown(ws, row, code_col, result):
 
     data = DROPDOWN_LISTS.get(result.dropdown)
-
-    if not data:
+    if not data or not isinstance(data, dict):
         return
 
-    if not isinstance(data, dict):
-        return
-
-    if variants:
-        ws.cell(row=row, column=code_col).value = int(variants[0]["code"])
-
+    variants = data.get("variants", [])
     if not variants:
         return
 
-    codes = [
-        str(item["code"])
-        for item in variants
-        if "code" in item
-    ]
-
+    codes = [str(item["code"]) for item in variants if "code" in item]
     if not codes:
         return
 
-    prompt = "\n".join(
-        f'{item["code"]} — {item["name"]}'
-        for item in variants
-    )
-
+    prompt = "\n".join(f'{item["code"]} — {item["name"]}' for item in variants)
     formula = '"' + ",".join(codes) + '"'
 
-    dv = DataValidation(
-        type="list",
-        formula1=formula,
-        allow_blank=True
-    )
-
-    dv.promptTitle = data.get(
-        "title",
-        "Выберите код"
-    )
-
+    dv = DataValidation(type="list", formula1=formula, allow_blank=True)
+    dv.promptTitle = data.get("title", "Выберите код")
     dv.prompt = prompt
     dv.showInputMessage = True
 
     cell = f"{get_column_letter(code_col)}{row}"
-    for dv in list(ws.data_validations.dataValidation):
-        if cell in dv.cells:
-            ws.data_validations.dataValidation.remove(dv)
+    for existing in list(ws.data_validations.dataValidation):
+        if cell in existing.cells:
+            ws.data_validations.dataValidation.remove(existing)
 
     dv.add(cell)
     ws.add_data_validation(dv)
-    code_cell = ws.cell(
-        row=row,
-        column=code_col
-    )
 
+    code_cell = ws.cell(row=row, column=code_col)
     if not code_cell.value:
         code_cell.value = int(codes[0])
 

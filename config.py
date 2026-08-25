@@ -1,3 +1,16 @@
-FEATURE_MATCH_WEIGHT = 15
-MIN_SIMILARITY_SCORE = 35
-SIMILARITY_LIMIT = 10
+DEBUG = False
+
+# --------------------------------------------------------------
+# SIMILARITY (classifier/similarity_engine.py)
+# --------------------------------------------------------------
+
+# Вес за каждый совпавший "предсказанный признак"
+# (material/product_type/purpose) при сравнении с историей.
+FEATURE_MATCH_WEIGHT = 8
+
+# Минимальный итоговый score (текстовое сходство + признаки),
+# чтобы товар из истории считался "похожим".
+MIN_SIMILARITY_SCORE = 25
+
+# Сколько похожих товаров максимум возвращать.
+SIMILARITY_LIMIT = 20

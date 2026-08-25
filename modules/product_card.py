@@ -13,6 +13,7 @@ class ProductCard:
     description: str = ""
     raw_text: str = ""
     specs: dict = field(default_factory=dict)
+    breadcrumbs: list = field(default_factory=list)
     clean_title: str = ""
     brand: str = ""
     country: str = ""
@@ -20,7 +21,6 @@ class ProductCard:
     product_candidates: list = field(default_factory=list)
     material: str = ""
     quantity: str = ""
-    volume: str = ""
     package: str = ""
     images: list = field(default_factory=list)
     image_description: str = ""

@@ -2,6 +2,7 @@ from urllib.parse import urlparse, unquote
 import re
 
 from modules.product_card import ProductCard
+from utils.quantity_extractor import extract_quantity
 
 
 FIELDS = [
@@ -37,6 +38,11 @@ def build_from_excel(description, characteristics="", normalized=""):
 
     if characteristics:
         card.specs["Характеристики"] = characteristics
+    text = " ".join(filter(None, [description, characteristics]))
+    quantity = extract_quantity(text)
+
+    if quantity:
+        card.quantity = quantity
 
     return card
 
@@ -50,6 +56,7 @@ def build_product_card(url, parsed, raw_text):
     card.title = parsed.get("title", "")
     card.description = parsed.get("description", "")
     card.specs = parsed.get("specs", {})
+    card.breadcrumbs = parsed.get("breadcrumbs", [])
     card.images = parsed.get("images", [])
 
     if not card.title:
@@ -93,7 +100,26 @@ def build_product_card(url, parsed, raw_text):
                 or "комплект" in key_l
                 or "набор" in key_l
         ):
-            quantity = _extract_quantity(value_str)
+            quantity = extract_quantity(value_str)
+            # Частый случай на Ozon: единица уже в НАЗВАНИИ поля
+            # ("Количество в упаковке, шт"), а само значение -
+            # просто голое число ("5"). Тогда unit берём из key.
+            if not quantity and value_str.isdigit():
+
+                number = int(value_str)
+
+                if number >= 2:
+
+                    if "компл" in key_l:
+                        unit = "комплект"
+                    elif "набор" in key_l:
+                        unit = "набор"
+                    elif "пар" in key_l:
+                        unit = "пар"
+                    else:
+                        unit = "шт"
+
+                    quantity = f"{number} {unit}"
 
             if quantity:
                 card.quantity = quantity
@@ -120,63 +146,23 @@ def build_product_card(url, parsed, raw_text):
         if "бренд" in key_l:
             if not card.brand:
                 card.brand = value_str
+        # ------------------------------------------------------------
+        # FALLBACK: если ни один спек не дал количество (его вообще
+        # нет как отдельного поля, оно только в заголовке - как
+        # "Носки для девочек, 5 пар") - пробуем достать из текста.
+        # ------------------------------------------------------------
+        if not card.quantity:
+
+            quantity = extract_quantity(
+                " ".join(filter(None, [card.title, card.description]))
+            )
+
+            if quantity:
+                card.quantity = quantity
     card.sections = parsed.get("sections", {})
     card.parser_log = parsed.get("parser_log", [])
 
     return card
-
-def _extract_quantity(value):
-
-    value = str(value or "").strip().lower()
-
-    if not value:
-        return ""
-
-    value = re.sub(r"\s+", " ", value)
-    match = re.fullmatch(
-        r"(\d+)\s*(шт\.?|штук[аи]?|ед\.?|единиц[аы]?)",
-        value,
-    )
-    if match:
-        number = int(match.group(1))
-
-        if number >= 2:
-            return value
-        return ""
-
-    match = re.fullmatch(
-        r"(\d+)\s*пар[аы]?",
-        value,
-    )
-    if match:
-        number = int(match.group(1))
-
-        if number >= 2:
-            return value
-        return ""
-
-    match = re.fullmatch(
-        r"(\d+)\s*комплект(?:а|ов)?",
-        value,
-    )
-    if match:
-        number = int(match.group(1))
-        if number >= 2:
-            return value
-        return ""
-
-    match = re.fullmatch(
-        r"(\d+)\s*набор(?:а|ов)?",
-        value,
-    )
-    if match:
-        number = int(match.group(1))
-        if number >= 2:
-            return value
-        return ""
-
-
-    return ""
 
 def _extract_volume(value):
 
@@ -188,7 +174,7 @@ def _extract_volume(value):
     value = re.sub(r"\s+", " ", value)
 
     match = re.fullmatch(
-        r"(\d+(?:[.,]\d+)?)\s*(мл|л)",
+        r"(\d+(?:[.,]\d+)?)\s*(мл)",
         value,
     )
     if match:

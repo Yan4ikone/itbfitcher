@@ -493,12 +493,7 @@ class OzonAutoProcessor:
     # APPLY CACHE RESULT
     # ==========================================================
 
-    def apply_cached_result(
-            self,
-            ws,
-            row,
-            cached_card,
-    ):
+    def apply_cached_result(self, ws, row, cached_card):
         description = (
             cached_card.get("display_name")
             or cached_card.get("product")
@@ -599,9 +594,7 @@ class OzonAutoProcessor:
                 f"{result.confidence}%"
             )
             if result.review:
-                self.log(
-                    "⚠ Требуется проверка"
-                )
+                self.log("⚠ Требуется проверка")
         else:
 
             self.not_found_count += 1

@@ -46,9 +46,10 @@ def parse_ozon_html(html: str) -> dict:
         "specs": {},
         "specs_count": 0,
         "material": "",
-    }
+        "breadcrumbs": [],}
     _parse_ld_json(soup, result)
     _parse_specs(soup, result)
+    _parse_breadcrumbs(soup, result)
     _parse_images(soup, result)
     _extract_material(result)
 
@@ -224,7 +225,7 @@ def _parse_specs(soup: BeautifulSoup, result: dict) -> None:
         if not dt or not dd:
             continue
 
-        key = dt.get_text(strip=True)
+        key = dt.get_text(strip=True).rstrip(":").strip()
         value = dd.get_text(strip=True)
 
         if key and value:
@@ -232,6 +233,31 @@ def _parse_specs(soup: BeautifulSoup, result: dict) -> None:
 
     result["specs"] = specs
     result["specs_count"] = len(specs)
+
+
+def _parse_breadcrumbs(soup: BeautifulSoup, result: dict) -> None:
+    """
+    Источник 3: хлебные крошки (data-widget="breadCrumbs").
+    Структура стабильна и не содержит свободного текста:
+    <ol><li><a><span>Категория</span></a></li>...</ol>
+    Последним элементом иногда идёт не категория, а бренд/продавец -
+    это не страшно: название бренда почти никогда не совпадёт со
+    словарным названием товара, поэтому отдельно его не отфильтровываем.
+    """
+    container = soup.find(attrs={"data-widget": "breadCrumbs"})
+
+    if container is None:
+        result["breadcrumbs"] = []
+        return
+
+    items = []
+
+    for link in container.find_all("a"):
+        text = link.get_text(strip=True)
+        if text:
+            items.append(text)
+
+    result["breadcrumbs"] = items
 
 
 # Регулярка достаёт CDN-ссылку Ozon на изображение товара из srcset.

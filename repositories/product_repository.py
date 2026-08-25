@@ -369,26 +369,6 @@ class ProductRepository:
             []
         )
 
-    def get_variants(self, product):
-
-        info = self.get(product)
-
-        if not info:
-            return []
-
-        return info.get("variants", [])
-
-    def has_variants(self, product):
-
-        info = self.get(product)
-
-        if not info:
-            return False
-
-        return bool(
-            info.get("variants", [])
-        )
-
     def get_display_name(self, product):
 
         if isinstance(product, list):
@@ -422,6 +402,10 @@ class ProductRepository:
             / "dictionaries"
             / "products.py"
         )
+        importlib.invalidate_caches()
+        fresh_module = importlib.reload(products_dictionary)
+        current_on_disk = fresh_module.PRODUCTS
+        merged = self._merge_products(current_on_disk, self.products)
 
         with open(
             path,
@@ -432,8 +416,61 @@ class ProductRepository:
             f.write("PRODUCTS = ")
             f.write(
                 pformat(
-                    self.products,
+                    merged,
                     width=140,
                     sort_dicts=False,
                 )
             )
+
+        self.products = merged
+        self.rebuild_index()
+
+    @staticmethod
+    def _merge_products(current, ours):
+        """
+        current - то, что реально сейчас лежит в products.py на диске
+                   (могло обновиться другим процессом/окном за то
+                   время, пока мы работали со своей копией).
+        ours     - наша in-memory копия с накопленными изменениями.
+
+        Сливаем аддитивно, никогда не удаляя то, что уже есть на
+        диске: новые товары добавляются целиком, а для уже
+        существующих объединяются списки/множества (aliases,
+        patterns, material_codes) без потери данных с любой стороны.
+        """
+        merged = {
+            product: dict(info)
+            for product, info in current.items()
+        }
+
+        for product, info in ours.items():
+
+            if product not in merged:
+                merged[product] = info
+                continue
+
+            target = merged[product]
+
+            for key in ("aliases", "patterns"):
+
+                existing = list(target.get(key, []) or [])
+                incoming = info.get(key, []) or []
+
+                for value in incoming:
+                    if value not in existing:
+                        existing.append(value)
+
+                target[key] = existing
+
+            existing_materials = dict(
+                target.get("material_codes", {}) or {}
+            )
+            existing_materials.update(
+                info.get("material_codes", {}) or {}
+            )
+            target["material_codes"] = existing_materials
+
+            if not target.get("code") and info.get("code"):
+                target["code"] = info["code"]
+
+        return merged

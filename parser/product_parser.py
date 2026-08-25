@@ -1,7 +1,6 @@
-import re
-
 from cleaner.product_cleaner import clean_text
 from cleaner.product_extractor import ProductExtractor
+from utils.quantity_extractor import extract_quantity
 
 
 class ProductParser:
@@ -50,14 +49,8 @@ class ProductParser:
 
         raw_text = " ".join(texts)
         cleaned, _, _ = clean_text(raw_text)
-        print("\nRAW:")
-        print(raw_text)
-        print("\nCLEANED:")
-        print(cleaned)
         product = self.extractor.extract(cleaned)
-        print("\nEXTRACTED PRODUCT:")
-        print(product)
-        quantity = self._extract_quantity(raw_text)
+        quantity = extract_quantity(raw_text)
 
         if quantity:
             product = f"{product} {quantity}"
@@ -82,30 +75,10 @@ class ProductParser:
                 k: str(v).lower()
                 for k, v in card.specs.items()
             },
+            "breadcrumbs": [
+                str(item).lower()
+                for item in getattr(card, "breadcrumbs", [])
+            ],
             "tokens": set(raw_text.lower().split()),
             "product_name": product,
         }
-    # ==========================================================
-    # QUANTITY
-    # ==========================================================
-    def _extract_quantity(self, text):
-
-        patterns = [
-            r"(\d+)\s*шт",
-            r"(\d+)\s*штук",
-            r"комплект\s+из\s+(\d+)",
-            r"набор\s+из\s+(\d+)",
-            r"(\d+)\s*pcs",
-            r"(\d+)\s*pieces",
-            r"(\d+)\s*пар",
-            r"(\d+)\s*пары",
-        ]
-        text = text.lower()
-
-        for pattern in patterns:
-
-            m = re.search(pattern, text)
-
-            if m:
-                return f"{m.group(1)} шт"
-        return ""

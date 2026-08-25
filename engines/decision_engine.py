@@ -1,5 +1,5 @@
 from engines.knowledge_engine import KnowledgeEngine
-from classifier.dropdown_resolver import DropdownResolver
+from resolver.dropdown_resolver import DropdownResolver
 from classifier.history_classifier import HistoryClassifier
 from classifier.card_classifier import CardClassifier
 from classifier.learning_classifier import LearningClassifier
@@ -65,8 +65,22 @@ class DecisionEngine:
             result.material = getattr(card, "material", "")
         # ==========================================================
         # 3. DROPDOWN
+        #
+        # Пропускаем, если material_codes уже дал код по материалу
+        # (result.material непустой значит MaterialResolver внутри
+        # product_engine.classify() уже успешно сработал через
+        # material_codes). Иначе DropdownResolver может повторно
+        # определить материал уже через dropdown.variants
         # ==========================================================
-        if self.dropdown.resolve(result.product):
+        material_already_resolved = bool(result.material and result.code)
+
+        if material_already_resolved:
+            result.trace.add(
+                "DROPDOWN",
+                "Пропущен: материал уже определён через material_codes "
+                f"(код={result.code})"
+            )
+        elif self.dropdown.resolve(result.product):
             self.dropdown.resolve_code(result, card)
             print(
                 "DROPDOWN RESOLVED:",

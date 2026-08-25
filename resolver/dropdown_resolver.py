@@ -1,17 +1,23 @@
+from resolver.dropdown_axis_resolver import AXIS_RESOLVERS, get_axis_resolver
+
 class DropdownResolver:
+
+    DEFAULT_AXES = (
+        "material_volume",
+        "material",
+        "gender",
+        "purpose",
+        "mechanism",
+    )
 
     def __init__(self, repository=None):
         self.repository = repository
 
-    # ==========================================================
-    # PRODUCT
-    # ==========================================================
 
     def resolve(self, product):
 
         if not product:
             return ""
-
         if self.repository is None:
             return ""
 
@@ -20,32 +26,46 @@ class DropdownResolver:
         if not info:
             return ""
 
-        variants = info.get("variants", [])
+        dropdown = info.get("dropdown") or {}
+        variants = dropdown.get("variants", [])
 
         if not variants:
             return ""
-
         return product
 
-    # ==========================================================
-    # RESOLVE CODE
-    # ==========================================================
 
     def resolve_code(self, result, card):
 
         if self.repository is None:
             return
 
-        data = self.repository.get(result.product)
+        info = self.repository.get(result.product)
 
-        if not data:
+        if not info:
             return
 
-        variants = data.get("variants", [])
+        dropdown = info.get("dropdown") or {}
+        variants = dropdown.get("variants", [])
 
         if not variants:
             return
+        # --------------------------------------------------
+        # 1. Оси (material / gender / purpose / mechanism / material_volume)
+        # --------------------------------------------------
+        variant = self._resolve_by_axis(dropdown, variants, card, result)
 
+        if variant:
+            self._apply_variant(
+                result,
+                variant,
+                source="DROPDOWN",
+                confidence=90,
+                review=False,
+            )
+            return
+        # --------------------------------------------------
+        # 2. Fallback: ищем group прямо в тексте карточки
+        # --------------------------------------------------
         text = self._build_text(result, card)
 
         for variant in variants:
@@ -56,7 +76,6 @@ class DropdownResolver:
                 continue
 
             if self._contains(text, group):
-
                 self._apply_variant(
                     result,
                     variant,
@@ -65,45 +84,76 @@ class DropdownResolver:
                     review=False,
                 )
                 return
-
+        # --------------------------------------------------
+        # 3. Fallback: материал совпадает с name/group варианта
+        # --------------------------------------------------
         material = str(result.material or "").strip().lower()
 
         if material:
+
             for variant in variants:
 
                 name = str(variant.get("name", "")).strip().lower()
                 group = str(variant.get("group", "")).strip().lower()
 
                 if material == name or (group and material == group):
-                    result.code = variant["code"]
-                    result.dropdown_group = variant.get("group", "")
-                    result.source = "DROPDOWN_MATERIAL"
-                    result.confidence = 95
 
+                    self._apply_variant(
+                        result,
+                        variant,
+                        source="DROPDOWN_MATERIAL",
+                        confidence=95,
+                        review=False,
+                    )
                     return
-
+        # --------------------------------------------------
+        # 4. Ничего не определили — берём первый вариант, ставим на проверку
+        # --------------------------------------------------
         first = variants[0]
         result.code = first["code"]
         result.dropdown_group = first.get("group", "")
         result.review = True
         result.source = "DROPDOWN_FIRST"
         result.confidence = 60
-
         result.alternatives = {
             item["code"]: item["name"]
             for item in variants
         }
     # ==========================================================
+    # AXIS DISPATCH
+    # ==========================================================
+    def _resolve_by_axis(self, dropdown, variants, card, result):
+        """
+        Если у dropdown указана конкретная "axis" - используем
+        только её. Иначе пробуем оси по умолчанию по очереди,
+        пока какая-то не вернёт вариант.
+        """
+
+        explicit_axis = dropdown.get("axis")
+
+        if explicit_axis:
+
+            resolver = get_axis_resolver(explicit_axis)
+
+            return resolver.find(variants, card, result)
+
+        for axis in self.DEFAULT_AXES:
+
+            resolver = AXIS_RESOLVERS.get(axis)
+
+            if not resolver:
+                continue
+
+            variant = resolver.find(variants, card, result)
+
+            if variant:
+                return variant
+
+        return None
+    # ==========================================================
     # APPLY VARIANT
     # ==========================================================
-    def _apply_variant(
-        self,
-        result,
-        variant,
-        source,
-        confidence,
-        review,
-    ):
+    def _apply_variant(self, result, variant, source, confidence, review):
         code = str(variant.get("code", "")).strip()
 
         if not code:
