@@ -12,8 +12,9 @@ log = logging.getLogger(__name__)
 
 class WBParser:
     CARD_JSON_TIMEOUT = 10
-    BASKET_MAX = 100
+    BASKET_MAX = 60
     UPSTREAMS_URL = "https://cdn.wbbasket.ru/api/v3/upstreams"
+    CARD_API_URL = "https://card.wb.ru/cards/v4/detail"
 
     def __init__(self):
         self.session = requests.Session()
@@ -51,6 +52,17 @@ class WBParser:
                 print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: NETWORK")
                 return result
 
+        # Основной публичный путь. Он не зависит от basket/vol и поэтому
+        # автоматически работает для новых vol без расширения словаря.
+        data = await self._fetch_public_card_api(nm_id)
+        if data:
+            result = self._parse_card_api(data, nm_id)
+            if result.get("title"):
+                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: CARD.API")
+                return result
+
+        # CDN card.json остаётся fallback для случаев, когда публичный API
+        # не отдал карточку.
         data = await self._fetch_card_json(nm_id)
         if data:
             result = self._parse_card_json(data)
@@ -58,9 +70,77 @@ class WBParser:
                 print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: CARD.JSON")
                 return result
 
-        print(f"[WB PARSER] nm_id={nm_id} CARD.JSON НЕ НАЙДЕН")
+        print(f"[WB PARSER] nm_id={nm_id} CARD.JSON/API НЕ НАЙДЕН")
         print(f"[WB PARSER] nm_id={nm_id} FALLBACK -> DOM")
         return await self._parse_dom_async(page)
+
+    async def _fetch_public_card_api(self, nm_id: int):
+        """Получает публичную карточку WB напрямую по nmID.
+
+        Это основной универсальный fallback: здесь вообще не нужно знать
+        basket. Если WB переместил товар в новый vol/basket, API всё равно
+        получает карточку по nmID.
+        """
+        params = {
+            "appType": 1,
+            "curr": "rub",
+            "dest": -1257786,
+            "spp": 30,
+            "lang": "ru",
+            "nm": str(int(nm_id)),
+        }
+        timeout = aiohttp.ClientTimeout(total=5, connect=2, sock_read=3)
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    self.CARD_API_URL,
+                    params=params,
+                    headers={
+                        "User-Agent": self.session.headers["User-Agent"],
+                        "Accept": "application/json,text/plain,*/*",
+                        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+                    },
+                ) as response:
+                    if response.status != 200:
+                        print(f"[WB PARSER] nm_id={nm_id} CARD.API HTTP {response.status}")
+                        return None
+                    payload = await response.json(content_type=None)
+                    products = payload.get("data", {}).get("products", []) if isinstance(payload, dict) else []
+                    if not products:
+                        print(f"[WB PARSER] nm_id={nm_id} CARD.API EMPTY")
+                        return None
+                    # В запросе один nmID. Берём именно первый публичный товар.
+                    return products[0]
+        except Exception as exc:
+            print(f"[WB PARSER] nm_id={nm_id} CARD.API ERROR: {type(exc).__name__}: {exc}")
+            return None
+
+    def _parse_card_api(self, product: dict, nm_id: int) -> dict:
+        title = str(product.get("name") or product.get("imt_name") or product.get("title") or "").strip()
+        description = str(product.get("description") or "").strip()
+        brand = str(product.get("brand") or "").strip()
+        specs = {}
+
+        for key, value in product.items():
+            if key in {"name", "imt_name", "title", "description", "sizes", "colors", "photos", "pics", "tags"}:
+                continue
+            if isinstance(value, (str, int, float)) and str(value).strip():
+                specs.setdefault(str(key), str(value).strip())
+
+        if brand:
+            specs.setdefault("brand", brand)
+
+        raw_parts = [title, description]
+        raw_parts.extend(f"{k}: {v}" for k, v in specs.items())
+        return {
+            "title": title,
+            "description": description,
+            "specs": specs,
+            "raw_text": " ".join(x for x in raw_parts if x),
+            "sections": {},
+            "parser_log": [],
+            "nm_id": nm_id,
+        }
 
     async def _load_upstream_ranges(self):
         if self._upstream_ranges is not None:
@@ -69,7 +149,6 @@ class WBParser:
         async with self._upstream_lock:
             if self._upstream_ranges is not None:
                 return self._upstream_ranges
-
             try:
                 timeout = aiohttp.ClientTimeout(total=5, connect=2, sock_read=3)
                 async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -82,14 +161,10 @@ class WBParser:
                     ) as response:
                         if response.status == 200:
                             payload = await response.json(content_type=None)
-                            ranges = (
-                                payload.get("origin", {})
-                                .get("mediabasket_route_map", [])
-                            )
-                            if ranges:
-                                hosts = ranges[0].get("hosts", [])
-                                parsed = []
-                                for item in hosts:
+                            route_maps = payload.get("origin", {}).get("mediabasket_route_map", [])
+                            parsed = []
+                            for route in route_maps:
+                                for item in route.get("hosts", []):
                                     try:
                                         parsed.append((
                                             int(item["vol_range_from"]),
@@ -98,13 +173,12 @@ class WBParser:
                                         ))
                                     except (KeyError, TypeError, ValueError):
                                         continue
-                                if parsed:
-                                    self._upstream_ranges = parsed
-                                    print(f"[WB PARSER] UPSTREAMS: loaded {len(parsed)} ranges")
-                                    return parsed
+                            if parsed:
+                                self._upstream_ranges = parsed
+                                print(f"[WB PARSER] UPSTREAMS: loaded {len(parsed)} ranges")
+                                return parsed
             except Exception as exc:
                 print(f"[WB PARSER] UPSTREAMS ERROR: {type(exc).__name__}: {exc}")
-
             self._upstream_ranges = []
             return self._upstream_ranges
 
@@ -122,10 +196,7 @@ class WBParser:
         print(f"[WB PARSER] nm_id={nm_id} vol={vol} part={part}")
 
         def make_url(basket: int) -> str:
-            return (
-                f"https://basket-{basket:02d}.wbbasket.ru/"
-                f"vol{vol}/part{part}/{nm_id}/info/ru/card.json"
-            )
+            return f"https://basket-{basket:02d}.wbbasket.ru/vol{vol}/part{part}/{nm_id}/info/ru/card.json"
 
         candidates = []
 
@@ -138,79 +209,39 @@ class WBParser:
                 candidates.append(value)
 
         add_candidate(self._basket_cache.get(vol))
-
-        # Источник истины WB: актуальный upstreams endpoint.
         upstream_ranges = await self._load_upstream_ranges()
         for start, end, basket in upstream_ranges:
             if start <= vol <= end:
                 add_candidate(basket)
                 break
-
-        # Точный встроенный fallback на случай недоступности upstreams.
         add_candidate(self._basket_guess(vol))
 
-        # Соседние basket полезны при кратковременной миграции CDN.
+        # Не делаем перебор 1..100. Сначала только точный mapping и его соседи.
         for base in list(candidates):
-            for delta in (-1, 1, -2, 2, -3, 3):
+            for delta in (-1, 1):
                 add_candidate(base + delta)
 
-        for basket in self._recent_baskets:
-            add_candidate(basket)
-
         timeout = aiohttp.ClientTimeout(total=5, connect=2, sock_read=3)
-        connector = aiohttp.TCPConnector(limit=30, ssl=False)
-
+        connector = aiohttp.TCPConnector(limit=20, ssl=False)
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-            async def fetch(basket):
-                url = make_url(basket)
+            for basket in candidates:
                 try:
                     async with session.get(
-                        url,
+                        make_url(basket),
                         headers={
                             "User-Agent": self.session.headers["User-Agent"],
                             "Accept": "application/json,text/plain,*/*",
                         },
                     ) as response:
                         if response.status != 200:
-                            return None
-                        try:
-                            data = await response.json(content_type=None)
-                        except Exception:
-                            return None
-                        # Не проверяем nm_id внутри card.json: WB не гарантирует
-                        # наличие nmId/id в корневом объекте.
+                            continue
+                        data = await response.json(content_type=None)
                         if isinstance(data, dict) and data:
-                            return basket, data
+                            self._remember_basket(vol, basket)
+                            print(f"[WB PARSER] nm_id={nm_id} BASKET FOUND: {basket}")
+                            return data
                 except Exception:
-                    return None
-                return None
-
-            # Нормальный путь: один правильный basket + несколько соседей.
-            for basket in candidates:
-                result = await fetch(basket)
-                if result:
-                    found_basket, data = result
-                    self._remember_basket(vol, found_basket)
-                    print(f"[WB PARSER] nm_id={nm_id} BASKET FOUND: {found_basket}")
-                    return data
-
-            # Последний fallback. Не полагаемся на устаревшую таблицу.
-            remaining = [b for b in range(1, self.BASKET_MAX + 1) if b not in candidates]
-            tasks = [asyncio.create_task(fetch(basket)) for basket in remaining]
-            try:
-                for task in asyncio.as_completed(tasks):
-                    result = await task
-                    if not result:
-                        continue
-                    found_basket, data = result
-                    self._remember_basket(vol, found_basket)
-                    print(f"[WB PARSER] nm_id={nm_id} BASKET FOUND FALLBACK: {found_basket}")
-                    for other in tasks:
-                        if not other.done():
-                            other.cancel()
-                    return data
-            finally:
-                await asyncio.gather(*tasks, return_exceptions=True)
+                    continue
 
         print(f"[WB PARSER] nm_id={nm_id} BASKET НЕ НАЙДЕН: vol={vol}")
         return None
@@ -237,18 +268,15 @@ class WBParser:
             return None
 
     def _basket_guess(self, vol):
-        # Актуальная таблица origin.mediabasket_route_map WB.
         ranges = (
-            (143, 1), (287, 2), (431, 3), (719, 4),
-            (1007, 5), (1061, 6), (1115, 7), (1169, 8),
-            (1313, 9), (1601, 10), (1655, 11), (1919, 12),
-            (2045, 13), (2189, 14), (2405, 15), (2621, 16),
-            (2837, 17), (3053, 18), (3269, 19), (3485, 20),
-            (3701, 21), (3917, 22), (4133, 23), (4349, 24),
-            (4565, 25), (4877, 26), (5189, 27), (5501, 28),
-            (5813, 29), (6125, 30), (6437, 31), (6749, 32),
-            (7061, 33), (7373, 34), (7685, 35), (7997, 36),
-            (8309, 37), (8741, 38), (9173, 39), (9605, 40),
+            (143, 1), (287, 2), (431, 3), (719, 4), (1007, 5),
+            (1061, 6), (1115, 7), (1169, 8), (1313, 9), (1601, 10),
+            (1655, 11), (1919, 12), (2045, 13), (2189, 14), (2405, 15),
+            (2621, 16), (2837, 17), (3053, 18), (3269, 19), (3485, 20),
+            (3701, 21), (3917, 22), (4133, 23), (4349, 24), (4565, 25),
+            (4877, 26), (5189, 27), (5501, 28), (5813, 29), (6125, 30),
+            (6437, 31), (6749, 32), (7061, 33), (7373, 34), (7685, 35),
+            (7997, 36), (8309, 37), (8741, 38), (9173, 39), (9605, 40),
             (10373, 41), (11141, 42), (11909, 43), (12677, 44),
             (13445, 45), (14213, 46), (14981, 47), (15749, 48),
             (16517, 49), (17285, 50), (18053, 51), (18821, 52),
@@ -261,7 +289,6 @@ class WBParser:
     def _find_product_in_responses(self, responses, nm_id):
         if not responses:
             return None
-        print(f"[WB PARSER] nm_id={nm_id} NETWORK RESPONSES: {len(responses)}")
         for response in responses:
             try:
                 if not isinstance(response, dict):
@@ -269,7 +296,6 @@ class WBParser:
                 data = response.get("data")
                 product = self._find_product_object(data, nm_id)
                 if product:
-                    print(f"[WB PARSER] nm_id={nm_id} NETWORK PRODUCT FOUND")
                     return product
             except Exception:
                 continue
@@ -296,49 +322,21 @@ class WBParser:
         return None
 
     def _parse_card_json(self, product: dict) -> dict:
-        title = (
-            product.get("imt_name")
-            or product.get("name")
-            or product.get("title")
-            or product.get("goodsName")
-            or ""
-        )
+        title = product.get("imt_name") or product.get("name") or product.get("title") or product.get("goodsName") or ""
         description = product.get("description") or product.get("descriptionText") or ""
         specs = {}
-        for options in (
-            product.get("options"),
-            product.get("characteristics"),
-            product.get("params"),
-            product.get("properties"),
-            product.get("characteristicsFull"),
-        ):
+        for options in (product.get("options"), product.get("characteristics"), product.get("params"), product.get("properties"), product.get("characteristicsFull")):
             self._extract_specs(options, specs)
-
-        ignored = {
-            "description", "descriptionText", "imt_name", "name", "title",
-            "options", "characteristics", "params", "properties",
-            "characteristicsFull", "photos", "images", "colors", "sizes",
-        }
+        ignored = {"description", "descriptionText", "imt_name", "name", "title", "options", "characteristics", "params", "properties", "characteristicsFull", "photos", "images", "colors", "sizes"}
         for key, value in product.items():
             if key in ignored or not isinstance(value, (str, int, float)):
                 continue
             value_str = str(value).strip()
-            if not value_str or len(value_str) >= 500:
-                continue
-            if key.lower() in {"id", "nm_id", "nmid", "imt_id", "subject_id", "subject_root_id"}:
-                continue
-            specs.setdefault(str(key), value_str)
-
+            if value_str and len(value_str) < 500:
+                specs.setdefault(str(key), value_str)
         raw_parts = [str(title).strip(), str(description).strip()]
         raw_parts.extend(f"{k}: {v}" for k, v in specs.items())
-        return {
-            "title": str(title).strip(),
-            "description": str(description).strip(),
-            "specs": specs,
-            "raw_text": " ".join(x for x in raw_parts if x),
-            "sections": {},
-            "parser_log": [],
-        }
+        return {"title": str(title).strip(), "description": str(description).strip(), "specs": specs, "raw_text": " ".join(x for x in raw_parts if x), "sections": {}, "parser_log": []}
 
     def _extract_specs(self, obj: Any, specs: dict):
         if isinstance(obj, list):
