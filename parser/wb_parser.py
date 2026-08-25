@@ -52,8 +52,7 @@ class WBParser:
                 print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: NETWORK")
                 return result
 
-        # Основной публичный путь. Он не зависит от basket/vol и поэтому
-        # автоматически работает для новых vol без расширения словаря.
+        # Основной путь. Он не зависит от basket/vol.
         data = await self._fetch_public_card_api(nm_id)
         if data:
             result = self._parse_card_api(data, nm_id)
@@ -61,8 +60,7 @@ class WBParser:
                 print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: CARD.API")
                 return result
 
-        # CDN card.json остаётся fallback для случаев, когда публичный API
-        # не отдал карточку.
+        # CDN card.json остаётся fallback.
         data = await self._fetch_card_json(nm_id)
         if data:
             result = self._parse_card_json(data)
@@ -75,11 +73,12 @@ class WBParser:
         return await self._parse_dom_async(page)
 
     async def _fetch_public_card_api(self, nm_id: int):
-        """Получает публичную карточку WB напрямую по nmID.
+        """Получает карточку WB напрямую по nmID.
 
-        Это основной универсальный fallback: здесь вообще не нужно знать
-        basket. Если WB переместил товар в новый vol/basket, API всё равно
-        получает карточку по nmID.
+        ВАЖНО: cards/v4/detail возвращает products на верхнем уровне:
+        {"products": [...]}.
+        Ранее код ошибочно искал data.products, из-за чего даже HTTP 200
+        с реальным товаром считался пустым.
         """
         params = {
             "appType": 1,
@@ -104,13 +103,37 @@ class WBParser:
                     if response.status != 200:
                         print(f"[WB PARSER] nm_id={nm_id} CARD.API HTTP {response.status}")
                         return None
+
                     payload = await response.json(content_type=None)
-                    products = payload.get("data", {}).get("products", []) if isinstance(payload, dict) else []
-                    if not products:
+                    if not isinstance(payload, dict):
+                        print(f"[WB PARSER] nm_id={nm_id} CARD.API INVALID JSON")
+                        return None
+
+                    # Реальный формат v4: {"products": [...]}
+                    products = payload.get("products")
+                    if not isinstance(products, list):
+                        # Оставляем совместимость на случай другого формата.
+                        data = payload.get("data")
+                        products = data.get("products") if isinstance(data, dict) else None
+
+                    if not isinstance(products, list) or not products:
                         print(f"[WB PARSER] nm_id={nm_id} CARD.API EMPTY")
                         return None
-                    # В запросе один nmID. Берём именно первый публичный товар.
-                    return products[0]
+
+                    # Проверяем именно запрошенный nmID, а не просто первый объект.
+                    target = int(nm_id)
+                    for product in products:
+                        if not isinstance(product, dict):
+                            continue
+                        try:
+                            if int(product.get("id")) == target:
+                                return product
+                        except (TypeError, ValueError):
+                            continue
+
+                    print(f"[WB PARSER] nm_id={nm_id} CARD.API PRODUCT ID NOT FOUND")
+                    return None
+
         except Exception as exc:
             print(f"[WB PARSER] nm_id={nm_id} CARD.API ERROR: {type(exc).__name__}: {exc}")
             return None
@@ -216,7 +239,6 @@ class WBParser:
                 break
         add_candidate(self._basket_guess(vol))
 
-        # Не делаем перебор 1..100. Сначала только точный mapping и его соседи.
         for base in list(candidates):
             for delta in (-1, 1):
                 add_candidate(base + delta)
