@@ -1,6 +1,25 @@
 import re
 
-from dictionaries.all_dictionaries import IGNORED_ALIAS_WORDS
+from dictionaries.all_dictionaries import (
+    IGNORED_ALIAS_WORDS,
+    TRASH_MARKETING,
+    TRASH_MARKETPLACE,
+    TRASH_PACKAGE,
+)
+
+# Единый набор "мусорных" слов для алиасов.
+_TRASH_WORDS = (
+    IGNORED_ALIAS_WORDS
+    | TRASH_MARKETING
+    | TRASH_MARKETPLACE
+    | TRASH_PACKAGE
+)
+# Слова-маркеры
+_STRONG_TRASH_MARKERS = {
+    "акции", "акция", "распродажа", "скидки", "скидка",
+    "рублей", "рубля", "товары", "официально", "рекомендовано",
+    "тотальная",
+}
 
 
 def is_valid_alias(alias, product_name=""):
@@ -14,18 +33,18 @@ def is_valid_alias(alias, product_name=""):
     alias = re.sub(r"\s+", " ", alias)
 
     # Один из заведомо бесполезных вариантов
-    if alias in IGNORED_ALIAS_WORDS:
+    if alias in _TRASH_WORDS:
         return False
 
-    # Если alias состоит из нескольких слов,
-    # проверяем, не является ли он просто набором
-    # служебных слов.
     words = alias.split()
 
-    if words and all(
-        word in IGNORED_ALIAS_WORDS
-        for word in words
-    ):
+    # Если alias состоит из нескольких слов, проверяем,
+    # не является ли он просто набором служебных/мусорных слов.
+    if words and all(word in _TRASH_WORDS for word in words):
+        return False
+
+    # Явный маркетинговый мусор внутри фразы
+    if any(word in _STRONG_TRASH_MARKERS for word in words):
         return False
 
     # ------------------------------------------------------
@@ -65,21 +84,15 @@ def is_valid_alias(alias, product_name=""):
 def normalize_material(material):
     """
     Приводит материал к одному основному значению.
-
     Примеры:
-
         100% полиэстер
             -> полиэстер
-
         вискоза 67%, полиэстер 33%
             -> вискоза
-
         70% хлопок 25% полиэстер 5% эластан
             -> хлопок
-
         металл, пластик, дерево
             -> металл
-
         металл
             -> металл
     """
@@ -125,7 +138,6 @@ def normalize_material(material):
                     )
                 )
         if parsed:
-
             # Берём материал с максимальным процентом.
             # При равенстве сохраняется первый.
             parsed.sort(
@@ -135,11 +147,9 @@ def normalize_material(material):
             percent, name = parsed[0]
 
             return name.strip()
-
     # --------------------------------------------------
     # Если процентов нет — берём первый материал
     # --------------------------------------------------
-
     # Разделители:
     # "металл, пластик"
     # "металл; пластик"

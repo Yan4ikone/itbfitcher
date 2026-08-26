@@ -1,7 +1,7 @@
 import re
 
 from cleaner.alias_builder import AliasBuilder
-from learning.learning_filters import is_valid_alias
+from learning.learning_filters import is_valid_alias, normalize_material
 from learning.name_normalizer import normalize_dictionary_name
 from learning.product_matcher import ProductMatcher
 
@@ -299,7 +299,7 @@ class LearningAnalyzer:
         if not raw_material:
             return ""
 
-        material = self._normalize_material(
+        material = normalize_material(
             raw_material
         )
         print(
@@ -309,114 +309,6 @@ class LearningAnalyzer:
             repr(material)
         )
         return material
-    # ==========================================================
-    # MATERIAL NORMALIZATION
-    # ==========================================================
-    def _normalize_material(
-            self,
-            material
-    ):
-        material = str(
-            material or ""
-        ).strip().lower()
-
-        if not material:
-            return ""
-
-        material = re.sub(
-            r"\s+",
-            " ",
-            material
-        )
-        # --------------------------------------------------
-        # MATERIALS WITH PERCENTAGES
-        #
-        # Например:
-        # "вискоза 67%, полиэстер 33%"
-        #
-        # Берём только материал с максимальным процентом.
-        # --------------------------------------------------
-        matches = re.findall(
-            r"(\d+(?:[.,]\d+)?)\s*%\s*([^,;]+)",
-            material
-        )
-
-        if matches:
-
-            parsed = []
-
-            for percent, name in matches:
-
-                try:
-                    value = float(
-                        percent.replace(
-                            ",",
-                            "."
-                        )
-                    )
-
-                except ValueError:
-                    continue
-
-                name = re.sub(
-                    r"\d+(?:[.,]\d+)?\s*%",
-                    "",
-                    name
-                )
-                name = name.strip(
-                    " ,;.-"
-                )
-                if not name:
-                    continue
-
-                parsed.append(
-                    (
-                        value,
-                        name
-                    )
-                )
-            if parsed:
-                parsed.sort(
-                    key=lambda item: item[0],
-                    reverse=True
-                )
-                # Только название материала.
-                # Сам знак % и число сюда никогда не попадут.
-                return parsed[0][1]
-
-        # --------------------------------------------------
-        # MATERIAL WITHOUT PERCENTAGES
-        #
-        # "кожа, велюр"
-        # -> "кожа"
-        #
-        # "металл, пластик, дерево"
-        # -> "металл"
-        # --------------------------------------------------
-
-        material = re.sub(
-            r"\d+(?:[.,]\d+)?\s*%",
-            "",
-            material
-        )
-
-        parts = re.split(
-            r"\s*[,;/]\s*",
-            material
-        )
-
-        for part in parts:
-
-            part = part.strip(
-                " ,;.-"
-            )
-
-            if part:
-                return part
-
-        return material.strip(
-            " ,;.-"
-        )
     # ==========================================================
     # MATERIAL ANALYSIS
     # ==========================================================
@@ -590,9 +482,7 @@ class LearningAnalyzer:
         if code in material_codes:
             return
 
-        dropdown = (self.runtime.get_dropdown(product_name))
-        if not dropdown:
-            dropdown = (self.runtime.get_dropdown(description))
+        dropdown = product_info.get("dropdown") or {}
         if not dropdown:
             return
 
@@ -655,7 +545,6 @@ class LearningAnalyzer:
         )
         if not normalized_product:
             return
-
         if description == normalized_product:
             return
 
@@ -672,7 +561,6 @@ class LearningAnalyzer:
         # --------------------------------------------------
         # Ищем основу слова в описании.
         # --------------------------------------------------
-
         stem_length = max(4, len(word) - 2)
         stem = word[:stem_length]
 
@@ -693,11 +581,9 @@ class LearningAnalyzer:
         report.new_patterns.append(
             NewPattern(product=product_name, pattern=pattern))
         print("NEW PATTERN:", product_name, pattern)
-
     # ==========================================================
     # REPORT
     # ==========================================================
-
     def _print_report(self, report):
         print("\n" + "=" * 70)
         print("ANALYZER FINISH")

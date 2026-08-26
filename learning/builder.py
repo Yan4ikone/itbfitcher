@@ -2,7 +2,6 @@ from pathlib import Path
 from pprint import pformat
 import importlib
 
-from dictionaries.dropdown_lists import DROPDOWN_LISTS
 import dictionaries.products as products_dictionary
 from dictionaries.products import PRODUCTS
 
@@ -12,7 +11,6 @@ class LearningBuilder:
     def __init__(self):
 
         self.products = PRODUCTS
-        self.dropdowns = DROPDOWN_LISTS
     # ==========================================================
     # PRODUCTS
     # ==========================================================
@@ -78,11 +76,15 @@ class LearningBuilder:
     # ==========================================================
     def add_dropdown_variant(self, item):
 
-        dropdown = self.dropdowns.get(item.product)
+        product = self.products.get(item.product)
 
-        if not dropdown:
+        if not product:
             return
 
+        dropdown = product.setdefault(
+            "dropdown",
+            {"title": "Выберите вариант", "variants": []}
+        )
         variants = dropdown.setdefault(
             "variants",
             []
@@ -99,8 +101,8 @@ class LearningBuilder:
 
         variants.append({
             "code": code,
-            "name": "",
-            "group": "other",
+            "name": getattr(item, "name", "") or "",
+            "group": getattr(item, "group", "") or "other",
         })
     # ==========================================================
     # PATTERNS
@@ -187,37 +189,36 @@ class LearningBuilder:
             )
             target["material_codes"] = existing_materials
 
+            incoming_dropdown = info.get("dropdown") or {}
+            incoming_variants = incoming_dropdown.get("variants", []) or []
+
+            if incoming_variants:
+
+                target_dropdown = target.setdefault(
+                    "dropdown",
+                    {"title": incoming_dropdown.get("title", "Выберите вариант"), "variants": []}
+                )
+                target_variants = target_dropdown.setdefault("variants", [])
+                known_codes = {
+                    str(v.get("code", "")).strip()
+                    for v in target_variants
+                }
+
+                for variant in incoming_variants:
+
+                    variant_code = str(variant.get("code", "")).strip()
+
+                    if variant_code and variant_code not in known_codes:
+                        target_variants.append(variant)
+                        known_codes.add(variant_code)
+
             if not target.get("code") and info.get("code"):
                 target["code"] = info["code"]
 
         return merged
-    # ==========================================================
-    # SAVE DROPDOWNS
-    # ==========================================================
-    def save_dropdowns(self):
-
-        path = (
-            Path(__file__).parent.parent
-            / "dictionaries"
-            / "dropdown_lists.py"
-        )
-        with open(
-            path,
-            "w",
-            encoding="utf-8"
-        ) as f:
-            f.write("DROPDOWN_LISTS = ")
-            f.write(
-                pformat(
-                    self.dropdowns,
-                    width=140,
-                    sort_dicts=False
-                )
-            )
     # ==========================================================
     # SAVE
     # ==========================================================
     def save(self):
 
         self.save_products()
-        self.save_dropdowns()
