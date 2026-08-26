@@ -16,9 +16,6 @@ class LearningRuntime:
     def reload(self):
 
         self.manual = self.repository.load_manual()
-        self.dropdowns = self.repository.load_dropdowns()
-        self.materials = self.repository.load_materials()
-        self.pending = self.repository.get_pending()
 
     def refresh(self):
         self.reload()
@@ -73,12 +70,6 @@ class LearningRuntime:
 
     def has_product(self, name):
         return self.product_repository.has(name)
-
-    def get_dropdown(self, product):
-        return self.dropdowns.get(product)
-
-    def get_materials(self, product):
-        return self.materials.get(product, {})
 
     def analyze(self):
         return LearningAnalyzer(self).analyze()

@@ -3,6 +3,7 @@ import re
 
 from modules.product_card import ProductCard
 from utils.quantity_extractor import extract_quantity
+from utils.material_extractor import extract_material
 
 
 FIELDS = [
@@ -38,11 +39,18 @@ def build_from_excel(description, characteristics="", normalized=""):
 
     if characteristics:
         card.specs["Характеристики"] = characteristics
+
     text = " ".join(filter(None, [description, characteristics]))
+
     quantity = extract_quantity(text)
 
     if quantity:
         card.quantity = quantity
+    material = extract_material(text)
+
+    if material:
+        card.material = material
+        card.specs.setdefault("Материал", material)
 
     return card
 
@@ -159,6 +167,25 @@ def build_product_card(url, parsed, raw_text):
 
             if quantity:
                 card.quantity = quantity
+
+    # ------------------------------------------------------------
+    # МАТЕРИАЛ FALLBACK
+    #
+    # Если ни один spec-ключ не содержал "материал"/"состав" (Ozon
+    # иногда отдаёт материал только текстом внутри описания, а не
+    # отдельным полем характеристик), пробуем вытащить его оттуда же,
+    # где это уже делает parser/ozon_parser.py - тем же общим
+    # extract_material(), чтобы не поддерживать вторую копию regex.
+    # ------------------------------------------------------------
+    if not card.material:
+
+        material = extract_material(
+            " ".join(filter(None, [card.description, card.raw_text]))
+        )
+
+        if material:
+            card.material = material
+
     card.sections = parsed.get("sections", {})
     card.parser_log = parsed.get("parser_log", [])
 

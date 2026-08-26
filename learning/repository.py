@@ -46,62 +46,45 @@ class LearningRepository:
                 ensure_ascii=False,
                 indent=2
             )
-
     # ==========================================================
     # Runtime API
     # ==========================================================
-
     def load_manual(self):
         return self.data.setdefault("manual", {})
 
     def load_products(self):
         return self.data.setdefault("products", {})
 
-    def load_dropdowns(self):
-        return self.data.setdefault("dropdowns", {})
-
-    def load_materials(self):
-        return self.data.setdefault("materials", {})
-
     def load_cards(self):
         repository = CardRepository()
         return repository.data
-
     # ==========================================================
     # Manual
     # ==========================================================
-
     def remember_manual(self, url, description, code, material=""):
 
         self.data.setdefault("manual", {})[url] = {
-
             "description": description,
             "code": code,
             "material": material,
             "approved": True
-
         }
-
         print(
             "SAVE",
             id(self),
             url,
             len(self.data["manual"])
         )
-
         self.save()
-
     # ==========================================================
     # Products
     # ==========================================================
-
     def has_product(self, product):
 
         return product in self.data.setdefault(
             "products",
             {}
         )
-
     def get_product(self, product):
 
         return self.data.setdefault(
@@ -117,11 +100,9 @@ class LearningRepository:
         )[product] = info
 
         self.save()
-
     # ==========================================================
     # Dropdowns
     # ==========================================================
-
     def get_dropdown(self, product):
 
         return self.data.setdefault(
@@ -137,11 +118,9 @@ class LearningRepository:
         )[product] = dropdown
 
         self.save()
-
     # ==========================================================
     # Materials
     # ==========================================================
-
     def get_materials(self, product):
 
         return self.data.setdefault(
@@ -156,20 +135,4 @@ class LearningRepository:
             {}
         )[product] = materials
 
-        self.save()
-
-    # ==========================================================
-    # Pending
-    # ==========================================================
-
-    def get_pending(self):
-
-        return self.data.setdefault(
-            "pending",
-            {}
-        )
-
-    def save_pending(self, pending):
-
-        self.data["pending"] = pending
         self.save()

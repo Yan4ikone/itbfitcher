@@ -1,4 +1,4 @@
-from excel.processor import (process_file_with_normalization, recalculate_codes)
+from excel.processor import process_file_with_normalization
 from learning.importer import import_verified_file
 from processors.ozon_auto_processor import OzonAutoProcessor
 
@@ -12,18 +12,6 @@ class AppController:
         progress_callback=None,
     ):
         return process_file_with_normalization(
-            input_path=input_path,
-            logger=logger,
-            progress_callback=progress_callback,
-        )
-
-    def recalculate(
-        self,
-        input_path,
-        logger=None,
-        progress_callback=None,
-    ):
-        return recalculate_codes(
             input_path=input_path,
             logger=logger,
             progress_callback=progress_callback,

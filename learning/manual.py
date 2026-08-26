@@ -1,8 +1,6 @@
 import pandas as pd
 
 from learning.repository import LearningRepository
-from learning.trainer import Trainer
-from learning.pending import save_pending_products
 from repositories.card_repository import CardRepository
 from repositories.product_repository import ProductRepository
 from utils.url_utils import normalize_ozon_url
@@ -13,7 +11,6 @@ class ManualTeacher:
     def __init__(self):
         self.repository = LearningRepository()
         self.product_repository = ProductRepository()
-        self.trainer = Trainer(self.product_repository)
         self.card_repository = CardRepository()
 
     def learn_result_file(self, path):
@@ -50,26 +47,12 @@ class ManualTeacher:
             existing = self.repository.get_product(product)
 
             if not existing:
-                self._add_pending(product, description, code)
                 statistics["new_products"] += 1
         self.repository.save()
         self.card_repository.flush()
 
         return statistics
 
-    def _add_pending(self, product, description, code):
-        pending = (self.repository .get_pending())
-        item = pending.setdefault(
-            product,
-            {
-                "display_name": description,
-                "count": 0,
-                "code": code,
-                "materials": {}
-            }
-        )
-        item["count"] += 1
-        save_pending_products(pending)
 
     def _value(self, row, names):
         for name in names:

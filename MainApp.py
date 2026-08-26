@@ -23,7 +23,6 @@ from core.app_controller import AppController
 from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
 from learning_window import LearningWindow
-from modules.review_manager import ReviewManager
 
 
 def create_output_from_template(input_path):
@@ -56,31 +55,6 @@ def make_rule_hint(product_name):
             for w in words
         ]
     )
-
-def start_recalculate():
-    if not selected_file["path"]:
-        messagebox.showwarning("Ошибка", "Выберите Excel-файл")
-        return
-
-    progress_var.set(0)
-    progress_label.config(text="0%")
-    set_status("Пересчет кодов...")
-
-    threading.Thread(target=run_recalculate_thread, daemon=True).start()
-
-def run_recalculate_thread():
-    try:
-        output_path = controller.recalculate(
-            selected_file["path"],
-            logger=gui_log,
-            progress_callback=update_progress,
-        )
-        set_status("Готово")
-        messagebox.showinfo("Готово", f"Коды пересчитаны: {os.path.basename(output_path)}")
-        os.startfile(os.path.dirname(output_path))
-    except Exception as e:
-        set_status("Ошибка")
-        messagebox.showerror("Ошибка", f"Не удалось пересчитать:\n{e}")
 
 def make_category_rule(product_name):
 
@@ -287,35 +261,6 @@ def start_processing():
     set_status("Обработка (с упрощением)...")
 
     threading.Thread(target=run_processing_with_norm, daemon=True).start()
-
-def start_review_mode():
-
-    if not selected_file["path"]:
-
-        messagebox.showwarning(
-            "Ошибка",
-            "Выберите Excel-файл"
-        )
-
-        return
-
-    review_window = tk.Toplevel(root)
-
-    review_window.title(
-        "Проверка товаров"
-    )
-
-    review_window.geometry(
-        "750x500"
-    )
-
-    manager = ReviewManager(
-        review_window,
-        selected_file["path"]
-    )
-
-    manager.build_ui()
-
 
 def run_processing_with_norm():
     try:
@@ -606,16 +551,6 @@ buttons = [
     (
         "Обработать\n(с упрощением)",
         start_processing
-    ),
-
-    (
-        "Пересчитать\nкоды",
-        start_recalculate
-    ),
-
-    (
-        "Проверка\nтоваров",
-        start_review_mode
     ),
 
     (

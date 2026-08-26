@@ -46,10 +46,15 @@ def write_result(
             code_column,
             result,
         )
+    final_description = (
+        getattr(result, "dropdown", "")
+        or getattr(result, "display_name", "")
+        or description
+    )
     ws.cell(
         row=row,
         column=description_column,
-    ).value = description
+    ).value = final_description
 
 
 def add_history_warning(ws, row, code_column, history):
@@ -78,11 +83,8 @@ def add_history_warning(ws, row, code_column, history):
     text = ("В истории встречались разные коды:\n" + "\n".join(variants))
 
     if cell.comment:
-
         cell.comment.text += ( "\n\n" + text)
-
     else:
-
         cell.comment = Comment(text, "AutoClassifier")
 
 

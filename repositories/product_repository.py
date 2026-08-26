@@ -2,7 +2,7 @@ from pathlib import Path
 from pprint import pformat
 import importlib
 
-from dictionaries.dropdown_lists import DROPDOWN_LISTS
+
 import dictionaries.products as products_dictionary
 
 
@@ -271,21 +271,6 @@ class ProductRepository:
         return self.search_index.get(
             description.strip().lower()
         )
-
-    # ==============================================================
-    # DROPDOWN
-    # ==============================================================
-
-    def find_dropdown(self, description):
-
-        description = (description or "").lower()
-
-        for product, dropdown in DROPDOWN_LISTS.items():
-
-            if product.lower() in description:
-                return dropdown
-
-        return None
 
     # ==============================================================
     # GETTERS
