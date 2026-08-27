@@ -7,19 +7,51 @@ from dictionaries.products import PRODUCTS
 
 
 class LearningBuilder:
+    """
+    ВАЖНО - ИСТОРИЯ ПРАВКИ:
+
+    Раньше __init__ брал self.products = PRODUCTS - статичный снимок
+    ВСЕГО словаря на момент старта сессии обучения. save_products()
+    честно перечитывал products.py заново перед сохранением, но
+    затем СЛИВАЛ (union) этот свежий диск со старым снимком
+    self.products через _merge_products(). Если между стартом сессии
+    и save() кто-то вручную удалил строку прямо в products.py, она
+    всё ещё жила в старом снимке self.products - и union возвращал
+    её обратно. Ручные удаления буквально "воскресали" при следующем
+    обучении.
+
+    Теперь LearningBuilder не хранит копию всего словаря вообще -
+    только ДЕЛЬТУ: что конкретно нужно добавить (новые товары,
+    алиасы, материалы, dropdown-варианты, паттерны). Полное состояние
+    словаря читается с диска ОДИН РАЗ, непосредственно перед записью,
+    и дельта применяется поверх него. Ручные правки, сделанные до
+    этого момента, никогда не перезаписываются и не воскрешаются -
+    мы просто не храним старую версию, с которой их можно было бы
+    "слить".
+    """
 
     def __init__(self):
 
+        self._new_products = {}            # description -> info
+        self._new_aliases = {}             # product -> set(alias)
+        self._new_materials = {}           # product -> {material: code}
+        self._new_dropdown_variants = {}   # product -> [variant, ...]
+        self._new_dropdowns = {}           # product -> {"title":..., "variants": [...]}
+        self._new_patterns = {}            # product -> set(pattern)
+
+        # Только для чтения (например, LearningAnalyzer может
+        # захотеть свериться с актуальным состоянием) - не участвует
+        # в сохранении, чтобы не повторить старую ошибку.
         self.products = PRODUCTS
     # ==========================================================
     # PRODUCTS
     # ==========================================================
     def add_product(self, item):
 
-        if self.products.get(item.description):
+        if item.description in self._new_products:
             return
 
-        self.products[item.description] = {
+        self._new_products[item.description] = {
             "code": str(item.code),
             "patterns": [],
             "aliases": [],
@@ -30,76 +62,40 @@ class LearningBuilder:
     # ==========================================================
     def add_alias(self, item):
 
-        product = self.products.get(item.product)
-
-        if not product:
-            return
-
-        aliases = product.setdefault(
-            "aliases",
-            []
-        )
         alias = str(item.alias).strip().lower()
 
         if not alias:
             return
-        if alias in {
-            str(value).strip().lower()
-            for value in aliases
-        }:
-            return
 
-        aliases.append(alias)
+        self._new_aliases.setdefault(item.product, set()).add(alias)
     # ==========================================================
     # MATERIALS
     # ==========================================================
     def add_material(self, item):
-
-        product = self.products.get(item.product)
-
-        if not product:
-            return
-
-        materials = product.setdefault(
-            "material_codes",
-            {}
-        )
 
         material = str(item.material).strip().lower()
 
         if not material:
             return
 
-        materials[material] = str(item.code)
+        self._new_materials.setdefault(
+            item.product,
+            {}
+        )[material] = str(item.code)
     # ==========================================================
-    # DROPDOWNS
+    # DROPDOWNS (вариант к уже существующему dropdown)
     # ==========================================================
     def add_dropdown_variant(self, item):
 
-        product = self.products.get(item.product)
-
-        if not product:
-            return
-
-        dropdown = product.setdefault(
-            "dropdown",
-            {"title": "Выберите вариант", "variants": []}
-        )
-        variants = dropdown.setdefault(
-            "variants",
-            []
-        )
         code = str(item.code).strip()
 
         if not code:
             return
-        for variant in variants:
-            if str(
-                variant.get("code", "")
-            ).strip() == code:
-                return
 
-        variants.append({
+        self._new_dropdown_variants.setdefault(
+            item.product,
+            []
+        ).append({
             "code": code,
             "name": getattr(item, "name", "") or "",
             "group": getattr(item, "group", "") or "other",
@@ -112,21 +108,12 @@ class LearningBuilder:
         item - NewDropdownCandidate: product + codes (кортеж пар
         (код, count)). Заводит для товара блок "dropdown" с
         вариантами-заготовками ("Авто N") по накопленным кодам -
-        имя и группу куратор донастраивает вручную в products.py,
-        как и раньше делал для остальных сгенерированных вариантов.
+        имя и группу куратор донастраивает вручную в products.py.
 
-        Если dropdown у товара уже появился (например, применили
-        раньше или кто-то добавил вручную) - ничего не перезаписываем,
-        чтобы не потерять уже настроенные name/group.
+        Если у товара к моменту save() уже появился dropdown -
+        _apply_delta() ничего не перезапишет, чтобы не потерять
+        уже настроенные name/group.
         """
-
-        product = self.products.get(item.product)
-
-        if not product:
-            return
-
-        if product.get("dropdown"):
-            return
 
         variants = []
 
@@ -146,7 +133,7 @@ class LearningBuilder:
         if not variants:
             return
 
-        product["dropdown"] = {
+        self._new_dropdowns[item.product] = {
             "title": "Выберите вариант",
             "variants": variants,
         }
@@ -155,19 +142,12 @@ class LearningBuilder:
     # ==========================================================
     def add_pattern(self, item):
 
-        product = self.products.get(item.product)
-
-        if not product:
-            return
-
-        patterns = product.setdefault("patterns", [])
         pattern = str(item.pattern).strip()
 
         if not pattern:
             return
 
-        if pattern not in patterns:
-            patterns.append(pattern)
+        self._new_patterns.setdefault(item.product, set()).add(pattern)
     # ==========================================================
     # SAVE PRODUCTS
     # ==========================================================
@@ -180,9 +160,12 @@ class LearningBuilder:
         )
         importlib.invalidate_caches()
         fresh_module = importlib.reload(products_dictionary)
-        current_on_disk = fresh_module.PRODUCTS
 
-        merged = self._merge_products(current_on_disk, self.products)
+        # Единственный источник истины на момент сохранения - диск,
+        # прочитанный ПРЯМО СЕЙЧАС. Дельта применяется поверх него.
+        current = fresh_module.PRODUCTS
+
+        self._apply_delta(current)
 
         with open(
             path,
@@ -192,76 +175,108 @@ class LearningBuilder:
             f.write("PRODUCTS = ")
             f.write(
                 pformat(
-                    merged,
+                    current,
                     width=140,
                     sort_dicts=False
                 )
             )
 
-        self.products = merged
+        self.products = current
+    # ==========================================================
+    # ПРИМЕНЕНИЕ ДЕЛЬТЫ
+    # ==========================================================
+    def _apply_delta(self, current):
 
-    @staticmethod
-    def _merge_products(current, ours):
+        # 1. Новые товары - если такого описания ещё нет на диске.
+        for description, info in self._new_products.items():
+            current.setdefault(description, info)
 
-        merged = {
-            product: dict(info)
-            for product, info in current.items()
-        }
+        # 2. Алиасы - только к уже существующим на диске товарам.
+        # Дедуп по нормализованному (регистр/пробелы) виду.
+        for product, aliases in self._new_aliases.items():
 
-        for product, info in ours.items():
+            target = current.get(product)
 
-            if product not in merged:
-                merged[product] = info
+            if not target:
                 continue
 
-            target = merged[product]
+            existing = target.setdefault("aliases", [])
+            known = {
+                str(value).strip().lower()
+                for value in existing
+            }
 
-            for key in ("aliases", "patterns"):
+            for alias in aliases:
 
-                existing = list(target.get(key, []) or [])
-                incoming = info.get(key, []) or []
+                if alias not in known:
+                    existing.append(alias)
+                    known.add(alias)
 
-                for value in incoming:
-                    if value not in existing:
-                        existing.append(value)
+        # 3. Материалы.
+        for product, materials in self._new_materials.items():
 
-                target[key] = existing
+            target = current.get(product)
 
-            existing_materials = dict(
-                target.get("material_codes", {}) or {}
+            if not target:
+                continue
+
+            target.setdefault("material_codes", {}).update(materials)
+
+        # 4. Dropdown-варианты к уже существующему dropdown.
+        for product, variants in self._new_dropdown_variants.items():
+
+            target = current.get(product)
+
+            if not target:
+                continue
+
+            dropdown = target.setdefault(
+                "dropdown",
+                {"title": "Выберите вариант", "variants": []}
             )
-            existing_materials.update(
-                info.get("material_codes", {}) or {}
-            )
-            target["material_codes"] = existing_materials
+            existing_variants = dropdown.setdefault("variants", [])
+            known_codes = {
+                str(v.get("code", "")).strip()
+                for v in existing_variants
+            }
 
-            incoming_dropdown = info.get("dropdown") or {}
-            incoming_variants = incoming_dropdown.get("variants", []) or []
+            for variant in variants:
 
-            if incoming_variants:
+                code = str(variant.get("code", "")).strip()
 
-                target_dropdown = target.setdefault(
-                    "dropdown",
-                    {"title": incoming_dropdown.get("title", "Выберите вариант"), "variants": []}
-                )
-                target_variants = target_dropdown.setdefault("variants", [])
-                known_codes = {
-                    str(v.get("code", "")).strip()
-                    for v in target_variants
-                }
+                if code and code not in known_codes:
+                    existing_variants.append(variant)
+                    known_codes.add(code)
 
-                for variant in incoming_variants:
+        # 5. Новые dropdown целиком (товар раньше вообще без dropdown).
+        for product, dropdown in self._new_dropdowns.items():
 
-                    variant_code = str(variant.get("code", "")).strip()
+            target = current.get(product)
 
-                    if variant_code and variant_code not in known_codes:
-                        target_variants.append(variant)
-                        known_codes.add(variant_code)
+            if not target:
+                continue
 
-            if not target.get("code") and info.get("code"):
-                target["code"] = info["code"]
+            if target.get("dropdown"):
+                # Кто-то успел завести dropdown раньше нас (вручную
+                # или в другой сессии) - не перезаписываем.
+                continue
 
-        return merged
+            target["dropdown"] = dropdown
+
+        # 6. Паттерны.
+        for product, patterns in self._new_patterns.items():
+
+            target = current.get(product)
+
+            if not target:
+                continue
+
+            existing = target.setdefault("patterns", [])
+
+            for pattern in patterns:
+
+                if pattern not in existing:
+                    existing.append(pattern)
     # ==========================================================
     # SAVE
     # ==========================================================

@@ -142,6 +142,7 @@ class LearningAnalyzer:
         # DROPDOWN CANDIDATES (по накопленной статистике)
         # --------------------------------------------------
         self._analyze_dropdown_candidates(report)
+
         self._print_report(report)
 
         return report

@@ -5,6 +5,8 @@ import os
 import sys
 import shutil
 import threading
+import time
+import pandas as pd
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
@@ -13,6 +15,7 @@ from core.app_controller import AppController
 from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
 from learning_window import LearningWindow
+from result_window import ResultWindow
 
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")
@@ -90,6 +93,7 @@ class App:
 
         self._configure_styles()
         self._build()
+        self.processing_started_at = None
 
     # ========================================================
     # Styling
@@ -445,13 +449,14 @@ class App:
         return True
 
     def start_processing(self):
+        self.processing_started_at = time.perf_counter()
         if not self._require_file():
             return
         self.progress_var.set(0)
         self.percent_label.config(text="0%")
         self.detail_label.config(text="Запуск обработки...")
         self.set_status("Запуск...")
-        threading.Thread(target=self.run_processing_with_norm, daemon=True).start()
+        threading.Thread(target=self.start_ozon_auto(), daemon=True).start()
 
     def run_processing_with_norm(self):
         try:
@@ -459,6 +464,46 @@ class App:
                 self.selected_file["path"],
                 logger=self.gui_log,
                 progress_callback=self.update_progress,
+            )
+            elapsed = time.perf_counter() - self.processing_started_at
+
+            report_path = os.path.join(
+                os.path.dirname(output_path),
+                "CLASSIFICATION_REPORT.xlsx"
+            )
+
+            total = 0
+            found = 0
+            not_found = 0
+
+            try:
+                if os.path.exists(report_path):
+                    report_df = pd.read_excel(report_path)
+
+                    total = len(report_df)
+
+                    if "Код" in report_df.columns:
+                        codes = report_df["Код"].fillna("").astype(str).str.strip()
+                        found = int(((codes != "") & (codes != "0")).sum())
+                        not_found = total - found
+            except Exception as report_error:
+                self.gui_log(
+                    f"⚠ Не удалось прочитать статистику: {report_error}"
+                )
+
+            self.root.after(
+                0,
+                lambda: ResultWindow(
+                    self.root,
+                    total=total,
+                    processed=total,
+                    found=found,
+                    not_found=not_found,
+                    errors=0,
+                    cached=0,
+                    elapsed=elapsed,
+                    output_path=output_path,
+                )
             )
             self.set_status("Готово")
             self.root.after(
