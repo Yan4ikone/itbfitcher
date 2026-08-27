@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 
 from cleaner.alias_builder import AliasBuilder
 from learning.learning_filters import is_valid_alias, normalize_material
@@ -11,17 +12,32 @@ from learning.review_models import (
     NewAlias,
     NewMaterialCode,
     NewDropdownVariant,
+    NewDropdownCandidate,
     NewPattern,
 )
 
 
 class LearningAnalyzer:
 
+    # Сколько РАЗНЫХ кодов должно накопиться у товара без dropdown,
+    # чтобы предложить завести для него dropdown.
+    MIN_DROPDOWN_DISTINCT_CODES = 2
+
+    # Сколько раз минимум должен встретиться каждый из этих кодов -
+    # чтобы единичная опечатка куратора не превращалась в ложный
+    # сигнал "нужен dropdown".
+    MIN_DROPDOWN_CODE_OCCURRENCES = 2
+
     def __init__(self, runtime):
 
         self.runtime = runtime
         self.matcher = ProductMatcher(runtime.product_repository)
         self.alias_builder = AliasBuilder()
+        # product_name -> Counter(code -> сколько раз встретился)
+        # Накапливается по ходу analyze(), используется в конце для
+        # _analyze_dropdown_candidates(). Не хранит "0"/пустые коды
+        # и коды, уже объяснённые material_codes товара.
+        self._code_observations = {}
     # ==========================================================
     # PUBLIC
     # ==========================================================
@@ -29,6 +45,7 @@ class LearningAnalyzer:
 
         print("ANALYZER START")
         report = LearningReport()
+        self._code_observations = {}
 
         for card in self.runtime.all_cards():
 
@@ -76,6 +93,14 @@ class LearningAnalyzer:
 
             print("PRODUCT NAME:", product_name)
             # --------------------------------------------------
+            # DROPDOWN CANDIDATE OBSERVATION
+            #
+            # Копим статистику ДО остальных шагов, чтобы учесть
+            # даже те карточки, для которых material/alias/pattern
+            # анализ ничего нового не даст.
+            # --------------------------------------------------
+            self._observe_code(product_name, product_info, code)
+            # --------------------------------------------------
             # MATERIAL
             # --------------------------------------------------
             self._analyze_material(
@@ -113,6 +138,10 @@ class LearningAnalyzer:
                 product_name,
                 product_info
             )
+        # --------------------------------------------------
+        # DROPDOWN CANDIDATES (по накопленной статистике)
+        # --------------------------------------------------
+        self._analyze_dropdown_candidates(report)
         self._print_report(report)
 
         return report
@@ -216,8 +245,9 @@ class LearningAnalyzer:
         if not code:
             return None
 
-        for product_name, dropdown in (self.runtime.dropdowns or {}).items():
+        for product_name, info in self.runtime.all_products():
 
+            dropdown = info.get("dropdown") or {}
             variants = dropdown.get("variants", []) or []
 
             for variant in variants:
@@ -503,6 +533,83 @@ class LearningAnalyzer:
             NewDropdownVariant(product=product_name, code=code))
         print("NEW DROPDOWN:", product_name, code)
     # ==========================================================
+    # DROPDOWN CANDIDATE - НАБЛЮДЕНИЕ
+    # ==========================================================
+    def _observe_code(self, product_name, product_info, code):
+        """
+        Копит, какие коды встречались у товара БЕЗ dropdown, чтобы
+        в конце analyze() решить, не пора ли завести ему dropdown.
+
+        Намеренно НЕ учитывает:
+        - товары, у которых dropdown уже есть (там за новые варианты
+          отвечает _analyze_dropdown - по одной строке за раз);
+        - коды "0"/пустые;
+        - коды, которые уже объясняются известным material_codes
+          товара - там расхождение кодов это нормальная работа
+          материалов, а не сигнал "нужен dropdown".
+        """
+
+        code = str(code).strip()
+
+        if not code or code == "0":
+            return
+
+        if product_info.get("dropdown"):
+            return
+
+        known_material_codes = {
+            str(value).strip()
+            for value in (
+                product_info.get("material_codes", {}) or {}
+            ).values()
+            if str(value).strip()
+        }
+
+        if code in known_material_codes:
+            return
+
+        counter = self._code_observations.setdefault(
+            product_name,
+            Counter()
+        )
+        counter[code] += 1
+    # ==========================================================
+    # DROPDOWN CANDIDATE - РЕШЕНИЕ
+    # ==========================================================
+    def _analyze_dropdown_candidates(self, report):
+
+        for product_name, counter in self._code_observations.items():
+
+            distinct_codes = [
+                code
+                for code, count in counter.items()
+                if count >= self.MIN_DROPDOWN_CODE_OCCURRENCES
+            ]
+
+            if len(distinct_codes) < self.MIN_DROPDOWN_DISTINCT_CODES:
+                continue
+
+            codes = tuple(
+                sorted(
+                    counter.items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
+            )
+
+            report.new_dropdown_candidates.append(
+                NewDropdownCandidate(
+                    product=product_name,
+                    codes=codes,
+                )
+            )
+
+            print(
+                "NEW DROPDOWN CANDIDATE:",
+                product_name,
+                codes
+            )
+    # ==========================================================
     # PATTERNS
     # ==========================================================
     def _analyze_patterns(
@@ -545,6 +652,7 @@ class LearningAnalyzer:
         )
         if not normalized_product:
             return
+
         if description == normalized_product:
             return
 
@@ -561,6 +669,7 @@ class LearningAnalyzer:
         # --------------------------------------------------
         # Ищем основу слова в описании.
         # --------------------------------------------------
+
         stem_length = max(4, len(word) - 2)
         stem = word[:stem_length]
 
@@ -581,9 +690,11 @@ class LearningAnalyzer:
         report.new_patterns.append(
             NewPattern(product=product_name, pattern=pattern))
         print("NEW PATTERN:", product_name, pattern)
+
     # ==========================================================
     # REPORT
     # ==========================================================
+
     def _print_report(self, report):
         print("\n" + "=" * 70)
         print("ANALYZER FINISH")
@@ -591,4 +702,5 @@ class LearningAnalyzer:
         print("NEW ALIASES:", len(report.new_aliases))
         print("NEW MATERIALS:", len(report.new_material_codes))
         print("NEW DROPDOWNS:", len(report.new_dropdown_variants))
+        print("NEW DROPDOWN CANDIDATES:", len(report.new_dropdown_candidates))
         print("NEW PATTERNS:", len(report.new_patterns))

@@ -105,6 +105,52 @@ class LearningBuilder:
             "group": getattr(item, "group", "") or "other",
         })
     # ==========================================================
+    # DROPDOWN CANDIDATE -> НОВЫЙ DROPDOWN
+    # ==========================================================
+    def create_dropdown(self, item):
+        """
+        item - NewDropdownCandidate: product + codes (кортеж пар
+        (код, count)). Заводит для товара блок "dropdown" с
+        вариантами-заготовками ("Авто N") по накопленным кодам -
+        имя и группу куратор донастраивает вручную в products.py,
+        как и раньше делал для остальных сгенерированных вариантов.
+
+        Если dropdown у товара уже появился (например, применили
+        раньше или кто-то добавил вручную) - ничего не перезаписываем,
+        чтобы не потерять уже настроенные name/group.
+        """
+
+        product = self.products.get(item.product)
+
+        if not product:
+            return
+
+        if product.get("dropdown"):
+            return
+
+        variants = []
+
+        for index, (code, _count) in enumerate(item.codes, start=1):
+
+            code = str(code).strip()
+
+            if not code:
+                continue
+
+            variants.append({
+                "code": code,
+                "name": f"Авто {index}",
+                "group": "other",
+            })
+
+        if not variants:
+            return
+
+        product["dropdown"] = {
+            "title": "Выберите вариант",
+            "variants": variants,
+        }
+    # ==========================================================
     # PATTERNS
     # ==========================================================
     def add_pattern(self, item):
