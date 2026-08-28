@@ -6,6 +6,12 @@ from resolver.candidate_finder import CandidateFinder
 from resolver.candidate_scorer import CandidateScorer
 from resolver.material_resolver import MaterialResolver
 from utils.debug import debug_print
+from config import (
+    LOW_CONFIDENCE_THRESHOLD,
+    AMBIGUOUS_GAP_THRESHOLD,
+    DISAMBIGUATION_GAP_THRESHOLD,
+    SPECS_BOOST_MULTIPLIER,
+)
 
 
 class ProductResolver:
@@ -62,27 +68,32 @@ class ProductResolver:
         winner = candidates[0]
 
         # 1. Проверяем уверенность
-
-        if winner.score < 70:
-            winner.review = True
-            winner.reason = "LOW_CONFIDENCE"
-
-            self._record_timing(
-                t_start, t_parse, t_after_candidates,
-                len(candidates),
-            )
-
-            return winner, candidates
-
+        low_confidence = winner.score < LOW_CONFIDENCE_THRESHOLD
         # 2. Проверяем отрыв
+        ambiguous = False
 
         if len(candidates) > 1:
 
             delta = winner.score - candidates[1].score
 
-            if delta < 15:
+            if delta < AMBIGUOUS_GAP_THRESHOLD:
+                ambiguous = True
+        # ------------------------------------------------------
+        # Не уверены / отрыв мал -> пробуем "дотянуть" решение
+        # усиленным весом характеристик/доп описания, прежде
+        # чем окончательно отправлять карточку на ручную проверку
+        # ------------------------------------------------------
+        if low_confidence or ambiguous:
+
+            resolved = self._disambiguate(candidates, parsed)
+
+            if resolved is not None:
+                winner, candidates = resolved
+            else:
                 winner.review = True
-                winner.reason = "AMBIGUOUS"
+                winner.reason = (
+                    "LOW_CONFIDENCE" if low_confidence else "AMBIGUOUS"
+                )
 
                 self._record_timing(
                     t_start, t_parse, t_after_candidates,
@@ -106,6 +117,63 @@ class ProductResolver:
 
         return winner, candidates
 
+    # ==========================================================
+    # DISAMBIGUATION
+    #
+    # Повторный скоринг того же набора кандидатов с усиленным
+    # весом совпадений по характеристикам/доп описанию
+    # Возвращает (winner, candidates) если после усиления решение
+    # стало уверенным, иначе None - тогда карточка уходит на
+    # ручную проверку.
+    # ==========================================================
+    def _disambiguate(self, candidates, parsed):
+
+        boosted = []
+
+        for candidate in candidates:
+
+            fresh = Candidate(
+                product=candidate.product,
+                code=candidate.code,
+                info=candidate.info,
+            )
+            fresh = self.scorer.score(
+                fresh,
+                parsed,
+                specs_weight=150 * SPECS_BOOST_MULTIPLIER,
+            )
+            if fresh.score > 0:
+                boosted.append(fresh)
+
+        if not boosted:
+            return None
+
+        boosted.sort(
+            key=lambda x: (x.score, bool(x.code)),
+            reverse=True,
+        )
+        winner = boosted[0]
+
+        if winner.score < LOW_CONFIDENCE_THRESHOLD:
+            return None
+
+        if len(boosted) > 1:
+
+            delta = winner.score - boosted[1].score
+
+            if delta < DISAMBIGUATION_GAP_THRESHOLD:
+                return None
+
+        winner.reason = "RESOLVED_VIA_EXTRA_DESCRIPTION"
+
+        debug_print(
+            "[DISAMBIGUATE] Решено доп. описанием -> ",
+            winner.product,
+            "score=", winner.score,
+        )
+
+        return winner, boosted
+
     def _record_timing(
         self,
         t_start,
@@ -118,7 +186,6 @@ class ProductResolver:
         find/score уже записаны в self.last_timing внутри
         find_candidates() - здесь досчитываем parse/material/total.
         """
-
         find_time = self.last_timing.get("find", 0)
         score_time = self.last_timing.get("score", 0)
 
@@ -136,7 +203,6 @@ class ProductResolver:
             "total": round(t_end - t_start, 4),
             "candidates_count": candidates_count,
         })
-
         debug_print(
             f"[TIMING] parse={self.last_timing['parse']:.3f}s  "
             f"find={self.last_timing['find']:.3f}s  "
@@ -145,7 +211,6 @@ class ProductResolver:
             f"total={self.last_timing['total']:.3f}s  "
             f"candidates={candidates_count}"
         )
-
     # ==========================================================
     # CANDIDATES
     # ==========================================================

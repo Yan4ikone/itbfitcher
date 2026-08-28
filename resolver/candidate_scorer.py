@@ -12,7 +12,7 @@ class CandidateScorer:
     # ==============================================================
     # PUBLIC
     # ==============================================================
-    def score(self, candidate, parsed):
+    def score(self, candidate, parsed, specs_weight=150):
 
         normalized = {
             "title": normalize_dictionary_name(parsed["title"]).lower().strip(),
@@ -25,7 +25,8 @@ class CandidateScorer:
         self._score_product(
             candidate,
             prepared,
-            candidate.product
+            candidate.product,
+            specs_weight,
         )
         for alias in info.get("aliases", []):
             self._score_alias(candidate, prepared, alias)
@@ -33,13 +34,17 @@ class CandidateScorer:
         for pattern in info.get("patterns", []):
             self._score_pattern(candidate, parsed, pattern)
         self._score_words(candidate, parsed, info.get("score_words", []))
-        self._apply_penalties(candidate)
+        # При обычном скоринге specs_weight=150 (штраф за отсутствие
+        # TITLE/SLUG применяется в полную силу). При доразборе
+        # неоднозначных карточек (specs_weight усилен) штраф смягчаем -
+        # именно тогда SPECS/доп.описание и должны иметь шанс перевесить.
+        self._apply_penalties(candidate, relaxed=specs_weight > 150)
 
         return candidate
     # ==============================================================
     # PRODUCT
     # ==============================================================
-    def _score_product(self, candidate, parsed, product):
+    def _score_product(self, candidate, parsed, product, specs_weight=150):
 
         self._field_score(
             candidate,
@@ -83,11 +88,12 @@ class CandidateScorer:
                 )
         for value in parsed["specs_dict"].values():
 
+            # specs_weight усиливается при повторном скоринге
             self._field_score(
                 candidate,
                 value,
                 product,
-                150,
+                specs_weight,
                 "SPECS",
             )
         for crumb in parsed.get("breadcrumbs", []):
@@ -207,15 +213,22 @@ class CandidateScorer:
     # ==============================================================
     # PENALTIES
     # ==============================================================
-    def _apply_penalties(self, candidate,):
+    def _apply_penalties(self, candidate, relaxed=False):
 
         breakdown = candidate.breakdown
         title = breakdown.get("TITLE", 0)
         slug = breakdown.get("SLUG", 0)
         desc = breakdown.get("DESCRIPTION", 0)
+        specs = breakdown.get("SPECS", 0)
 
         if title == 0 and slug == 0:
-            candidate.score -= 500
+            if relaxed and specs > 0:
+                # Доразбор: нет совпадения в заголовке, но есть явное
+                # совпадение в характеристиках/доп.описании - не убиваем
+                # кандидата штрафом целиком, а лишь ослабляем его.
+                candidate.score -= 150
+            else:
+                candidate.score -= 500
         if desc > 0 and title == 0:
             candidate.score -= 250
         if candidate.score < 0:

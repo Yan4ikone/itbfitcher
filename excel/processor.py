@@ -54,6 +54,7 @@ def process_file_with_normalization(input_path, logger=None, progress_callback=N
     code_cell_idx = structure["code_col"]
     decision_col_idx = structure["decision_col"]
     surname_col_idx = structure["surname_col"]
+    last_row = ws.max_row
     stats = ClassificationStatistics()
     engine = DecisionEngine(learning_history)
     print("ENGINE CREATED")
@@ -93,6 +94,23 @@ def process_file_with_normalization(input_path, logger=None, progress_callback=N
             )
             processed_rows += 1
 
+            _log("Визуальная постобработка...", logger)
+
+            visual_stats = apply_visual_postprocessing(
+                ws,
+                code_col_idx=code_cell_idx,
+                decision_col_idx=decision_col_idx,
+                max_row=ws.max_row,
+            )
+            _log(
+                "Визуальная постобработка: "
+                f"красных={visual_stats['red']}, "
+                f"нулевых={visual_stats['zero']}, "
+                f"запрещённых={visual_stats['restricted']}, "
+                f"зелёных={visual_stats['green']}, "
+                f"обычных={visual_stats['normal']}",
+                logger,
+            )
             if processed_rows % 10 == 0 or processed_rows == total_rows:
                 if progress_callback:
                     progress_callback(total_rows, processed_rows)

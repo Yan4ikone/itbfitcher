@@ -38,32 +38,86 @@ class WBParser:
             return await self._parse_dom_async(page)
         print(f"[WB PARSER] nm_id={nm_id}")
 
+        best = {}
+
         data = self._find_product_in_responses(responses, nm_id)
         if data:
             result = self._parse_card_json(data)
-            if result.get("title"):
-                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: NETWORK")
-                return result
+            best = self._merge_wb_result(best, result)
+            if self._is_rich(best):
+                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: NETWORK (характеристики есть)")
+                return best
 
-        # Main universal source. No basket calculation is required here.
+        # card.wb.ru - быстрый и надёжный источник названия/цены/бренда,
+        # НО он практически никогда не отдаёт характеристики/полное
+        # описание товара (Характеристики/Описание с карточки WB лежат
+        # в другом месте - см. CARD.JSON ниже). Поэтому даже если title
+        # найден здесь, идём дальше и дообогащаем результат.
         product = await self._fetch_public_card_api(nm_id)
         if product:
             result = self._parse_card_api(product, nm_id)
-            if result.get("title"):
-                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: CARD.API")
-                return result
+            best = self._merge_wb_result(best, result)
+            if self._is_rich(best):
+                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: CARD.API (характеристики есть)")
+                return best
+            print(f"[WB PARSER] nm_id={nm_id} CARD.API: title есть, характеристик нет -> добираем CARD.JSON")
 
-        # CDN is only a fallback for cases where Card API is unavailable.
+        # basket-XX.wbbasket.ru/.../card.json - вот тут реально лежат
+        # характеристики (options/characteristics/params/properties/
+        # characteristicsFull) и полное описание товара.
         data = await self._fetch_card_json(nm_id)
         if data:
             result = self._parse_card_json(data)
-            if result.get("title"):
-                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: CARD.JSON")
-                return result
+            best = self._merge_wb_result(best, result)
+            if best.get("title"):
+                status = "характеристики есть" if self._is_rich(best) else "характеристик всё ещё нет"
+                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: CARD.JSON ({status})")
+                return best
+
+        if best.get("title"):
+            # Название нашли, характеристики - нет ни в одном источнике.
+            # Лучше отдать частичный результат, чем терять и его тоже.
+            print(f"[WB PARSER] nm_id={nm_id} характеристики не найдены ни в одном источнике, возвращаем частичный результат")
+            return best
 
         print(f"[WB PARSER] nm_id={nm_id} CARD.JSON/API НЕ НАЙДЕН")
         print(f"[WB PARSER] nm_id={nm_id} FALLBACK -> DOM")
         return await self._parse_dom_async(page)
+
+    @staticmethod
+    def _is_rich(result):
+        """Есть ли уже описание/характеристики, а не только название."""
+        description = (result.get("description") or "").strip()
+        specs = result.get("specs") or {}
+        return bool(result.get("title")) and (len(description) > 20 or len(specs) >= 3)
+
+    @staticmethod
+    def _merge_wb_result(base, new):
+        """Дополняет накопленный результат данными из нового источника,
+        не затирая уже найденные (более ранний источник считается
+        приоритетным при конфликте одного и того же ключа specs)."""
+        if not base:
+            merged = dict(new)
+            merged["specs"] = dict(new.get("specs") or {})
+        else:
+            merged = dict(base)
+            if not merged.get("title"):
+                merged["title"] = new.get("title", "")
+            if not (merged.get("description") or "").strip():
+                merged["description"] = new.get("description", "")
+            specs = dict(new.get("specs") or {})
+            specs.update(merged.get("specs") or {})
+            merged["specs"] = specs
+
+        merged["raw_text"] = " ".join(filter(None, [
+            merged.get("title", ""),
+            merged.get("description", ""),
+            *[f"{k}: {v}" for k, v in merged["specs"].items()],
+        ])).strip()
+        merged.setdefault("sections", {})
+        merged.setdefault("parser_log", [])
+        return merged
+
 
     async def _fetch_public_card_api(self, nm_id: int):
         """Fetch WB card API with retry + requests fallback.

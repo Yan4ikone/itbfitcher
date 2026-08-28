@@ -23,6 +23,18 @@ class ResultBuilder:
         result.source = "PRODUCTS"
         result.confidence = min(winner.score, 100)
 
+        # Флаг ручной проверки и причина (NO_CANDIDATES / LOW_CONFIDENCE /
+        # AMBIGUOUS / RESOLVED_VIA_EXTRA_DESCRIPTION) должны дойти до
+        result.review = winner.review
+        result.comment = winner.reason
+
+        if winner.review and candidates:
+            result.alternatives = {
+                c.code: c.product
+                for c in candidates[1:4]
+                if c.code
+            }
+
         if winner.material:
 
             result.material = winner.material
