@@ -1,3 +1,4 @@
+
 from utils.json_repository import JsonRepository
 from utils.url_utils import normalize_ozon_url
 
@@ -103,15 +104,15 @@ class CardRepository(JsonRepository):
                 card.description,
             "cleaned_text":
                 card.cleaned_text,
-            "product": (getattr(result, "product", "")
+            "product":getattr(result, "product", "")
                 if result
-                else existing.get("product", "")),
-            "display_name": (getattr(result, "display_name", "")
+                else existing.get("product", ""),
+            "display_name":getattr(result, "display_name", "")
                 if result
-                else existing.get("display_name", "")),
-            "code": (getattr(result, "code", "")
+                else existing.get("display_name", ""),
+            "code":getattr(result, "code", "")
                 if result
-                else existing.get("code", "")),
+                else existing.get("code", ""),
             "material":
                 card.material,
             "quantity":
@@ -136,11 +137,9 @@ class CardRepository(JsonRepository):
         # ==============================================================
         # SLUG INDEX
         # ==============================================================
-
         slug = (item.get("slug", "") or "").strip().lower()
 
         if slug:
-
             self._slug_index[slug] = item
         # ==============================================================
         # NORMALIZED URL INDEX
@@ -148,7 +147,6 @@ class CardRepository(JsonRepository):
         normalized_url = (item.get("normalized_url", "") or "").strip()
 
         if normalized_url:
-
             self._normalized_url_index[normalized_url] = item
         # ==============================================================
         # JSON DIRTY
@@ -162,6 +160,71 @@ class CardRepository(JsonRepository):
             getattr(result, "product", ""),
         )
         self.mark_dirty()
+    # ==============================================================
+    # FORGET
+    # Удаляет полную карточку из runtime_cards.json
+    # и одновременно чистит все индексы.
+    # ==============================================================
+    def forget(self, url):
+
+        if not url:
+            return False
+        # --------------------------------------------------------------
+        # Получаем карточку
+        # --------------------------------------------------------------
+        card = self.data.get(url)
+
+        if not card:
+            return False
+        # --------------------------------------------------------------
+        # Удаляем из основного хранилища
+        # --------------------------------------------------------------
+        del self.data[url]
+        # --------------------------------------------------------------
+        # Удаляем из SLUG INDEX
+        # --------------------------------------------------------------
+        slug = (
+            card.get("slug", "")
+            or ""
+        ).strip().lower()
+
+        if slug:
+
+            indexed_card = self._slug_index.get(slug)
+
+            if indexed_card is card:
+                self._slug_index.pop(slug, None)
+        # --------------------------------------------------------------
+        # Удаляем из NORMALIZED URL INDEX
+        # --------------------------------------------------------------
+        normalized_url = (
+            card.get("normalized_url", "")
+            or ""
+        ).strip()
+
+        if normalized_url:
+
+            indexed_card = self._normalized_url_index.get(
+                normalized_url
+            )
+
+            if indexed_card is card:
+                self._normalized_url_index.pop(
+                    normalized_url,
+                    None
+                )
+        # --------------------------------------------------------------
+        # Помечаем JSON изменённым
+        # --------------------------------------------------------------
+        self.mark_dirty()
+        print(
+            "[CARD FORGET]",
+            url,
+            "| remaining=",
+            len(self.data),
+        )
+
+        return True
     # ==============================================================
     # FIND
     # ==============================================================

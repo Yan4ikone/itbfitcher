@@ -1,4 +1,5 @@
 from learning.analyzer import LearningAnalyzer
+from learning.learning_filters import extract_manual_description, extract_manual_code
 from learning.repository import LearningRepository
 from repositories.card_archiver import archive_full_cards
 from repositories.card_repository import CardRepository
@@ -22,11 +23,9 @@ class LearningRuntime:
 
     def refresh(self):
         self.reload()
-
     # ==========================================================
     # LEARNING PROCESSED
     # ==========================================================
-
     def is_learning_processed(self, url):
 
         # Карточка, уже попавшая в лёгкую базу знаний, точно прошла
@@ -44,19 +43,17 @@ class LearningRuntime:
 
     def mark_learning_processed(self, urls):
         """
-        Раньше просто ставила флаг learning_processed=True прямо на
-        полной записи в storage/runtime_cards.json - карточка
-        оставалась там навсегда целиком (specs/images/sections/...),
-        из-за чего файл рос бесконечно и без пользы.
 
         Теперь для каждой карточки, прошедшей обучение:
-        1. Лёгкая версия (url, описание, код) уходит в
-           storage/knowledge_base.json - остаётся навсегда, дёшево
-           читать, этого достаточно для кэша классификации по URL.
+        1. Лёгкая версия (url, ИСПРАВЛЕННОЕ куратором наименование,
+           ИСПРАВЛЕННЫЙ код) уходит в storage/knowledge_base.json -
+           остаётся навсегда, дёшево читать, этого достаточно для
+           кэша классификации по URL.
         2. Полная версия архивируется (repositories/card_archiver.py -
            сейчас локально, задел под отправку в облако).
         3. Полная версия убирается из runtime_cards.json совсем
            (CardRepository.forget), чтобы файл не разрастался.
+
         """
 
         to_archive = {}
@@ -76,16 +73,32 @@ class LearningRuntime:
             if not card:
                 continue
 
-            description = (
-                card.get("display_name")
-                or card.get("product")
-                or card.get("description", "")
-            )
+            manual = self.manual.get(card.get("normalized_url", url))
+
+            if manual:
+
+                description = extract_manual_description(manual)
+                code = extract_manual_code(manual)
+
+            else:
+
+                description = (
+                    card.get("display_name")
+                    or card.get("product")
+                    or card.get("description", "")
+                )
+                code = card.get("code", "")
+
+            if not description or not code:
+                # Ни исправленного, ни автоматического значения нет -
+                # архивировать нечего, оставляем карточку как есть на
+                # следующий раз.
+                continue
 
             self.knowledge_base.remember(
                 url=url,
-                description=description,
-                code=card.get("code", ""),
+                product=description,
+                code=code,
             )
 
             to_archive[url] = dict(card)

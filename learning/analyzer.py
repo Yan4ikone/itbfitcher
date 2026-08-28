@@ -150,7 +150,6 @@ class LearningAnalyzer:
         # DROPDOWN CANDIDATES (по накопленной статистике)
         # --------------------------------------------------
         self._analyze_dropdown_candidates(report)
-
         self._print_report(report)
 
         return report
@@ -214,16 +213,8 @@ class LearningAnalyzer:
             self._add_alias(report, product_name, product_info, description)
 
             return (product_name, product_info)
-        # --------------------------------------------------
-        # КОД УЖЕ ИЗВЕСТЕН КАК ВАРИАНТ В DROPDOWN_LISTS.PY
-        #
-        # products.py и dropdown_lists.py - два разных словаря, и
-        # раньше сопоставление смотрело только в products.py. Если
-        # код уже существует как вариант дропдауна какого-то товара
-        # (например "контейнер" -> вариант "Текстиль" с этим кодом),
-        # это ЗНАКОМЫЙ код, а не новый товар - нельзя заводить для
-        # него отдельную несвязанную запись в products.py.
-        # --------------------------------------------------
+
+
         dropdown_product = self._find_product_by_dropdown_code(code)
         print("DROPDOWN MATCH:", dropdown_product)
 

@@ -13,7 +13,7 @@ from playwright.sync_api import sync_playwright
 # CONFIG
 # =============================================================================
 CDP_URL = "http://127.0.0.1:9222"
-WORKERS = 2
+WORKERS = 3
 NAVIGATION_TIMEOUT = 30_000
 RESULT_FILE = Path("ozon_fast_results.json")
 LOG_FILE = Path("ozon_fast_results.log")

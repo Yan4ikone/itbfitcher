@@ -6,15 +6,72 @@ from dictionaries.all_dictionaries import (
     TRASH_MARKETPLACE,
     TRASH_PACKAGE,
 )
+from learning.name_normalizer import normalize_dictionary_name
 
-# Единый набор "мусорных" слов для алиасов.
+# ==================================================================
+# ИЗВЛЕЧЕНИЕ ИСПРАВЛЕННЫХ КУРАТОРОМ ЗНАЧЕНИЙ
+#
+# Единый источник "что куратор реально исправил" для manual-записи
+# (manual_learning.json["manual"][normalized_url], её туда кладёт
+# ManualTeacher.learn_result_file() из RESULT-файла).
+#
+# Раньше эта логика была ТОЛЬКО внутри LearningAnalyzer
+# (_get_description/_get_code) - когда понадобилось то же самое в
+# LearningRuntime.mark_learning_processed() (при архивации карточки
+# в лёгкую базу знаний), функцию не переиспользовали, а взяли данные
+# из ДРУГОГО источника - storage/runtime_cards.json, то есть из
+# результата ПЕРВОНАЧАЛЬНОЙ автоклассификации, а не из ручной правки.
+# В базу знаний уходило неисправленное значение. Теперь оба места
+# берут исправленное значение отсюда.
+# ==================================================================
+
+def extract_manual_description(manual: dict) -> str:
+
+    raw_description = str(manual.get("description", "")).strip()
+
+    if not raw_description:
+        return ""
+
+    return (
+        normalize_dictionary_name(raw_description)
+        .lower()
+        .strip()
+    )
+
+
+def extract_manual_code(manual: dict) -> str:
+
+    code = str(manual.get("code", "")).strip()
+
+    if not code:
+        return ""
+
+    if code in ("0", "nan", "none"):
+        return ""
+
+    return code
+
+
+# Единый набор "мусорных" слов для алиасов. Раньше AliasBuilder
+# (cleaner/alias_builder.py) чистил по всем четырём спискам, а
+# is_valid_alias() - только по IGNORED_ALIAS_WORDS. Из-за этого
+# алиасы, добавленные через LearningAnalyzer._add_alias() (путь
+# "товар найден через ProductMatcher"), проходили без очистки от
+# маркетингового/маркетплейсного мусора - в products.py попадали
+# строки вроде "футболка акции распродажа скидки российский".
 _TRASH_WORDS = (
     IGNORED_ALIAS_WORDS
     | TRASH_MARKETING
     | TRASH_MARKETPLACE
     | TRASH_PACKAGE
 )
-# Слова-маркеры
+
+# Слова-маркеры маркетингового мусора, которые обычно СОСЕДСТВУЮТ
+# с полезными словами внутри одной фразы ("футболка акции скидки") -
+# их одних в TRASH_MARKETING может не хватать, т.к. alias отбраковывается
+# только если ВСЕ слова мусорные. Если хотя бы одно из этих слов есть
+# во фразе - алиас почти наверняка результат склейки заголовка с
+# маркетинговым хвостом, а не осмысленный синоним товара.
 _STRONG_TRASH_MARKERS = {
     "акции", "акция", "распродажа", "скидки", "скидка",
     "рублей", "рубля", "товары", "официально", "рекомендовано",
@@ -43,7 +100,7 @@ def is_valid_alias(alias, product_name=""):
     if words and all(word in _TRASH_WORDS for word in words):
         return False
 
-    # Явный маркетинговый мусор внутри фразы
+    # Явный маркетинговый мусор внутри фразы (см. комментарий выше).
     if any(word in _STRONG_TRASH_MARKERS for word in words):
         return False
 
@@ -84,15 +141,21 @@ def is_valid_alias(alias, product_name=""):
 def normalize_material(material):
     """
     Приводит материал к одному основному значению.
+
     Примеры:
+
         100% полиэстер
             -> полиэстер
+
         вискоза 67%, полиэстер 33%
             -> вискоза
+
         70% хлопок 25% полиэстер 5% эластан
             -> хлопок
+
         металл, пластик, дерево
             -> металл
+
         металл
             -> металл
     """
@@ -138,6 +201,7 @@ def normalize_material(material):
                     )
                 )
         if parsed:
+
             # Берём материал с максимальным процентом.
             # При равенстве сохраняется первый.
             parsed.sort(
@@ -147,9 +211,11 @@ def normalize_material(material):
             percent, name = parsed[0]
 
             return name.strip()
+
     # --------------------------------------------------
     # Если процентов нет — берём первый материал
     # --------------------------------------------------
+
     # Разделители:
     # "металл, пластик"
     # "металл; пластик"

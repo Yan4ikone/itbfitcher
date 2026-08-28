@@ -18,7 +18,7 @@ class CardClassifier:
 
         result.trace.add(
             "KNOWLEDGE",
-            f"Найдена ранее обработанная карточка ({history['code']})"
+            f"Найдена ранее обработанная карточка ({history.get('code', '')})"
         )
         result.confidence = 100
         if history.get("code"):
@@ -27,7 +27,14 @@ class CardClassifier:
 
         if history.get("product"):
             result.product = history["product"]
-        result.material = history.get("material", "")
+        elif history.get("description"):
+
+            result.product = history["description"]
+        # ------------------------------------------------------
+        # МАТЕРИАЛ
+        # ------------------------------------------------------
+        if "material" in history:
+            result.material = history.get("material", "")
         result.confidence = 100
 
         return result
