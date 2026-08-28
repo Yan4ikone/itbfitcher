@@ -20,13 +20,21 @@ from learning.review_models import (
 class LearningAnalyzer:
 
     # Сколько РАЗНЫХ кодов должно накопиться у товара без dropdown,
-    # чтобы предложить завести для него dropdown.
+    # чтобы предложить завести для него dropdown. Именно РАЗНЫХ - а
+    # не суммарных наблюдений: "держатель из металла" в одном файле
+    # и "держатель из пластика" в другом файле - каждый код при этом
+    # встретится ровно один раз, но для одного и того же наименования
+    # код УЖЕ разошёлся - этого достаточно как сигнала.
     MIN_DROPDOWN_DISTINCT_CODES = 2
 
-    # Сколько раз минимум должен встретиться каждый из этих кодов -
-    # чтобы единичная опечатка куратора не превращалась в ложный
-    # сигнал "нужен dropdown".
-    MIN_DROPDOWN_CODE_OCCURRENCES = 2
+    # Сколько раз минимум должен встретиться КАЖДЫЙ ИЗ ЭТИХ кодов.
+    # Раньше стояло 2 - из-за этого сценарий выше никогда не долавливал
+    # порог (каждый код видели по одному разу за сеанс обучения).
+    # Единичного наблюдения достаточно: сам факт "то же наименование,
+    # другой код" уже показывает куратор своей ручной правкой -
+    # опечатка исключена, потому что код подтверждён человеком, а не
+    # угадан автоматически.
+    MIN_DROPDOWN_CODE_OCCURRENCES = 1
 
     def __init__(self, runtime):
 
@@ -202,8 +210,8 @@ class LearningAnalyzer:
 
         if matched:
             product_name = matched["product"]
-            self._add_alias(report, product_name, description)
             product_info = (self.runtime.get_product(product_name) or {})
+            self._add_alias(report, product_name, product_info, description)
 
             return (product_name, product_info)
         # --------------------------------------------------
@@ -220,8 +228,8 @@ class LearningAnalyzer:
         print("DROPDOWN MATCH:", dropdown_product)
 
         if dropdown_product:
-            self._add_alias(report, dropdown_product, description)
             product_info = (self.runtime.get_product(dropdown_product) or {})
+            self._add_alias(report, dropdown_product, product_info, description)
 
             return (dropdown_product, product_info)
 
@@ -394,6 +402,7 @@ class LearningAnalyzer:
             self,
             report,
             product,
+            product_info,
             alias
     ):
 
@@ -413,6 +422,33 @@ class LearningAnalyzer:
                 "ALIAS FILTER:",
                 repr(alias)
             )
+            return
+
+        # --------------------------------------------------
+        # ДЕДУП
+        #
+        # Раньше этой проверки не было вообще: если описание одной
+        # и той же карточки (или просто похожие описания у разных
+        # карточек) матчилось на уже известный товар через
+        # ProductMatcher, _add_alias вызывался на КАЖДОЙ такой
+        # карточке и без остановки пушил в report.new_aliases
+        # одинаковую пару (product, alias) - отсюда буквальные дубли
+        # строк в окне обучения.
+        # --------------------------------------------------
+        known_aliases = {
+            normalize_dictionary_name(existing).lower().strip()
+            for existing in (product_info.get("aliases", []) or [])
+        }
+
+        if alias in known_aliases:
+            return
+
+        already_pending = any(
+            item.product == product and item.alias == alias
+            for item in report.new_aliases
+        )
+
+        if already_pending:
             return
 
         report.new_aliases.append(

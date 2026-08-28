@@ -2,7 +2,9 @@ from tkinter import *
 from tkinter import ttk, messagebox
 
 from learning.applier import LearningApplier
-from learning.review_models import (LearningReport,)
+from learning.review_models import (
+    LearningReport,
+)
 
 
 class LearningWindow(Toplevel):
@@ -38,9 +40,11 @@ class LearningWindow(Toplevel):
         self._fill_dropdowns()
         self._fill_dropdown_candidates()
         self._fill_patterns()
+
     # ======================================================
     # UI
     # ======================================================
+
     def _build_ui(self):
 
         self.columnconfigure(0, weight=1)
@@ -53,54 +57,68 @@ class LearningWindow(Toplevel):
             padx=10,
             pady=10
         )
+
         self.products_frame = ttk.Frame(self.notebook)
         self.aliases_frame = ttk.Frame(self.notebook)
         self.materials_frame = ttk.Frame(self.notebook)
         self.dropdowns_frame = ttk.Frame(self.notebook)
         self.dropdown_candidates_frame = ttk.Frame(self.notebook)
         self.patterns_frame = ttk.Frame(self.notebook)
+
         self.notebook.add(
             self.products_frame,
             text=f"Новые товары ({len(self.report.new_products)})"
         )
+
         self.notebook.add(
             self.aliases_frame,
             text=f"Алиасы ({len(self.report.new_aliases)})"
         )
+
         self.notebook.add(
             self.materials_frame,
             text=f"Материалы ({len(self.report.new_material_codes)})"
         )
+
         self.notebook.add(
             self.dropdowns_frame,
             text=f"Dropdown ({len(self.report.new_dropdown_variants)})"
         )
+
         self.notebook.add(
             self.dropdown_candidates_frame,
             text=f"Нужен dropdown? ({len(self.report.new_dropdown_candidates)})"
         )
+
         self.notebook.add(
             self.patterns_frame,
             text=f"Patterns ({len(self.report.new_patterns)})"
         )
+
         self.products_tree = self._create_products_tree(
             self.products_frame
         )
+
         self.alias_tree = self._create_alias_tree(
             self.aliases_frame
         )
+
         self.material_tree = self._create_material_tree(
             self.materials_frame
         )
+
         self.dropdown_tree = self._create_dropdown_tree(
             self.dropdowns_frame
         )
+
         self.dropdown_candidate_tree = self._create_dropdown_candidate_tree(
             self.dropdown_candidates_frame
         )
+
         self.pattern_tree = self._create_pattern_tree(
             self.patterns_frame
         )
+
         bottom = ttk.Frame(self)
         bottom.grid(
             row=1,
@@ -109,6 +127,7 @@ class LearningWindow(Toplevel):
             padx=10,
             pady=(0, 10)
         )
+
         ttk.Button(
             bottom,
             text="Выбрать всё",
@@ -129,6 +148,7 @@ class LearningWindow(Toplevel):
             fill=Y,
             padx=8
         )
+
         ttk.Button(
             bottom,
             text="Применить",
@@ -143,56 +163,68 @@ class LearningWindow(Toplevel):
             side=RIGHT,
             padx=5
         )
+
     # ======================================================
     # TREE BUILDERS
     # ======================================================
+
     def _create_tree(self, parent, columns):
 
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(0, weight=1)
+
         tree = ttk.Treeview(
             parent,
             columns=columns,
             show="headings",
             selectmode="extended"
         )
+
         vsb = ttk.Scrollbar(
             parent,
             orient="vertical",
             command=tree.yview
         )
+
         hsb = ttk.Scrollbar(
             parent,
             orient="horizontal",
             command=tree.xview
         )
+
         tree.configure(
             yscrollcommand=vsb.set,
             xscrollcommand=hsb.set
         )
+
         tree.grid(
             row=0,
             column=0,
             sticky="nsew"
         )
+
         vsb.grid(
             row=0,
             column=1,
             sticky="ns"
         )
+
         hsb.grid(
             row=1,
             column=0,
             sticky="ew"
         )
+
         tree.bind(
             "<Double-1>",
             self._toggle_current
         )
+
         tree.bind(
             "<space>",
             self._toggle_current
         )
+
         return tree
 
     def _create_pattern_tree(self, parent):
@@ -205,31 +237,38 @@ class LearningWindow(Toplevel):
                 "pattern"
             )
         )
+
         tree.heading(
             "selected",
             text="✓"
         )
+
         tree.heading(
             "product",
             text="Товар"
         )
+
         tree.heading(
             "pattern",
             text="Pattern"
         )
+
         tree.column(
             "selected",
             width=45,
             anchor="center"
         )
+
         tree.column(
             "product",
             width=300
         )
+
         tree.column(
             "pattern",
             width=800
         )
+
         return tree
 
     def _create_products_tree(self, parent):
@@ -245,6 +284,7 @@ class LearningWindow(Toplevel):
                 "url"
             )
         )
+
         tree.heading("selected", text="✓")
         tree.heading("description", text="Описание")
         tree.heading("code", text="Код")
@@ -283,6 +323,7 @@ class LearningWindow(Toplevel):
                 "code"
             )
         )
+
         tree.heading("selected", text="✓")
         tree.heading("product", text="Товар")
         tree.heading("material", text="Материал")
@@ -304,6 +345,7 @@ class LearningWindow(Toplevel):
                 "code"
             )
         )
+
         tree.heading("selected", text="✓")
         tree.heading("product", text="Dropdown")
         tree.heading("code", text="Новый код")
@@ -323,6 +365,7 @@ class LearningWindow(Toplevel):
                 "codes"
             )
         )
+
         tree.heading("selected", text="✓")
         tree.heading("product", text="Товар (dropdown пока нет)")
         tree.heading("codes", text="Встреченные коды (частота)")
@@ -352,6 +395,7 @@ class LearningWindow(Toplevel):
                     item.url,
                 )
             )
+
             self.product_rows[iid] = item
 
     def _fill_aliases(self):
@@ -384,6 +428,7 @@ class LearningWindow(Toplevel):
                     item.code,
                 )
             )
+
             self.material_rows[iid] = item
 
     def _fill_dropdowns(self):
@@ -399,6 +444,7 @@ class LearningWindow(Toplevel):
                     item.code,
                 )
             )
+
             self.dropdown_rows[iid] = item
 
     def _fill_dropdown_candidates(self):
@@ -419,6 +465,7 @@ class LearningWindow(Toplevel):
                     codes_text,
                 )
             )
+
             self.dropdown_candidate_rows[iid] = item
 
     def _fill_patterns(self):
@@ -433,6 +480,7 @@ class LearningWindow(Toplevel):
                     item.pattern,
                 )
             )
+
             self.pattern_rows[iid] = item
 
     # ======================================================
@@ -442,22 +490,29 @@ class LearningWindow(Toplevel):
     def _toggle_current(self, event=None):
 
         widget = event.widget
+
         selection = widget.selection()
 
         if not selection:
             return
 
         for iid in selection:
+
             if widget is self.products_tree:
                 self._toggle_product(iid)
+
             elif widget is self.alias_tree:
                 self._toggle_alias(iid)
+
             elif widget is self.material_tree:
                 self._toggle_material(iid)
+
             elif widget is self.dropdown_tree:
                 self._toggle_dropdown(iid)
+
             elif widget is self.dropdown_candidate_tree:
                 self._toggle_dropdown_candidate(iid)
+
             elif widget is self.pattern_tree:
                 self._toggle_pattern(iid)
 
@@ -473,6 +528,7 @@ class LearningWindow(Toplevel):
                 "values"
             )
         )
+
         if item in self.selected_products:
 
             self.selected_products.remove(item)
@@ -498,6 +554,7 @@ class LearningWindow(Toplevel):
                 "values"
             )
         )
+
         if item in self.selected_aliases:
 
             self.selected_aliases.remove(item)
@@ -523,6 +580,7 @@ class LearningWindow(Toplevel):
                 "values"
             )
         )
+
         if item in self.selected_materials:
 
             self.selected_materials.remove(item)
@@ -548,6 +606,7 @@ class LearningWindow(Toplevel):
                 "values"
             )
         )
+
         if item in self.selected_dropdowns:
 
             self.selected_dropdowns.remove(item)
@@ -573,6 +632,7 @@ class LearningWindow(Toplevel):
                 "values"
             )
         )
+
         if item in self.selected_dropdown_candidates:
 
             self.selected_dropdown_candidates.remove(item)
@@ -598,6 +658,7 @@ class LearningWindow(Toplevel):
                 "values"
             )
         )
+
         if item in self.selected_patterns:
 
             self.selected_patterns.remove(item)
@@ -616,47 +677,71 @@ class LearningWindow(Toplevel):
     def select_all(self):
 
         for iid in self.product_rows:
+
             if self.product_rows[iid] not in self.selected_products:
                 self._toggle_product(iid)
+
         for iid in self.alias_rows:
+
             if self.alias_rows[iid] not in self.selected_aliases:
                 self._toggle_alias(iid)
+
         for iid in self.material_rows:
+
             if self.material_rows[iid] not in self.selected_materials:
                 self._toggle_material(iid)
+
         for iid in self.dropdown_rows:
+
             if self.dropdown_rows[iid] not in self.selected_dropdowns:
                 self._toggle_dropdown(iid)
+
         for iid in self.dropdown_candidate_rows:
+
             if self.dropdown_candidate_rows[iid] not in self.selected_dropdown_candidates:
                 self._toggle_dropdown_candidate(iid)
+
         for iid in self.pattern_rows:
+
             if self.pattern_rows[iid] not in self.selected_patterns:
                 self._toggle_pattern(iid)
 
     def clear_all(self):
 
         for iid in list(self.product_rows):
+
             if self.product_rows[iid] in self.selected_products:
                 self._toggle_product(iid)
+
         for iid in list(self.alias_rows):
+
             if self.alias_rows[iid] in self.selected_aliases:
                 self._toggle_alias(iid)
+
         for iid in list(self.material_rows):
+
             if self.material_rows[iid] in self.selected_materials:
                 self._toggle_material(iid)
+
         for iid in list(self.dropdown_rows):
+
             if self.dropdown_rows[iid] in self.selected_dropdowns:
                 self._toggle_dropdown(iid)
+
         for iid in list(self.dropdown_candidate_rows):
+
             if self.dropdown_candidate_rows[iid] in self.selected_dropdown_candidates:
                 self._toggle_dropdown_candidate(iid)
+
         for iid in list(self.pattern_rows):
+
             if self.pattern_rows[iid] in self.selected_patterns:
                 self._toggle_pattern(iid)
+
     # ======================================================
     # APPLY
     # ======================================================
+
     def apply(self):
 
         if (
@@ -667,13 +752,16 @@ class LearningWindow(Toplevel):
             and not self.selected_dropdown_candidates
             and not self.selected_patterns
         ):
+
             messagebox.showwarning(
                 "Обучение",
                 "Не выбраны элементы."
             )
+
             return
 
         applier = LearningApplier()
+
         applier.apply(
             products=list(self.selected_products),
             aliases=list(self.selected_aliases),
@@ -686,8 +774,10 @@ class LearningWindow(Toplevel):
         self.runtime.mark_learning_processed(
             self.report.processed_cards
         )
+
         messagebox.showinfo(
             "Обучение",
             "Изменения успешно сохранены."
         )
+
         self.destroy()

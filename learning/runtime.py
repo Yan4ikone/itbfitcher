@@ -1,6 +1,8 @@
 from learning.analyzer import LearningAnalyzer
 from learning.repository import LearningRepository
+from repositories.card_archiver import archive_full_cards
 from repositories.card_repository import CardRepository
+from repositories.knowledge_base_repository import KnowledgeBaseRepository
 from repositories.product_repository import ProductRepository
 
 
@@ -10,6 +12,7 @@ class LearningRuntime:
 
         self.repository = LearningRepository()
         self.cards = CardRepository()
+        self.knowledge_base = KnowledgeBaseRepository()
         self.product_repository = ProductRepository()
         self.reload()
 
@@ -26,6 +29,13 @@ class LearningRuntime:
 
     def is_learning_processed(self, url):
 
+        # Карточка, уже попавшая в лёгкую базу знаний, точно прошла
+        # обучение (это единственное место, которое её туда кладёт) -
+        # её полной версии в self.cards.data больше нет вообще, она
+        # заархивирована, поэтому этот случай проверяем отдельно.
+        if self.knowledge_base.has(url):
+            return True
+
         card = self.cards.data.get(url)
 
         if not card:
@@ -33,22 +43,58 @@ class LearningRuntime:
         return bool(card.get("learning_processed", False))
 
     def mark_learning_processed(self, urls):
+        """
+        Раньше просто ставила флаг learning_processed=True прямо на
+        полной записи в storage/runtime_cards.json - карточка
+        оставалась там навсегда целиком (specs/images/sections/...),
+        из-за чего файл рос бесконечно и без пользы.
 
+        Теперь для каждой карточки, прошедшей обучение:
+        1. Лёгкая версия (url, описание, код) уходит в
+           storage/knowledge_base.json - остаётся навсегда, дёшево
+           читать, этого достаточно для кэша классификации по URL.
+        2. Полная версия архивируется (repositories/card_archiver.py -
+           сейчас локально, задел под отправку в облако).
+        3. Полная версия убирается из runtime_cards.json совсем
+           (CardRepository.forget), чтобы файл не разрастался.
+        """
+
+        to_archive = {}
         changed = False
 
         for url in urls:
+
             if not url:
+                continue
+
+            if self.knowledge_base.has(url):
+                # Уже заархивирована в прошлый раз - нечего делать.
                 continue
 
             card = self.cards.data.get(url)
 
             if not card:
                 continue
-            if card.get("learning_processed"):
-                continue
 
-            card["learning_processed"] = True
+            description = (
+                card.get("display_name")
+                or card.get("product")
+                or card.get("description", "")
+            )
+
+            self.knowledge_base.remember(
+                url=url,
+                description=description,
+                code=card.get("code", ""),
+            )
+
+            to_archive[url] = dict(card)
+            self.cards.forget(url)
             changed = True
+
+        if to_archive:
+            archive_full_cards(to_archive)
+            self.knowledge_base.flush()
 
         if changed:
             self.cards.mark_dirty()

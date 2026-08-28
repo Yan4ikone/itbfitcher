@@ -1,6 +1,7 @@
 from engines.image_description_engine import ImageDescriptionEngine
 from learning.runtime import LearningRuntime
 from repositories.card_repository import CardRepository
+from repositories.knowledge_base_repository import KnowledgeBaseRepository
 from repositories.product_repository import ProductRepository
 from services.image_description_service import ImageDescriptionService
 from services.image_loader import ImageLoader
@@ -13,6 +14,7 @@ class KnowledgeEngine:
         self.product_repository = ProductRepository()
         self.learning = LearningRuntime()
         self.card_repository = CardRepository()
+        self.knowledge_base = KnowledgeBaseRepository()
         self.image_loader = ImageLoader()
         self.image_engine = ImageDescriptionEngine()
         self.image_service = ImageDescriptionService(self.image_engine)
@@ -33,6 +35,19 @@ class KnowledgeEngine:
         return self.learning.analyze()
 
     def find_card(self, card):
+        """
+        Сначала лёгкая база знаний (карточки, уже прошедшие обучение -
+        для них хранится только url/описание/код, полная версия
+        заархивирована и убрана из runtime_cards.json). Если там
+        ничего нет - карточка ещё не прошла обучение, ищем в полном
+        CardRepository.
+        """
+
+        lean = self.knowledge_base.get(card.url)
+
+        if lean:
+            return lean
+
         return self.card_repository.find(card)
 
     def find_product(self, description):

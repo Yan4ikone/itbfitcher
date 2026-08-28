@@ -1,5 +1,6 @@
 from pathlib import Path
 from pprint import pformat
+from typing import Any, Dict
 import importlib
 
 
@@ -273,6 +274,43 @@ class ProductRepository:
         )
 
     # ==============================================================
+    # DROPDOWN
+    # ==============================================================
+
+    def find_dropdown(self, description):
+        """
+        Раньше искало в отдельном dictionaries/dropdown_lists.py
+        (DROPDOWN_LISTS) - этот источник вывели из потока обучения
+        (см. learning/builder.py: dropdown теперь пишется прямо в
+        products.py[product]["dropdown"], а не в отдельный файл,
+        который классификатор и так не читал). Метод отсюда пропал
+        вместе с тем импортом, а KnowledgeEngine.find_dropdown()
+        продолжал его звать - отсюда AttributeError/предупреждение
+        IDE. Теперь ищем там же, где реально лежит dropdown -
+        в self.products.
+
+        Логика поиска та же, что была: подстрока названия товара
+        входит в description -> отдаём его dropdown (если он есть).
+        """
+
+        if not description:
+            return None
+
+        description = description.lower()
+
+        for product, info in self.products.items():
+
+            dropdown = info.get("dropdown")
+
+            if not dropdown:
+                continue
+
+            if product.lower() in description:
+                return dropdown
+
+        return None
+
+    # ==============================================================
     # GETTERS
     # ==============================================================
 
@@ -411,19 +449,30 @@ class ProductRepository:
         self.rebuild_index()
 
     @staticmethod
-    def _merge_products(current, ours):
+    def _merge_products(
+        current: Dict[str, Dict[str, Any]],
+        ours: Dict[str, Dict[str, Any]],
+    ) -> Dict[str, Dict[str, Any]]:
         """
         current - то, что реально сейчас лежит в products.py на диске
                    (могло обновиться другим процессом/окном за то
                    время, пока мы работали со своей копией).
         ours     - наша in-memory копия с накопленными изменениями.
 
-        Сливаем аддитивно, никогда не удаляя то, что уже есть на
-        диске: новые товары добавляются целиком, а для уже
-        существующих объединяются списки/множества (aliases,
-        patterns, material_codes) без потери данных с любой стороны.
+        ВНИМАНИЕ: этот метод содержит ту же проблему, что раньше была
+        в learning/builder.py - self.products является статичным
+        снимком, снятым при создании ProductRepository, и любое
+        ручное удаление в products.py между этим моментом и save()
+        будет "воскрешено" через union ниже. Сейчас save() в этом
+        классе не используется активной цепочкой обучения (пишет
+        learning/builder.py, у которого этот баг уже исправлен через
+        дельта-подход) - но если решите вызывать
+        ProductRepository.save() откуда-то ещё, стоит переписать этот
+        метод по той же схеме (копить только дельту, полное состояние
+        брать с диска непосредственно перед записью).
+
         """
-        merged = {
+        merged: Dict[str, Dict[str, Any]] = {
             product: dict(info)
             for product, info in current.items()
         }
@@ -434,7 +483,7 @@ class ProductRepository:
                 merged[product] = info
                 continue
 
-            target = merged[product]
+            target: Dict[str, Any] = merged[product]
 
             for key in ("aliases", "patterns"):
 
@@ -447,7 +496,7 @@ class ProductRepository:
 
                 target[key] = existing
 
-            existing_materials = dict(
+            existing_materials: Dict[str, Any] = dict(
                 target.get("material_codes", {}) or {}
             )
             existing_materials.update(
