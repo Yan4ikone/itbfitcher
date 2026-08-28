@@ -26,11 +26,7 @@ def _log(text, logger=None,):
         print(text)
 
 
-def process_file_with_normalization(
-    input_path,
-    logger=None,
-    progress_callback=None,
-):
+def process_file_with_normalization(input_path, logger=None, progress_callback=None):
     print("PROCESS_FILE_WITH_NORMALIZATION")
     learning_history = load_learning_history(input_path)
     data = load_input(input_path)
@@ -42,13 +38,7 @@ def process_file_with_normalization(
     total_rows = data["rows"]
     total_rows = df[desc_col].notna().sum()
 
-    df["Описание_Новое"] = (
-        df[desc_col]
-        .fillna("")
-        .apply(normalize_name)
-    )
-
-    last_row = total_rows + 1
+    df["Описание_Новое"] = df[desc_col].fillna("").apply(normalize_name)
 
     if not os.path.exists(TEMPLATE_PATH):
         raise Exception(f"Шаблон не найден: {TEMPLATE_PATH}")
@@ -74,7 +64,6 @@ def process_file_with_normalization(
         row = dataframe_row + 2
         try:
             original_name = str(df.at[dataframe_row, desc_col]).strip()
-
             if not original_name or original_name.lower() == "nan":
                 continue
 
@@ -86,11 +75,7 @@ def process_file_with_normalization(
             if characteristics_col:
                 characteristics = str(df.at[dataframe_row, characteristics_col])
 
-            card = build_from_excel(
-                description=original_name,
-                characteristics=characteristics,
-                normalized=normalized_name,
-            )
+            card = build_from_excel(description=original_name, characteristics=characteristics, normalized=normalized_name)
             print("CARD TITLE :", card.title)
             print("CARD CLEAN :", card.cleaned_text)
 
@@ -98,22 +83,13 @@ def process_file_with_normalization(
             print("DECIDE FINISHED")
 
             history = learning_history.get(normalized_name.lower())
-            add_history_warning(
-                ws=ws,
-                row=row,
-                code_column=code_cell_idx,
-                history=history,
-            )
+            add_history_warning(ws=ws, row=row, code_column=code_cell_idx, history=history)
             stats.add(result)
 
             write_result(
-                ws=ws,
-                row=row,
-                code_column=code_cell_idx,
-                description_column=desc_cell_idx,
-                description=original_name,
-                result=result,
-                apply_result=apply_result,
+                ws=ws, row=row, code_column=code_cell_idx,
+                description_column=desc_cell_idx, description=original_name,
+                result=result, apply_result=apply_result,
             )
             processed_rows += 1
 
@@ -127,50 +103,43 @@ def process_file_with_normalization(
 
     fill_surname_column(ws, surname_col_idx)
 
+    # ВАЖНО: количество строк берём из реального листа после копирования,
+    # а не из количества непустых строк DataFrame. Это исключает ситуацию,
+    # когда строка с кодом 0 оказалась за пределами последней обработанной строки.
+    last_row = ws.max_row
+
     _log("Сортировка...", logger)
     sort_by_description(ws, desc_cell_idx, last_row)
 
     _log("Выпадающие списки...", logger)
-    apply_specific_dropdowns(
-        ws,
-        desc_cell_idx,
-        code_cell_idx,
-        max_row=last_row,
-    )
+    apply_specific_dropdowns(ws, desc_cell_idx, code_cell_idx, max_row=last_row)
 
     _log("Проверка ограничений...", logger)
     apply_restrictions(
-        ws,
-        code_cell_idx,
-        decision_col_idx,
-        surname_col_idx,
-        is_first_pass=True,
-        max_row=last_row,
+        ws, code_cell_idx, decision_col_idx, surname_col_idx,
+        is_first_pass=True, max_row=last_row,
     )
 
-    apply_description_warnings(
-        ws,
-        desc_cell_idx,
-        max_row=last_row,
-    )
+    apply_description_warnings(ws, desc_cell_idx, max_row=last_row)
 
-    # --------------------------------------------------------
-    # ФИНАЛЬНАЯ ПОСТОБРАБОТКА ДЛЯ EXCEL
-    # --------------------------------------------------------
-    # Здесь уже записаны все коды и выполнена сортировка.
-    # Поэтому красный/зелёный статус применяется один раз в самом
-    # конце и не конфликтует с классификацией.
     _log("Визуальная постобработка...", logger)
-    apply_visual_postprocessing(
+    visual_stats = apply_visual_postprocessing(
         ws,
         code_col_idx=code_cell_idx,
         decision_col_idx=decision_col_idx,
         max_row=last_row,
+        logger=logger,
     )
 
     base, _ = os.path.splitext(input_path)
     output_path = f"{base}_norm_result.xlsm"
 
+    _log(
+        f"Визуальная проверка перед сохранением: "
+        f"красных строк={visual_stats['red']}, "
+        f"нулевых={visual_stats['zero']}",
+        logger,
+    )
     _log("Сохранение...", logger)
     save_workbook(ws.parent, output_path)
 
@@ -184,9 +153,8 @@ def process_file_with_normalization(
     return output_path
 
 
-def recalculate_codes(input_path, logger=None, progress_callback=None,):
+def recalculate_codes(input_path, logger=None, progress_callback=None):
     learning_history = load_learning_history(input_path)
-
     data = load_input(input_path)
     df = data["dataframe"]
     desc_col = data["columns"]["description"]
@@ -230,43 +198,22 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
             description = ws.cell(row=row, column=desc_cell_idx).value
             if not description:
                 continue
-
             characteristics = ""
             if characteristics_col:
                 characteristics = str(df.at[row - 2, characteristics_col])
-
-            card = build_from_excel(
-                description=str(description),
-                characteristics=characteristics,
-            )
+            card = build_from_excel(description=str(description), characteristics=characteristics)
             result = engine.decide(card)
             processed_rows += 1
-
             if processed_rows % 10 == 0 or processed_rows == total_rows:
                 if progress_callback:
                     progress_callback(total_rows, processed_rows)
                 _log(f"Пересчитано {processed_rows}/{total_rows}", logger)
-
         except Exception as error:
             _log(f"Ошибка строки {row}: {error}", logger)
 
-    apply_restrictions(
-        ws,
-        code_cell_idx,
-        status_cell_idx,
-        None,
-        is_first_pass=False,
-        max_row=last_row,
-    )
-
+    apply_restrictions(ws, code_cell_idx, status_cell_idx, None, is_first_pass=False, max_row=last_row)
     apply_description_warnings(ws, desc_cell_idx, max_row=last_row)
-
-    apply_visual_postprocessing(
-        ws,
-        code_col_idx=code_cell_idx,
-        decision_col_idx=status_cell_idx,
-        max_row=last_row,
-    )
+    apply_visual_postprocessing(ws, code_col_idx=code_cell_idx, decision_col_idx=status_cell_idx, max_row=last_row, logger=logger)
 
     base, _ = os.path.splitext(input_path)
     output_path = f"{base}_recalc_result.xlsm"
@@ -274,6 +221,5 @@ def recalculate_codes(input_path, logger=None, progress_callback=None,):
 
     if progress_callback:
         progress_callback(total_rows, total_rows)
-
     _log(f"Готово: {os.path.basename(output_path)}", logger)
     return output_path
