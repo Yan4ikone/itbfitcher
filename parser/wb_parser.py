@@ -44,9 +44,19 @@ class WBParser:
         if data:
             result = self._parse_card_json(data)
             best = self._merge_wb_result(best, result)
-            if self._is_rich(best):
-                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: NETWORK (характеристики есть)")
+            if self._is_rich(best) and self._has_description(best):
+                print(
+                    f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: NETWORK "
+                    "(описание + характеристики есть)"
+                )
                 return best
+
+            if self._is_rich(best):
+                print(
+                    f"[WB PARSER] nm_id={nm_id} NETWORK: "
+                    "характеристики есть, но описания нет -> "
+                    "добираем CARD.JSON"
+                )
 
         # card.wb.ru - быстрый и надёжный источник названия/цены/бренда,
         # НО он практически никогда не отдаёт характеристики/полное
@@ -54,14 +64,34 @@ class WBParser:
         # в другом месте - см. CARD.JSON ниже). Поэтому даже если title
         # найден здесь, идём дальше и дообогащаем результат.
         product = await self._fetch_public_card_api(nm_id)
+
         if product:
             result = self._parse_card_api(product, nm_id)
             best = self._merge_wb_result(best, result)
-            if self._is_rich(best):
-                print(f"[WB PARSER] nm_id={nm_id} PRODUCT FOUND: CARD.API (характеристики есть)")
-                return best
-            print(f"[WB PARSER] nm_id={nm_id} CARD.API: title есть, характеристик нет -> добираем CARD.JSON")
 
+            if (
+                    self._is_rich(best)
+                    and self._has_description(best)
+            ):
+                print(
+                    f"[WB PARSER] nm_id={nm_id} "
+                    "PRODUCT FOUND: CARD.API "
+                    "(описание + характеристики есть)"
+                )
+                return best
+
+            if self._is_rich(best):
+                print(
+                    f"[WB PARSER] nm_id={nm_id} "
+                    "CARD.API: характеристики есть, "
+                    "но описания нет -> добираем CARD.JSON"
+                )
+            else:
+                print(
+                    f"[WB PARSER] nm_id={nm_id} "
+                    "CARD.API: недостаточно данных -> "
+                    "добираем CARD.JSON"
+                )
         # basket-XX.wbbasket.ru/.../card.json - вот тут реально лежат
         # характеристики (options/characteristics/params/properties/
         # characteristicsFull) и полное описание товара.
@@ -83,6 +113,24 @@ class WBParser:
         print(f"[WB PARSER] nm_id={nm_id} CARD.JSON/API НЕ НАЙДЕН")
         print(f"[WB PARSER] nm_id={nm_id} FALLBACK -> DOM")
         return await self._parse_dom_async(page)
+
+    @staticmethod
+    def _has_description(result):
+        """
+        Проверяет, что у карточки действительно получено
+        полноценное описание товара.
+        Для классификации WB описание является обязательным,
+        потому что именно там часто находятся:
+        - материал;
+        - состав;
+        - назначение;
+        - пол;
+        - возраст;
+        - особенности товара.
+        """
+        description = str(result.get("description") or "").strip()
+
+        return len(description) >= 20
 
     @staticmethod
     def _is_rich(result):
