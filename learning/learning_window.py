@@ -25,12 +25,14 @@ class LearningWindow(Toplevel):
         self.selected_aliases = set()
         self.selected_materials = set()
         self.selected_dropdowns = set()
+        self.selected_dropdown_match_words = set()
         self.selected_dropdown_candidates = set()
         self.selected_patterns = set()
         self.product_rows = {}
         self.alias_rows = {}
         self.material_rows = {}
         self.dropdown_rows = {}
+        self.dropdown_match_words_rows = {}
         self.dropdown_candidate_rows = {}
         self.pattern_rows = {}
         self._build_ui()
@@ -38,6 +40,7 @@ class LearningWindow(Toplevel):
         self._fill_aliases()
         self._fill_materials()
         self._fill_dropdowns()
+        self._fill_dropdown_match_words()
         self._fill_dropdown_candidates()
         self._fill_patterns()
 
@@ -62,6 +65,7 @@ class LearningWindow(Toplevel):
         self.aliases_frame = ttk.Frame(self.notebook)
         self.materials_frame = ttk.Frame(self.notebook)
         self.dropdowns_frame = ttk.Frame(self.notebook)
+        self.dropdown_match_words_frame = ttk.Frame(self.notebook)
         self.dropdown_candidates_frame = ttk.Frame(self.notebook)
         self.patterns_frame = ttk.Frame(self.notebook)
 
@@ -83,6 +87,11 @@ class LearningWindow(Toplevel):
         self.notebook.add(
             self.dropdowns_frame,
             text=f"Dropdown ({len(self.report.new_dropdown_variants)})"
+        )
+
+        self.notebook.add(
+            self.dropdown_match_words_frame,
+            text=f"Расширить dropdown ({len(self.report.new_dropdown_match_words)})"
         )
 
         self.notebook.add(
@@ -109,6 +118,10 @@ class LearningWindow(Toplevel):
 
         self.dropdown_tree = self._create_dropdown_tree(
             self.dropdowns_frame
+        )
+
+        self.dropdown_match_words_tree = self._create_dropdown_match_words_tree(
+            self.dropdown_match_words_frame
         )
 
         self.dropdown_candidate_tree = self._create_dropdown_candidate_tree(
@@ -342,16 +355,45 @@ class LearningWindow(Toplevel):
             (
                 "selected",
                 "product",
-                "code"
+                "code",
+                "name",
+                "match",
             )
         )
 
         tree.heading("selected", text="✓")
         tree.heading("product", text="Dropdown")
         tree.heading("code", text="Новый код")
+        tree.heading("name", text="Название (автозаполнено)")
+        tree.heading("match", text="Ключевые слова (автозаполнено)")
         tree.column("selected", width=45, anchor="center")
-        tree.column("product", width=400)
+        tree.column("product", width=250)
+        tree.column("code", width=140)
+        tree.column("name", width=220)
+        tree.column("match", width=350)
+
+        return tree
+
+    def _create_dropdown_match_words_tree(self, parent):
+
+        tree = self._create_tree(
+            parent,
+            (
+                "selected",
+                "product",
+                "code",
+                "words",
+            )
+        )
+
+        tree.heading("selected", text="✓")
+        tree.heading("product", text="Dropdown")
+        tree.heading("code", text="Существующий код")
+        tree.heading("words", text="Новые ключевые слова")
+        tree.column("selected", width=45, anchor="center")
+        tree.column("product", width=300)
         tree.column("code", width=180)
+        tree.column("words", width=500)
 
         return tree
 
@@ -442,10 +484,29 @@ class LearningWindow(Toplevel):
                     "☐",
                     item.product,
                     item.code,
+                    getattr(item, "name", ""),
+                    ", ".join(getattr(item, "match", ()) or ()),
                 )
             )
 
             self.dropdown_rows[iid] = item
+
+    def _fill_dropdown_match_words(self):
+
+        for item in self.report.new_dropdown_match_words:
+
+            iid = self.dropdown_match_words_tree.insert(
+                "",
+                "end",
+                values=(
+                    "☐",
+                    item.product,
+                    item.code,
+                    ", ".join(item.words or ()),
+                )
+            )
+
+            self.dropdown_match_words_rows[iid] = item
 
     def _fill_dropdown_candidates(self):
 
@@ -509,6 +570,9 @@ class LearningWindow(Toplevel):
 
             elif widget is self.dropdown_tree:
                 self._toggle_dropdown(iid)
+
+            elif widget is self.dropdown_match_words_tree:
+                self._toggle_dropdown_match_words(iid)
 
             elif widget is self.dropdown_candidate_tree:
                 self._toggle_dropdown_candidate(iid)
@@ -622,6 +686,32 @@ class LearningWindow(Toplevel):
             values=values
         )
 
+    def _toggle_dropdown_match_words(self, iid):
+
+        item = self.dropdown_match_words_rows[iid]
+
+        values = list(
+            self.dropdown_match_words_tree.item(
+                iid,
+                "values"
+            )
+        )
+
+        if item in self.selected_dropdown_match_words:
+
+            self.selected_dropdown_match_words.remove(item)
+            values[0] = "☐"
+
+        else:
+
+            self.selected_dropdown_match_words.add(item)
+            values[0] = "☑"
+
+        self.dropdown_match_words_tree.item(
+            iid,
+            values=values
+        )
+
     def _toggle_dropdown_candidate(self, iid):
 
         item = self.dropdown_candidate_rows[iid]
@@ -696,6 +786,11 @@ class LearningWindow(Toplevel):
             if self.dropdown_rows[iid] not in self.selected_dropdowns:
                 self._toggle_dropdown(iid)
 
+        for iid in self.dropdown_match_words_rows:
+
+            if self.dropdown_match_words_rows[iid] not in self.selected_dropdown_match_words:
+                self._toggle_dropdown_match_words(iid)
+
         for iid in self.dropdown_candidate_rows:
 
             if self.dropdown_candidate_rows[iid] not in self.selected_dropdown_candidates:
@@ -728,6 +823,11 @@ class LearningWindow(Toplevel):
             if self.dropdown_rows[iid] in self.selected_dropdowns:
                 self._toggle_dropdown(iid)
 
+        for iid in list(self.dropdown_match_words_rows):
+
+            if self.dropdown_match_words_rows[iid] in self.selected_dropdown_match_words:
+                self._toggle_dropdown_match_words(iid)
+
         for iid in list(self.dropdown_candidate_rows):
 
             if self.dropdown_candidate_rows[iid] in self.selected_dropdown_candidates:
@@ -749,6 +849,7 @@ class LearningWindow(Toplevel):
             and not self.selected_aliases
             and not self.selected_materials
             and not self.selected_dropdowns
+            and not self.selected_dropdown_match_words
             and not self.selected_dropdown_candidates
             and not self.selected_patterns
         ):
@@ -769,6 +870,7 @@ class LearningWindow(Toplevel):
             dropdowns=list(self.selected_dropdowns),
             patterns=list(self.selected_patterns),
             dropdown_candidates=list(self.selected_dropdown_candidates),
+            dropdown_match_words=list(self.selected_dropdown_match_words),
         )
         self.applied = True
         self.runtime.mark_learning_processed(

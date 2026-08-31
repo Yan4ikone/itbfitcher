@@ -217,6 +217,73 @@ def _pick_known_material(phrase: str) -> str:
     return best[2] if best else ""
 
 
+# ==================================================================
+# КЛЮЧЕВЫЕ СЛОВА ДЛЯ DROPDOWN-ВАРИАНТОВ ("ЗОНТИЧНЫЕ" КАТЕГОРИИ)
+#
+# Для товаров вроде "аксессуар для пылесоса"/"аксессуар для рыбалки" -
+# у которых внутри одного словарного описания несколько РАЗНЫХ по
+# сути предметов (см. resolver/dropdown_axis_resolver.py::
+# Эта функция достаёт кандидатов в match автоматически из карточки,
+# которую куратор только что подтвердил/исправил.
+# ==================================================================
+
+def extract_dropdown_keywords(card, description, product_name, max_keywords=3):
+    """Значимые слова-кандидаты в match конкретного dropdown-варианта.
+    Намеренно исключает слова самого наименования товара-"зонтика"
+    (product_name) - иначе ВСЕ варианты получили бы одно и то же
+    общее слово ("пылесос") вместо того, что их отличает
+    ("фильтр"/"щетка"/"мешок").
+    """
+
+    title = str((card or {}).get("title", "") or "")
+    specs = (card or {}).get("specs", {}) or {}
+    specs_text = " ".join(str(v) for v in specs.values())
+
+    text = " ".join(filter(None, [title, specs_text, description or ""]))
+    text = normalize_dictionary_name(text).lower()
+
+    product_words = {
+        word
+        for word in str(product_name or "").lower().split()
+        if word
+    }
+
+    # Слова бренда (card.brand) - не годятся в match: иначе вариант
+    # "Фильтр для пылесоса" привязался бы только к одному бренду
+    # ("xiaomi"), а не к слову "фильтр".
+    brand_words = {
+        word
+        for word in str((card or {}).get("brand", "") or "").lower().split()
+        if word
+    }
+
+    excluded_words = product_words | brand_words
+
+    words = []
+    seen = set()
+
+    for word in text.split():
+
+        word = word.strip()
+
+        if len(word) < 3:
+            continue
+        if word in _TRASH_WORDS:
+            continue
+        if word in excluded_words:
+            continue
+        if word in seen:
+            continue
+
+        seen.add(word)
+        words.append(word)
+
+        if len(words) >= max_keywords:
+            break
+
+    return tuple(words)
+
+
 def normalize_material(material):
     """
     Приводит материал к одному основному, ЧИСТОМУ значению - без

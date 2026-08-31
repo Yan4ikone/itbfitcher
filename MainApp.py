@@ -14,7 +14,7 @@ from tkinter.scrolledtext import ScrolledText
 from core.app_controller import AppController
 from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
-from learning_window import LearningWindow
+from learning.learning_window import LearningWindow
 from result_window import ResultWindow
 
 if sys.stdout is None:

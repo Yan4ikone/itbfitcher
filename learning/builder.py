@@ -36,6 +36,7 @@ class LearningBuilder:
         self._new_aliases = {}             # product -> set(alias)
         self._new_materials = {}           # product -> {material: code}
         self._new_dropdown_variants = {}   # product -> [variant, ...]
+        self._dropdown_match_extensions = {}   # product -> {code: set(words)}
         self._new_dropdowns = {}           # product -> {"title":..., "variants": [...]}
         self._new_patterns = {}            # product -> set(pattern)
 
@@ -97,23 +98,44 @@ class LearningBuilder:
             []
         ).append({
             "code": code,
-            "name": getattr(item, "name", "") or "",
+            "name": getattr(item, "name", "") or f"Вариант {code}",
             "group": getattr(item, "group", "") or "other",
+            "match": list(getattr(item, "match", ()) or ()),
         })
+    # ==========================================================
+    # DROPDOWN MATCH WORDS (расширение УЖЕ существующего варианта)
+    # ==========================================================
+    def extend_dropdown_variant_match(self, item):
+
+        code = str(item.code).strip()
+        words = [str(w).strip().lower() for w in (item.words or ()) if str(w).strip()]
+
+        if not code or not words:
+            return
+
+        self._dropdown_match_extensions.setdefault(
+            item.product, {}
+        ).setdefault(code, set()).update(words)
     # ==========================================================
     # DROPDOWN CANDIDATE -> НОВЫЙ DROPDOWN
     # ==========================================================
     def create_dropdown(self, item):
         """
         item - NewDropdownCandidate: product + codes (кортеж пар
-        (код, count)). Заводит для товара блок "dropdown" с
-        вариантами-заготовками ("Авто N") по накопленным кодам -
-        имя и группу куратор донастраивает вручную в products.py.
+        (код, count)) + keywords (кортеж пар (код, кортеж слов) -
+        автоподсказка из learning.learning_filters.
+        extract_dropdown_keywords). Заводит для товара блок
+        "dropdown" с вариантами: name/match заполняются
+        автоматически по накопленным словам, а не заглушкой
+        "Авто N" - куратор донастраивает при необходимости прямо
+        в окне обучения перед подтверждением.
 
         Если у товара к моменту save() уже появился dropdown -
         _apply_delta() ничего не перезапишет, чтобы не потерять
         уже настроенные name/group.
         """
+
+        keywords_by_code = dict(getattr(item, "keywords", ()) or ())
 
         variants = []
 
@@ -124,10 +146,14 @@ class LearningBuilder:
             if not code:
                 continue
 
+            words = tuple(keywords_by_code.get(code, ()))
+            name = words[0].capitalize() if words else f"Авто {index}"
+
             variants.append({
                 "code": code,
-                "name": f"Авто {index}",
+                "name": name,
                 "group": "other",
+                "match": list(words),
             })
 
         if not variants:
@@ -262,6 +288,35 @@ class LearningBuilder:
                 continue
 
             target["dropdown"] = dropdown
+
+        # 5.5. Расширение match у УЖЕ существующих dropdown-вариантов
+        # словами, накопленными из новых подтверждённых карточек -
+        # это и есть "расширение зонтика" без ручного набора текста.
+        for product, by_code in self._dropdown_match_extensions.items():
+
+            target = current.get(product)
+
+            if not target:
+                continue
+
+            dropdown = target.get("dropdown") or {}
+            variants = dropdown.get("variants", []) or []
+
+            for variant in variants:
+
+                code = str(variant.get("code", "")).strip()
+                new_words = by_code.get(code)
+
+                if not new_words:
+                    continue
+
+                existing = variant.setdefault("match", [])
+                known = {str(w).strip().lower() for w in existing}
+
+                for word in new_words:
+                    if word not in known:
+                        existing.append(word)
+                        known.add(word)
 
         # 6. Паттерны.
         for product, patterns in self._new_patterns.items():

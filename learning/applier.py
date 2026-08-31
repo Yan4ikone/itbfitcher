@@ -7,7 +7,8 @@ class LearningApplier:
 
         self.builder = LearningBuilder()
 
-    def apply(self, products, aliases, materials, dropdowns, patterns=None, dropdown_candidates=None):
+    def apply(self, products, aliases, materials, dropdowns, patterns=None,
+              dropdown_candidates=None, dropdown_match_words=None):
         self._apply_products(products)
         self._apply_aliases(aliases)
         self._apply_materials(materials)
@@ -18,6 +19,9 @@ class LearningApplier:
 
         if dropdown_candidates:
             self._apply_dropdown_candidates(dropdown_candidates)
+
+        if dropdown_match_words:
+            self._apply_dropdown_match_words(dropdown_match_words)
         self.builder.save()
 
     # ==========================================================
@@ -69,3 +73,11 @@ class LearningApplier:
             if not item.selected:
                 continue
             self.builder.create_dropdown(item)
+    # ==========================================================
+    # DROPDOWN MATCH WORDS (расширение существующего варианта)
+    # ==========================================================
+    def _apply_dropdown_match_words(self, dropdown_match_words):
+        for item in dropdown_match_words:
+            if not item.selected:
+                continue
+            self.builder.extend_dropdown_variant_match(item)

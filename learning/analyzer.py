@@ -2,7 +2,11 @@ import re
 from collections import Counter
 
 from cleaner.alias_builder import AliasBuilder
-from learning.learning_filters import is_valid_alias, normalize_material
+from learning.learning_filters import (
+    extract_dropdown_keywords,
+    is_valid_alias,
+    normalize_material,
+)
 from learning.name_normalizer import normalize_dictionary_name
 from learning.product_matcher import ProductMatcher
 from utils.material_extractor import is_excluded_material_key
@@ -13,6 +17,7 @@ from learning.review_models import (
     NewAlias,
     NewMaterialCode,
     NewDropdownVariant,
+    NewDropdownMatchWords,
     NewDropdownCandidate,
     NewPattern,
 )
@@ -55,6 +60,7 @@ class LearningAnalyzer:
         print("ANALYZER START")
         report = LearningReport()
         self._code_observations = {}
+        self._code_keywords = {}
 
         for card in self.runtime.all_cards():
 
@@ -108,7 +114,7 @@ class LearningAnalyzer:
             # даже те карточки, для которых material/alias/pattern
             # анализ ничего нового не даст.
             # --------------------------------------------------
-            self._observe_code(product_name, product_info, code)
+            self._observe_code(product_name, product_info, code, card, description)
             # --------------------------------------------------
             # MATERIAL
             # --------------------------------------------------
@@ -134,6 +140,7 @@ class LearningAnalyzer:
             # --------------------------------------------------
             self._analyze_dropdown(
                 report,
+                card,
                 description,
                 product_name,
                 code
@@ -275,6 +282,7 @@ class LearningAnalyzer:
     def _find_spec_material(self, specs, prefer_upper):
         """Ищет материал среди характеристик, сознательно игнорируя
         стельку/подкладку/подошву (см. utils.material_extractor).
+
         prefer_upper=True - ищем только явные ключи материала ОСНОВНОЙ
         части товара ("материал верха" и т.п.).
         prefer_upper=False - ищем любой ключ "материал"/"состав",
@@ -326,7 +334,10 @@ class LearningAnalyzer:
             )
 
             # Приоритет: "Материал верха" (или похожие ключи основной
-            # части товара)
+            # части товара) - раньше искали только точное "Материал"/
+            # "материал", и если у WB характеристика называлась
+            # "Материал верха" (частый случай для обуви/сумок), она
+            # вообще не находилась, хотя это и есть основной материал.
             raw_material = self._find_spec_material(
                 specs,
                 prefer_upper=True,
@@ -532,7 +543,7 @@ class LearningAnalyzer:
     # ==========================================================
     # DROPDOWN
     # ==========================================================
-    def _analyze_dropdown(self, report, description, product_name, code):
+    def _analyze_dropdown(self, report, card, description, product_name, code):
 
         product_info = (
                 self.runtime.get_product(product_name)
@@ -565,26 +576,79 @@ class LearningAnalyzer:
         if not dropdown:
             return
 
+        existing_variants = dropdown.get("variants", []) or []
+
         known_codes = {
             str(item.get("code", "")).strip()
-            for item in (dropdown.get("variants", [])
-                         or []
-                         )
+            for item in existing_variants
         }
+
+        keywords = extract_dropdown_keywords(card, description, product_name)
+
         if code in known_codes:
+            # Код уже есть среди вариантов - не дублируем вариант, но
+            # если у карточки нашлись НОВЫЕ слова, которых пока нет в
+            # match этого варианта - предложим его расширить (см.
+            # NewDropdownMatchWords). Это и есть "расширение зонтика"
+            # без ручного набора текста куратором.
+            if not keywords:
+                return
+
+            variant = next(
+                (
+                    v for v in existing_variants
+                    if str(v.get("code", "")).strip() == code
+                ),
+                None,
+            )
+
+            if variant is None:
+                return
+
+            known_words = {
+                str(w).strip().lower()
+                for w in variant.get("match", [])
+            }
+
+            new_words = tuple(w for w in keywords if w not in known_words)
+
+            if not new_words:
+                return
+
+            for item in report.new_dropdown_match_words:
+                if item.product == product_name and item.code == code:
+                    return
+
+            report.new_dropdown_match_words.append(
+                NewDropdownMatchWords(
+                    product=product_name,
+                    code=code,
+                    words=new_words,
+                )
+            )
+            print("EXTEND DROPDOWN MATCH:", product_name, code, new_words)
             return
+
         for item in report.new_dropdown_variants:
 
             if (item.product == product_name and str(item.code).strip() == code):
                 return
 
+        name = keywords[0].capitalize() if keywords else ""
+
         report.new_dropdown_variants.append(
-            NewDropdownVariant(product=product_name, code=code))
-        print("NEW DROPDOWN:", product_name, code)
+            NewDropdownVariant(
+                product=product_name,
+                code=code,
+                name=name,
+                match=keywords,
+            )
+        )
+        print("NEW DROPDOWN:", product_name, code, name, keywords)
     # ==========================================================
     # DROPDOWN CANDIDATE - НАБЛЮДЕНИЕ
     # ==========================================================
-    def _observe_code(self, product_name, product_info, code):
+    def _observe_code(self, product_name, product_info, code, card, description):
         """
         Копит, какие коды встречались у товара БЕЗ dropdown, чтобы
         в конце analyze() решить, не пора ли завести ему dropdown.
@@ -622,6 +686,17 @@ class LearningAnalyzer:
             Counter()
         )
         counter[code] += 1
+
+        # Копим слова-кандидаты в match для КАЖДОГО кода отдельно -
+        # чтобы при заведении нового dropdown (см.
+        # _analyze_dropdown_candidates) варианты сразу получили
+        # осмысленное name/match, а не "Авто 1"/"Авто 2".
+        keywords = extract_dropdown_keywords(card, description, product_name)
+
+        if keywords:
+            self._code_keywords.setdefault(
+                product_name, {}
+            ).setdefault(code, set()).update(keywords)
     # ==========================================================
     # DROPDOWN CANDIDATE - РЕШЕНИЕ
     # ==========================================================
@@ -646,10 +721,16 @@ class LearningAnalyzer:
                 )
             )
 
+            keywords = tuple(
+                (code, tuple(self._code_keywords.get(product_name, {}).get(code, ())))
+                for code, _count in codes
+            )
+
             report.new_dropdown_candidates.append(
                 NewDropdownCandidate(
                     product=product_name,
                     codes=codes,
+                    keywords=keywords,
                 )
             )
 
