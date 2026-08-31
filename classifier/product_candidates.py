@@ -12,6 +12,9 @@ class ProductCandidates:
     def build(self, card):
 
         candidates = []
+        # ==========================================================
+        # TITLE
+        # ==========================================================
         self._append(
             candidates,
             card.clean_title,
@@ -19,6 +22,9 @@ class ProductCandidates:
             "TITLE",
             100,
         )
+        # ==========================================================
+        # URL / SLUG
+        # ==========================================================
         self._append(
             candidates,
             card.clean_slug,
@@ -26,6 +32,9 @@ class ProductCandidates:
             "URL",
             90,
         )
+        # ==========================================================
+        # DESCRIPTION
+        # ==========================================================
         self._append(
             candidates,
             card.clean_description,
@@ -33,6 +42,35 @@ class ProductCandidates:
             "DESCRIPTION",
             70,
         )
+        # ==========================================================
+        # OZON CATEGORY / BREADCRUMBS
+        #
+        # Пока только добавляем категорию как отдельный источник.
+        # ==========================================================
+
+        breadcrumbs = getattr(card, "breadcrumbs", None)
+
+        if breadcrumbs:
+
+            if isinstance(breadcrumbs, (list, tuple)):
+                category_text = " ".join(
+                    str(item)
+                    for item in breadcrumbs
+                    if item
+                )
+            else:
+                category_text = str(breadcrumbs)
+
+            self._append(
+                candidates,
+                category_text,
+                card.quantity,
+                "CATEGORY",
+                80,
+            )
+        # ==========================================================
+        # UNIQUE CANDIDATES
+        # ==========================================================
         unique = {}
 
         for item in candidates:
@@ -49,10 +87,21 @@ class ProductCandidates:
             key=lambda x: x["weight"],
             reverse=True,
         )
+        print()
+        print("=" * 80)
+        print("PRODUCT CANDIDATES")
+        print("=" * 80)
+        for item in result:
+
+            print(f" {item['source']:<12}"
+                  f"weight={item['weight']:<4}"
+                  f"product={item['product']!r}"
+                  )
+        print("=" * 80)
+        print()
         card.product_candidates = result
 
         if result:
-
             card.cleaned_text = result[0]["product"]
 
         return card
@@ -65,6 +114,7 @@ class ProductCandidates:
         variants = self.variants.build(text, quantity)
 
         for variant in variants:
+
             result.append({
                 "product": variant["product"],
                 "source": source,

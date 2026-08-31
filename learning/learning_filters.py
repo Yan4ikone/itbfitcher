@@ -223,12 +223,23 @@ def _pick_known_material(phrase: str) -> str:
 # Для товаров вроде "аксессуар для пылесоса"/"аксессуар для рыбалки" -
 # у которых внутри одного словарного описания несколько РАЗНЫХ по
 # сути предметов (см. resolver/dropdown_axis_resolver.py::
+# ScoredKeywordAxisResolver) - куратору раньше приходилось вручную
+# писать name/match для каждого нового варианта в products.py.
 # Эта функция достаёт кандидатов в match автоматически из карточки,
 # которую куратор только что подтвердил/исправил.
 # ==================================================================
 
+# Кандидат в match должен выглядеть как настоящее слово - только
+# буквы (кириллица/латиница) и внутренние дефисы. Отсеивает мусор
+# вида артикулов/hex-кодов/размеров, которые иногда пролезают в
+# характеристики как "0x17.0x24" - такое в словарь синонимов не
+# нужно вообще, никакого потенциала точности от него нет.
+_WORD_SHAPE_PATTERN = re.compile(r"^[а-яёa-z]+(?:-[а-яёa-z]+)?$")
+
+
 def extract_dropdown_keywords(card, description, product_name, max_keywords=3):
     """Значимые слова-кандидаты в match конкретного dropdown-варианта.
+
     Намеренно исключает слова самого наименования товара-"зонтика"
     (product_name) - иначе ВСЕ варианты получили бы одно и то же
     общее слово ("пылесос") вместо того, что их отличает
@@ -267,6 +278,8 @@ def extract_dropdown_keywords(card, description, product_name, max_keywords=3):
         word = word.strip()
 
         if len(word) < 3:
+            continue
+        if not _WORD_SHAPE_PATTERN.match(word):
             continue
         if word in _TRASH_WORDS:
             continue
@@ -321,10 +334,7 @@ def normalize_material(material):
     material = re.sub(r"\s+", " ", material)
     # --------------------------------------------------
     # Сначала ищем материалы с процентами - в любом порядке:
-    # "70% хлопок" И "хлопок 70%" (второй вариант раньше не ловился
-    # вообще, из-за чего "вискоза 67%, полиэстер 33%" не находил ни
-    # одной пары и падал в ветку "первый элемент списка").
-    # --------------------------------------------------
+    # "70% хлопок" И "хлопок 70%"
     _WORD = r"[а-яёa-z]+(?:\s+[а-яёa-z]+)?"
     percentage_matches = []
     for m in re.finditer(
@@ -352,7 +362,8 @@ def normalize_material(material):
         percent, name = percentage_matches[0]
 
         name = _clean_material_phrase(name)
-        return _pick_known_material(name) or name
+        # Нет чёткого попадания в справочник материалов - НЕ угадываем
+        return _pick_known_material(name)
 
     # --------------------------------------------------
     # Если процентов нет — ищем известный материал во всей фразе
@@ -362,23 +373,5 @@ def normalize_material(material):
     cleaned_full = _clean_material_phrase(material)
     known = _pick_known_material(cleaned_full)
 
-    if known:
-        return known
-
-    # --------------------------------------------------
-    # Если материал не из справочника — берём первый элемент списка
-    # ("металл, пластик" / "металл; пластик" / "металл / пластик"),
-    # предварительно почистив мусор/цифры.
-    # --------------------------------------------------
-    parts = re.split(
-        r"\s*[,;/]\s*",
-        cleaned_full,
-    )
-
-    if parts:
-
-        first = parts[0].strip()
-
-        if first:
-            return first
-    return cleaned_full
+    # Если известного материала во фразе нет вообще - возвращаем "",
+    return known
