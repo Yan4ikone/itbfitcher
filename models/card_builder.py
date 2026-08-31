@@ -2,7 +2,11 @@ from urllib.parse import urlparse, unquote
 import re
 
 from modules.product_card import ProductCard
-from utils.quantity_extractor import extract_quantity
+from utils.quantity_extractor import (
+    extract_quantity,
+    is_heterogeneous_kit,
+    strip_heterogeneous_kit_segments,
+)
 from utils.material_extractor import extract_material
 
 
@@ -108,11 +112,28 @@ def build_product_card(url, parsed, raw_text):
                 or "комплект" in key_l
                 or "набор" in key_l
         ):
-            quantity = extract_quantity(value_str)
+            # "Комплектация"/"Состав набора" - это ПЕРЕЧЕНЬ того, что
+            # лежит в наборе (пылесос, насадка-щётка, шланг), а не
+            # количество экземпляров товара. Раньше "комплект" in key_l
+            # ловил и "Комплектация" тоже, и если в её значении
+            # встречалось "2 шт"/"2 предмета" (сумма РАЗНЫХ компонентов),
+            # это ошибочно становилось количеством товара - "пылесос
+            # 2 шт" вместо "пылесос (в комплекте с щёткой)".
+            is_composition_key = (
+                "комплектация" in key_l
+                or "состав набора" in key_l
+                or "состав комплекта" in key_l
+            )
+
+            if is_composition_key and is_heterogeneous_kit(value_str):
+                quantity = ""
+            else:
+                quantity = extract_quantity(value_str)
+
             # Частый случай на Ozon: единица уже в НАЗВАНИИ поля
             # ("Количество в упаковке, шт"), а само значение -
             # просто голое число ("5"). Тогда unit берём из key.
-            if not quantity and value_str.isdigit():
+            if not quantity and value_str.isdigit() and not is_composition_key:
 
                 number = int(value_str)
 
@@ -161,9 +182,10 @@ def build_product_card(url, parsed, raw_text):
         # ------------------------------------------------------------
         if not card.quantity:
 
-            quantity = extract_quantity(
+            fallback_text = strip_heterogeneous_kit_segments(
                 " ".join(filter(None, [card.title, card.description]))
             )
+            quantity = extract_quantity(fallback_text)
 
             if quantity:
                 card.quantity = quantity

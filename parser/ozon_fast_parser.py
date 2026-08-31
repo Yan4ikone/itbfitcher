@@ -21,17 +21,7 @@ LOG_FILE = Path("ozon_fast_results.log")
 # TEST URLS
 # =============================================================================
 TEST_URLS = [
-    "https://www.ozon.ru/product/5293991761/",
-    "https://www.ozon.ru/product/4852033249/",
-    "https://www.ozon.ru/product/5294134418/",
-    "https://www.ozon.ru/product/4543849841/",
-    "https://www.ozon.ru/product/4661565890/",
-    "https://www.ozon.ru/product/5314610714/",
-    "https://www.ozon.ru/product/5303597145/",
-    "https://www.ozon.ru/product/3396713352/",
-    "https://www.ozon.ru/product/5237080856/",
-    "https://www.ozon.ru/product/4951373458/",
-    "https://www.ozon.ru/product/5149698916/",
+
 ]
 # =============================================================================
 # PARSER
@@ -97,7 +87,7 @@ class OzonFastParser:
 
     def __init__(
         self,
-        workers: int = 2,
+        workers: int = 3,
         logger: Logger | None = None,
     ):
         self.workers = workers
@@ -112,12 +102,10 @@ class OzonFastParser:
     # =========================================================================
 
     def worker(self, worker_id: int):
-
         """
         Нельзя создать Playwright в main thread
         и передавать page/context в другой thread.
         """
-
         self.logger.log("")
         self.logger.log("=" * 90)
         self.logger.log(f"[WORKER {worker_id}] START")
@@ -139,19 +127,16 @@ class OzonFastParser:
                         CDP_URL
                     )
                 )
-
                 self.logger.log(
                     f"[WORKER {worker_id}] "
                     f"✓ CDP подключён"
                 )
-
                 contexts = browser.contexts
 
                 self.logger.log(
                     f"[WORKER {worker_id}] "
                     f"Contexts: {len(contexts)}"
                 )
-
                 if not contexts:
 
                     raise RuntimeError(
@@ -165,42 +150,27 @@ class OzonFastParser:
                     f"Pages до создания: "
                     f"{len(context.pages)}"
                 )
-
                 # =================================================================
                 # СОЗДАЁМ СОБСТВЕННУЮ СТРАНИЦУ
                 # =================================================================
-
                 page = context.new_page()
-
-                page.set_default_timeout(
-                    NAVIGATION_TIMEOUT
-                )
-
-                page.set_default_navigation_timeout(
-                    NAVIGATION_TIMEOUT
-                )
-
+                page.set_default_timeout(NAVIGATION_TIMEOUT)
+                page.set_default_navigation_timeout(NAVIGATION_TIMEOUT)
                 self.logger.log(
                     f"[WORKER {worker_id}] "
                     f"✓ Собственная page создана"
                 )
-
                 # =================================================================
                 # ОСНОВНОЙ ЦИКЛ
                 # =================================================================
-
                 while not self.stop_event.is_set():
-
                     try:
 
                         item = (
                             self.work_queue.get_nowait()
                         )
-
                     except queue.Empty:
-
                         break
-
                     try:
 
                         result = self.process_one(
@@ -208,13 +178,8 @@ class OzonFastParser:
                             page,
                             item,
                         )
-
                         with self.results_lock:
-
-                            self.results.append(
-                                result
-                            )
-
+                            self.results.append(result)
                     except Exception as exc:
 
                         self.logger.log(
@@ -222,10 +187,7 @@ class OzonFastParser:
                             f"[{item.index}] "
                             f"✗ FATAL:"
                         )
-
-                        self.logger.log(
-                            traceback.format_exc()
-                        )
+                        self.logger.log(traceback.format_exc())
 
                         with self.results_lock:
 
@@ -246,30 +208,25 @@ class OzonFastParser:
                     finally:
 
                         self.work_queue.task_done()
-
                 # =================================================================
                 # CLOSE PAGE
                 # =================================================================
-
                 try:
 
                     page.close()
 
                 except Exception:
-
                     pass
 
                 self.logger.log(
                     f"[WORKER {worker_id}] "
                     f"Page закрыта"
                 )
-
                 try:
 
                     browser.close()
 
                 except Exception:
-
                     pass
 
                 self.logger.log(

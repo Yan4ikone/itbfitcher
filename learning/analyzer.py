@@ -5,6 +5,7 @@ from cleaner.alias_builder import AliasBuilder
 from learning.learning_filters import is_valid_alias, normalize_material
 from learning.name_normalizer import normalize_dictionary_name
 from learning.product_matcher import ProductMatcher
+from utils.material_extractor import is_excluded_material_key
 
 from learning.review_models import (
     LearningReport,
@@ -268,6 +269,42 @@ class LearningAnalyzer:
     # ==========================================================
     # MATERIAL
     # ==========================================================
+    # ==========================================================
+    # MATERIAL
+    # ==========================================================
+    def _find_spec_material(self, specs, prefer_upper):
+        """Ищет материал среди характеристик, сознательно игнорируя
+        стельку/подкладку/подошву (см. utils.material_extractor).
+        prefer_upper=True - ищем только явные ключи материала ОСНОВНОЙ
+        части товара ("материал верха" и т.п.).
+        prefer_upper=False - ищем любой ключ "материал"/"состав",
+        кроме относящихся к вспомогательным частям.
+        """
+
+        if not isinstance(specs, dict):
+            return ""
+
+        for key, value in specs.items():
+
+            if not value:
+                continue
+
+            key_l = str(key).strip().lower()
+
+            if is_excluded_material_key(key_l):
+                continue
+
+            if prefer_upper:
+                if "верх" not in key_l:
+                    continue
+            else:
+                if not ("материал" in key_l or "состав" in key_l):
+                    continue
+
+            return str(value).strip().lower()
+
+        return ""
+
     def _get_material(self, card):
 
         raw_material = str(
@@ -288,19 +325,12 @@ class LearningAnalyzer:
                     or {}
             )
 
-            for key in (
-                    "Материал",
-                    "материал",
-            ):
-
-                value = specs.get(key)
-
-                if value:
-                    raw_material = str(
-                        value
-                    ).strip().lower()
-
-                    break
+            # Приоритет: "Материал верха" (или похожие ключи основной
+            # части товара)
+            raw_material = self._find_spec_material(
+                specs,
+                prefer_upper=True,
+            )
 
         if not raw_material:
 
@@ -312,19 +342,10 @@ class LearningAnalyzer:
                     or {}
             )
 
-            for key in (
-                    "Состав",
-                    "состав",
-            ):
-
-                value = specs.get(key)
-
-                if value:
-                    raw_material = str(
-                        value
-                    ).strip().lower()
-
-                    break
+            raw_material = self._find_spec_material(
+                specs,
+                prefer_upper=False,
+            )
 
         if not raw_material:
             return ""

@@ -235,6 +235,14 @@ class SpecialProductResolver:
                 return self._clean_book_title(
                     match.group(1)
                 )
+
+        # ФОЛБЭК: у подавляющего большинства продавцов заголовок товара
+        # НЕ содержит кавычек вокруг названия ("книга «Название»") -
+        if title:
+            cleaned = self._clean_book_title(title)
+            if cleaned:
+                return cleaned
+
         return ""
 
     # ==========================================================
@@ -260,6 +268,18 @@ class SpecialProductResolver:
             )
 
             if value:
+                return self._clean_value(value)
+
+        # Более мягкий проход: любой ключ характеристики, где просто
+        # ЕСТЬ подстрока "издат" (издательство/издатель/изд-во и т.п.) -
+        # разные продавцы называют поле по-разному, а точное совпадение
+        # выше ловит только самые распространённые варианты названия.
+        for key, value in specs.items():
+
+            if not value:
+                continue
+
+            if "издат" in str(key).lower() or "изд-во" in str(key).lower():
                 return self._clean_value(value)
 
         title = str(
@@ -293,6 +313,15 @@ class SpecialProductResolver:
                 return self._clean_value(
                     match.group(1)
                 )
+
+        # ФОЛБЭК: у WB/Ozon для книг отдельного поля "Издательство" в
+        # характеристиках чаще всего просто НЕТ - вместо этого
+        # издательство указано в общей характеристике "Бренд" (card.brand,
+        # см. models/card_builder.py).
+        brand = str(getattr(card, "brand", "") or "").strip()
+
+        if brand:
+            return self._clean_value(brand)
 
         return ""
 
@@ -345,6 +374,14 @@ class SpecialProductResolver:
             str(value).strip().lower()
         )
 
+    _BOOK_NOISE_PHRASES = (
+        "новинка", "новинки", "хит продаж", "бестселлер",
+        "топ продаж", "подарочное издание", "подарок",
+        "оригинал", "лицензионный", "лицензионное",
+        "акция", "скидка", "распродажа", "суперцена", "супер цена",
+        "уценка", "уценённая", "уцененная",
+    )
+
     def _clean_book_title(self, value):
 
         value = self._clean_value(value)
@@ -355,6 +392,16 @@ class SpecialProductResolver:
             value,
             flags=re.IGNORECASE
         )
+
+        for phrase in self._BOOK_NOISE_PHRASES:
+            value = re.sub(
+                r'(?<!\w)' + re.escape(phrase) + r'(?!\w)',
+                "",
+                value,
+                flags=re.IGNORECASE,
+            )
+
+        value = re.sub(r"\s+", " ", value).strip(" ,.-–—")
 
         return value.strip()
 

@@ -94,23 +94,6 @@ def process_file_with_normalization(input_path, logger=None, progress_callback=N
             )
             processed_rows += 1
 
-            _log("Визуальная постобработка...", logger)
-
-            visual_stats = apply_visual_postprocessing(
-                ws,
-                code_col_idx=code_cell_idx,
-                decision_col_idx=decision_col_idx,
-                max_row=ws.max_row,
-            )
-            _log(
-                "Визуальная постобработка: "
-                f"красных={visual_stats['red']}, "
-                f"нулевых={visual_stats['zero']}, "
-                f"запрещённых={visual_stats['restricted']}, "
-                f"зелёных={visual_stats['green']}, "
-                f"обычных={visual_stats['normal']}",
-                logger,
-            )
             if processed_rows % 10 == 0 or processed_rows == total_rows:
                 if progress_callback:
                     progress_callback(total_rows, processed_rows)
@@ -125,33 +108,47 @@ def process_file_with_normalization(input_path, logger=None, progress_callback=N
     # а не из количества непустых строк DataFrame. Это исключает ситуацию,
     # когда строка с кодом 0 оказалась за пределами последней обработанной строки.
     last_row = ws.max_row
-
     _log("Сортировка...", logger)
     sort_by_description(ws, desc_cell_idx, last_row)
-
     _log("Выпадающие списки...", logger)
-    apply_specific_dropdowns(ws, desc_cell_idx, code_cell_idx, max_row=last_row)
-
+    apply_specific_dropdowns(
+        ws,
+        desc_cell_idx,
+        code_cell_idx,
+        max_row=last_row,
+    )
     _log("Проверка ограничений...", logger)
     apply_restrictions(
-        ws, code_cell_idx, decision_col_idx, surname_col_idx,
-        is_first_pass=True, max_row=last_row,
+        ws,
+        code_cell_idx,
+        decision_col_idx,
+        surname_col_idx,
+        is_first_pass=True,
+        max_row=last_row,
     )
-
-    apply_description_warnings(ws, desc_cell_idx, max_row=last_row)
-
+    apply_description_warnings(
+        ws,
+        desc_cell_idx,
+        max_row=last_row,
+    )
     _log("Визуальная постобработка...", logger)
     visual_stats = apply_visual_postprocessing(
         ws,
         code_col_idx=code_cell_idx,
         decision_col_idx=decision_col_idx,
-        max_row=last_row,
-        logger=logger,
+        max_row=ws.max_row,
     )
-
+    _log(
+        "Визуальная постобработка: "
+        f"красных={visual_stats['red']}, "
+        f"нулевых={visual_stats['zero']}, "
+        f"запрещённых={visual_stats['restricted']}, "
+        f"зелёных={visual_stats['green']}, "
+        f"обычных={visual_stats['normal']}",
+        logger,
+    )
     base, _ = os.path.splitext(input_path)
     output_path = f"{base}_norm_result.xlsm"
-
     _log(
         f"Визуальная проверка перед сохранением: "
         f"красных строк={visual_stats['red']}, "
@@ -231,8 +228,7 @@ def recalculate_codes(input_path, logger=None, progress_callback=None):
 
     apply_restrictions(ws, code_cell_idx, status_cell_idx, None, is_first_pass=False, max_row=last_row)
     apply_description_warnings(ws, desc_cell_idx, max_row=last_row)
-    apply_visual_postprocessing(ws, code_col_idx=code_cell_idx, decision_col_idx=status_cell_idx, max_row=last_row, logger=logger)
-
+    apply_visual_postprocessing(ws, code_col_idx=code_cell_idx, decision_col_idx=status_cell_idx, max_row=last_row)
     base, _ = os.path.splitext(input_path)
     output_path = f"{base}_recalc_result.xlsm"
     save_workbook(wb, output_path)

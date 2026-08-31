@@ -31,13 +31,15 @@ class ExcelNameBuilder:
         parts = [product]
 
         if self._need_volume(card):
+            # Духи/парфюмерия/ароматизаторы и т.п. - в названии участвует
+            # ТОЛЬКО объём (мл).
             volume = self._volume(card)
             if volume:
                 parts.append(volume)
-
-        quantity = self._quantity(card)
-        if quantity:
-            parts.append(quantity)
+        else:
+            quantity = self._quantity(card)
+            if quantity:
+                parts.append(quantity)
 
         return " ".join(parts)
 

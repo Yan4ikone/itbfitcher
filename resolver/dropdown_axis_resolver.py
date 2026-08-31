@@ -178,6 +178,143 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
             value = value / 1000.0
 
         return value
+class ScoredKeywordAxisResolver(DropdownAxisResolver):
+    """
+    Для "зонтичных" категорий словаря, где вариант - это НЕ разные
+    материалы/полы/механизмы одного и того же товара, а совершенно
+    РАЗНЫЕ предметы с разными кодами (пример: "аксессуар для рыбалки"
+    -> крючок / сетка / сачок / чехол; "аксессуар для пылесоса" ->
+    щётка / мешок / фильтр / моторчик).
+
+    В отличие от KeywordAxisResolver (первое совпадение ключевого
+    слова где угодно в тексте - выигрывает), здесь для каждого
+    варианта считается СУММА баллов за совпадения в РАЗНЫХ полях
+    карточки (характеристики - самый весомый сигнал, заголовок,
+    описание) плюс бонус за материал, и код проставляется только
+    если у победителя достаточный счёт И достаточный отрыв от
+    второго места. Иначе - как и с обычной классификацией
+    (см. AMBIGUOUS в resolver/product_resolver.py) - карточка не
+    получает случайный первый совпавший код, а уходит на ручную
+    проверку (это разрулит следующий шаг resolve_code - fallback
+    "первый вариант + review=True").
+
+    Формат варианта в словаре:
+
+        {
+            "name": "Щётка для пылесоса",
+            "code": "...",
+            "match": ["щетка", "щётка", "насадка-щетка"],
+            "materials": ["пластик"],   # необязательно - бонус к счёту,
+                                        # если result.material совпал
+        }
+
+    Используется, когда у dropdown указана ось "keyword_score"
+    (dropdown["axis"] = "keyword_score" в словаре продукта).
+    """
+
+    SPECS_WEIGHT = 200
+    TITLE_WEIGHT = 150
+    TEXT_WEIGHT = 80
+    MATERIAL_BONUS = 100
+
+    # Ниже этого счёта - сигнала недостаточно, не гадаем
+    MIN_SCORE = 150
+    # Отрыв от второго места, ниже которого решение неоднозначно
+    MIN_GAP = 80
+
+    def find(self, variants, card, result):
+
+        scored = []
+
+        for variant in variants:
+
+            keywords = [
+                str(k).strip().lower()
+                for k in variant.get("match", [])
+                if str(k).strip()
+            ]
+
+            if not keywords:
+                # У варианта без ключевых слов нет шанса набрать очки -
+                # он не участвует в автоматическом выборе этой осью.
+                continue
+
+            score = self._score_variant(variant, keywords, card, result)
+
+            if score > 0:
+                scored.append((score, variant))
+
+        if not scored:
+            return None
+
+        scored.sort(key=lambda item: item[0], reverse=True)
+
+        top_score, top_variant = scored[0]
+
+        if top_score < self.MIN_SCORE:
+            return None
+
+        if len(scored) > 1:
+
+            second_score = scored[1][0]
+
+            if top_score - second_score < self.MIN_GAP:
+                # Неоднозначно - например, в тексте упомянуты и
+                # "щётка", и "фильтр" примерно с равным весом. Лучше
+                # отдать на ручную проверку, чем гадать.
+                return None
+
+        return top_variant
+
+    def _score_variant(self, variant, keywords, card, result):
+
+        title = str(getattr(card, "title", "") or "").lower()
+        description = str(getattr(card, "description", "") or "").lower()
+        cleaned_text = str(getattr(card, "cleaned_text", "") or "").lower()
+
+        specs = getattr(card, "specs", {}) or {}
+        specs_text = " ".join(str(v) for v in specs.values()).lower()
+
+        free_text = f"{description} {cleaned_text}"
+
+        score = 0
+
+        # Каждое поле даёт очки максимум один раз за вариант -
+        # чтобы одно и то же слово, повторённое в тексте 5 раз, не
+        # перевешивало вариант, реально подтверждённый характеристикой.
+        matched_specs = False
+        matched_title = False
+        matched_text = False
+
+        for keyword in keywords:
+
+            pattern = r"(?<!\w)" + re.escape(keyword) + r"\w*"
+
+            if not matched_specs and re.search(pattern, specs_text):
+                score += self.SPECS_WEIGHT
+                matched_specs = True
+
+            if not matched_title and re.search(pattern, title):
+                score += self.TITLE_WEIGHT
+                matched_title = True
+
+            if not matched_text and re.search(pattern, free_text):
+                score += self.TEXT_WEIGHT
+                matched_text = True
+
+        materials = [
+            str(m).strip().lower()
+            for m in variant.get("materials", [])
+        ]
+
+        material = str(getattr(result, "material", "") or "").strip().lower()
+
+        if materials and material and material in materials:
+            score += self.MATERIAL_BONUS
+
+        return score
+
+
 # --------------------------------------------------------------------
 # Диспетчер: имя оси из DROPDOWN_LISTS -> резолвер
 # --------------------------------------------------------------------
@@ -187,6 +324,7 @@ AXIS_RESOLVERS = {
     "purpose": KeywordAxisResolver(),
     "mechanism": KeywordAxisResolver(),
     "material_volume": MaterialVolumeAxisResolver(),
+    "keyword_score": ScoredKeywordAxisResolver(),
 }
 
 

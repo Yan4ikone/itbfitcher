@@ -1,4 +1,8 @@
 from dictionaries.all_dictionaries import MATERIAL_ALIASES
+from utils.material_extractor import (
+    is_excluded_material_key,
+    strip_excluded_material_mentions,
+)
 
 
 class MaterialResolver:
@@ -37,18 +41,37 @@ class MaterialResolver:
             value = parsed.get(key)
 
             if value:
+                # Свободный текст (в Excel-пути характеристики и описание
+                # могут быть склеены в одну строку) - вырезаем упоминания
+                # стельки/подкладки/подошвы, чтобы их материал не подменял
+                # материал верха/основной части при определении кода.
+                parts.append(
+                    strip_excluded_material_mentions(str(value)).lower()
+                )
+
+        specs = parsed.get("specs_dict")
+
+        if isinstance(specs, dict):
+            # specs_dict сохраняет ключи характеристик - в отличие от
+            # "specs" (плоский список значений без ключей), что как раз
+            # и не давало отличить "Материал верха" от "Материал стельки".
+            for key, value in specs.items():
+                if not value:
+                    continue
+                if is_excluded_material_key(key):
+                    # Материал стельки/подкладки/подошвы и т.п. -
+                    # намеренно не участвует в поиске материала товара.
+                    continue
                 parts.append(str(value).lower())
+        else:
+            # Обратная совместимость с местами, которые всё ещё передают
+            # старый плоский список значений без ключей.
+            legacy_specs = parsed.get("specs", [])
 
-        specs = parsed.get("specs", [])
-
-        if isinstance(specs, list):
-            parts.extend(specs)
-
-        elif isinstance(specs, str):
-            parts.append(specs.lower())
-
-        elif isinstance(specs, dict):
-            parts.extend(f"{k} {v}" for k, v in specs.items())
+            if isinstance(legacy_specs, list):
+                parts.extend(legacy_specs)
+            elif isinstance(legacy_specs, str):
+                parts.append(legacy_specs.lower())
 
         return " ".join(parts)
 

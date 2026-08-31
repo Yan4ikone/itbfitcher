@@ -19,6 +19,59 @@ _MATERIAL_PATTERNS = (
 
 _COMPILED = [re.compile(p, re.IGNORECASE) for p in _MATERIAL_PATTERNS]
 
+# ------------------------------------------------------------------
+# ВЕРХ vs СТЕЛЬКА/ПОДКЛАДКА/ПОДОШВА
+#
+# У обуви, сумок и т.п. в характеристиках часто отдельно указан
+# материал ОСНОВНОЙ части (верх) и материал ВСПОМОГАТЕЛЬНОЙ части
+# (стелька, подкладка, подошва, внутренняя отделка). Для классификации
+# нас интересует только материал верха/основной части - иначе код
+# может проставиться по материалу стельки, а не самого товара.
+#
+# Используется в двух местах, поэтому вынесено сюда как единый
+# источник (resolver/material_resolver.py - для подбора кода при
+# классификации, learning/analyzer.py - для вкладки "материалы" в
+# обучении).
+# ------------------------------------------------------------------
+EXCLUDED_MATERIAL_KEY_SUBSTRINGS = (
+    "стельк",
+    "подкладк",
+    "подошв",
+    "внутренн",
+    "фурнитур",
+    "молни",
+    "шнур",
+    "утеплител",
+)
+
+# Те же самые слова, но для чистки СВОБОДНОГО текста (title/description/
+# characteristics одной строкой, как это бывает в Excel-пути) - вырезаем
+# сегмент от слова-маркера до ближайшего разделителя (запятая/точка/
+# точка с запятой/конец строки), чтобы материал стельки не просочился
+# в поиск через общий текст.
+_EXCLUDED_SEGMENT_PATTERN = re.compile(
+    r"(?:" + "|".join(EXCLUDED_MATERIAL_KEY_SUBSTRINGS) + r")[^,;.\n]*",
+    re.IGNORECASE,
+)
+
+
+def is_excluded_material_key(key: str) -> bool:
+    """True, если ключ характеристики относится к вспомогательной части
+    товара (стелька/подкладка/подошва и т.п.), а не к основному материалу."""
+
+    key_l = str(key or "").lower()
+    return any(bad in key_l for bad in EXCLUDED_MATERIAL_KEY_SUBSTRINGS)
+
+
+def strip_excluded_material_mentions(text: str) -> str:
+    """Вырезает из свободного текста упоминания материала стельки/
+    подкладки/подошвы, чтобы они не попадали в общий поиск материала."""
+
+    if not text:
+        return text
+
+    return _EXCLUDED_SEGMENT_PATTERN.sub(" ", text)
+
 
 def extract_material(text: str) -> str:
     """
@@ -32,7 +85,7 @@ def extract_material(text: str) -> str:
     if not text:
         return ""
 
-    text = str(text)
+    text = strip_excluded_material_mentions(str(text))
 
     for pattern in _COMPILED:
 
