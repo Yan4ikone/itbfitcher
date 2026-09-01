@@ -43,11 +43,9 @@ class LearningWindow(Toplevel):
         self._fill_dropdown_match_words()
         self._fill_dropdown_candidates()
         self._fill_patterns()
-
     # ======================================================
     # UI
     # ======================================================
-
     def _build_ui(self):
 
         self.columnconfigure(0, weight=1)
@@ -60,7 +58,6 @@ class LearningWindow(Toplevel):
             padx=10,
             pady=10
         )
-
         self.products_frame = ttk.Frame(self.notebook)
         self.aliases_frame = ttk.Frame(self.notebook)
         self.materials_frame = ttk.Frame(self.notebook)
@@ -68,66 +65,52 @@ class LearningWindow(Toplevel):
         self.dropdown_match_words_frame = ttk.Frame(self.notebook)
         self.dropdown_candidates_frame = ttk.Frame(self.notebook)
         self.patterns_frame = ttk.Frame(self.notebook)
-
         self.notebook.add(
             self.products_frame,
             text=f"Новые товары ({len(self.report.new_products)})"
         )
-
         self.notebook.add(
             self.aliases_frame,
             text=f"Алиасы ({len(self.report.new_aliases)})"
         )
-
         self.notebook.add(
             self.materials_frame,
             text=f"Материалы ({len(self.report.new_material_codes)})"
         )
-
         self.notebook.add(
             self.dropdowns_frame,
-            text=f"Dropdown ({len(self.report.new_dropdown_variants)})"
+            text=f"Выпадающие списки ({len(self.report.new_dropdown_variants)})"
         )
-
         self.notebook.add(
             self.dropdown_match_words_frame,
-            text=f"Расширить dropdown ({len(self.report.new_dropdown_match_words)})"
+            text=f"Расширить списки ({len(self.report.new_dropdown_match_words)})"
         )
-
         self.notebook.add(
             self.dropdown_candidates_frame,
-            text=f"Нужен dropdown? ({len(self.report.new_dropdown_candidates)})"
+            text=f"Нужен ли список? ({len(self.report.new_dropdown_candidates)})"
         )
-
         self.notebook.add(
             self.patterns_frame,
-            text=f"Patterns ({len(self.report.new_patterns)})"
+            text=f"Паттерны ({len(self.report.new_patterns)})"
         )
-
         self.products_tree = self._create_products_tree(
             self.products_frame
         )
-
         self.alias_tree = self._create_alias_tree(
             self.aliases_frame
         )
-
         self.material_tree = self._create_material_tree(
             self.materials_frame
         )
-
         self.dropdown_tree = self._create_dropdown_tree(
             self.dropdowns_frame
         )
-
         self.dropdown_match_words_tree = self._create_dropdown_match_words_tree(
             self.dropdown_match_words_frame
         )
-
         self.dropdown_candidate_tree = self._create_dropdown_candidate_tree(
             self.dropdown_candidates_frame
         )
-
         self.pattern_tree = self._create_pattern_tree(
             self.patterns_frame
         )
@@ -180,9 +163,7 @@ class LearningWindow(Toplevel):
     # ======================================================
     # TREE BUILDERS
     # ======================================================
-
     def _create_tree(self, parent, columns):
-
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(0, weight=1)
 
@@ -190,7 +171,7 @@ class LearningWindow(Toplevel):
             parent,
             columns=columns,
             show="headings",
-            selectmode="extended"
+            selectmode="browse"
         )
 
         vsb = ttk.Scrollbar(
@@ -228,17 +209,29 @@ class LearningWindow(Toplevel):
             sticky="ew"
         )
 
+        # ------------------------------------------------------
+        # ОДИН КЛИК = ВЫБОР / СНЯТИЕ ВЫБОРА
+        # ------------------------------------------------------
         tree.bind(
-            "<Double-1>",
+            "<ButtonRelease-1>",
             self._toggle_current
         )
-
+        # ------------------------------------------------------
+        # ДВОЙНОЙ КЛИК БОЛЬШЕ НЕ ИСПОЛЬЗУЕМ
+        # ------------------------------------------------------
+        tree.bind(
+            "<Double-1>",
+            lambda event: "break"
+        )
+        # ------------------------------------------------------
+        # SPACE = ВЫБОР / СНЯТИЕ ВЫБОРА
+        # ------------------------------------------------------
         tree.bind(
             "<space>",
             self._toggle_current
         )
-
         return tree
+
 
     def _create_pattern_tree(self, parent):
 
@@ -250,38 +243,31 @@ class LearningWindow(Toplevel):
                 "pattern"
             )
         )
-
         tree.heading(
             "selected",
             text="✓"
         )
-
         tree.heading(
             "product",
             text="Товар"
         )
-
         tree.heading(
             "pattern",
             text="Pattern"
         )
-
         tree.column(
             "selected",
             width=45,
             anchor="center"
         )
-
         tree.column(
             "product",
             width=300
         )
-
         tree.column(
             "pattern",
             width=800
         )
-
         return tree
 
     def _create_products_tree(self, parent):
@@ -297,7 +283,6 @@ class LearningWindow(Toplevel):
                 "url"
             )
         )
-
         tree.heading("selected", text="✓")
         tree.heading("description", text="Описание")
         tree.heading("code", text="Код")
@@ -764,79 +749,173 @@ class LearningWindow(Toplevel):
             values=values
         )
 
+
     def select_all(self):
 
-        for iid in self.product_rows:
+        current_tab = self.notebook.index(
+            self.notebook.select()
+        )
 
-            if self.product_rows[iid] not in self.selected_products:
-                self._toggle_product(iid)
+        # ------------------------------------------------------
+        # 0. НОВЫЕ ТОВАРЫ
+        # ------------------------------------------------------
 
-        for iid in self.alias_rows:
+        if current_tab == 0:
 
-            if self.alias_rows[iid] not in self.selected_aliases:
-                self._toggle_alias(iid)
+            for iid in self.product_rows:
 
-        for iid in self.material_rows:
+                if self.product_rows[iid] not in self.selected_products:
+                    self._toggle_product(iid)
 
-            if self.material_rows[iid] not in self.selected_materials:
-                self._toggle_material(iid)
+        # ------------------------------------------------------
+        # 1. АЛИАСЫ
+        # ------------------------------------------------------
+        elif current_tab == 1:
+            for iid in self.alias_rows:
+                if self.alias_rows[iid] not in self.selected_aliases:
+                    self._toggle_alias(iid)
+        # ------------------------------------------------------
+        # 2. МАТЕРИАЛЫ
+        # ------------------------------------------------------
+        elif current_tab == 2:
+            for iid in self.material_rows:
+                if self.material_rows[iid] not in self.selected_materials:
+                    self._toggle_material(iid)
+        # ------------------------------------------------------
+        # 3. DROPDOWN
+        # ------------------------------------------------------
 
-        for iid in self.dropdown_rows:
+        elif current_tab == 3:
 
-            if self.dropdown_rows[iid] not in self.selected_dropdowns:
-                self._toggle_dropdown(iid)
+            for iid in self.dropdown_rows:
 
-        for iid in self.dropdown_match_words_rows:
+                if self.dropdown_rows[iid] not in self.selected_dropdowns:
+                    self._toggle_dropdown(iid)
 
-            if self.dropdown_match_words_rows[iid] not in self.selected_dropdown_match_words:
-                self._toggle_dropdown_match_words(iid)
+        # ------------------------------------------------------
+        # 4. РАСШИРИТЬ DROPDOWN
+        # ------------------------------------------------------
 
-        for iid in self.dropdown_candidate_rows:
+        elif current_tab == 4:
 
-            if self.dropdown_candidate_rows[iid] not in self.selected_dropdown_candidates:
-                self._toggle_dropdown_candidate(iid)
+            for iid in self.dropdown_match_words_rows:
 
-        for iid in self.pattern_rows:
+                if (
+                        self.dropdown_match_words_rows[iid]
+                        not in self.selected_dropdown_match_words
+                ):
+                    self._toggle_dropdown_match_words(iid)
 
-            if self.pattern_rows[iid] not in self.selected_patterns:
-                self._toggle_pattern(iid)
+        # ------------------------------------------------------
+        # 5. НУЖЕН DROPDOWN?
+        # ------------------------------------------------------
+
+        elif current_tab == 5:
+            for iid in self.dropdown_candidate_rows:
+                if (
+                        self.dropdown_candidate_rows[iid]
+                        not in self.selected_dropdown_candidates
+                ):
+                    self._toggle_dropdown_candidate(iid)
+        # ------------------------------------------------------
+        # 6. PATTERNS
+        # ------------------------------------------------------
+        elif current_tab == 6:
+            for iid in self.pattern_rows:
+                if self.pattern_rows[iid] not in self.selected_patterns:
+                    self._toggle_pattern(iid)
+
 
     def clear_all(self):
 
-        for iid in list(self.product_rows):
+        current_tab = self.notebook.index(
+            self.notebook.select()
+        )
 
-            if self.product_rows[iid] in self.selected_products:
-                self._toggle_product(iid)
+        # ------------------------------------------------------
+        # 0. НОВЫЕ ТОВАРЫ
+        # ------------------------------------------------------
 
-        for iid in list(self.alias_rows):
+        if current_tab == 0:
 
-            if self.alias_rows[iid] in self.selected_aliases:
-                self._toggle_alias(iid)
+            for iid in list(self.product_rows):
 
-        for iid in list(self.material_rows):
+                if self.product_rows[iid] in self.selected_products:
+                    self._toggle_product(iid)
 
-            if self.material_rows[iid] in self.selected_materials:
-                self._toggle_material(iid)
+        # ------------------------------------------------------
+        # 1. АЛИАСЫ
+        # ------------------------------------------------------
 
-        for iid in list(self.dropdown_rows):
+        elif current_tab == 1:
 
-            if self.dropdown_rows[iid] in self.selected_dropdowns:
-                self._toggle_dropdown(iid)
+            for iid in list(self.alias_rows):
 
-        for iid in list(self.dropdown_match_words_rows):
+                if self.alias_rows[iid] in self.selected_aliases:
+                    self._toggle_alias(iid)
 
-            if self.dropdown_match_words_rows[iid] in self.selected_dropdown_match_words:
-                self._toggle_dropdown_match_words(iid)
+        # ------------------------------------------------------
+        # 2. МАТЕРИАЛЫ
+        # ------------------------------------------------------
 
-        for iid in list(self.dropdown_candidate_rows):
+        elif current_tab == 2:
 
-            if self.dropdown_candidate_rows[iid] in self.selected_dropdown_candidates:
-                self._toggle_dropdown_candidate(iid)
+            for iid in list(self.material_rows):
 
-        for iid in list(self.pattern_rows):
+                if self.material_rows[iid] in self.selected_materials:
+                    self._toggle_material(iid)
 
-            if self.pattern_rows[iid] in self.selected_patterns:
-                self._toggle_pattern(iid)
+        # ------------------------------------------------------
+        # 3. DROPDOWN
+        # ------------------------------------------------------
+
+        elif current_tab == 3:
+
+            for iid in list(self.dropdown_rows):
+
+                if self.dropdown_rows[iid] in self.selected_dropdowns:
+                    self._toggle_dropdown(iid)
+
+        # ------------------------------------------------------
+        # 4. РАСШИРИТЬ DROPDOWN
+        # ------------------------------------------------------
+
+        elif current_tab == 4:
+
+            for iid in list(self.dropdown_match_words_rows):
+
+                if (
+                        self.dropdown_match_words_rows[iid]
+                        in self.selected_dropdown_match_words
+                ):
+                    self._toggle_dropdown_match_words(iid)
+
+        # ------------------------------------------------------
+        # 5. НУЖЕН DROPDOWN?
+        # ------------------------------------------------------
+
+        elif current_tab == 5:
+
+            for iid in list(self.dropdown_candidate_rows):
+
+                if (
+                        self.dropdown_candidate_rows[iid]
+                        in self.selected_dropdown_candidates
+                ):
+                    self._toggle_dropdown_candidate(iid)
+
+        # ------------------------------------------------------
+        # 6. PATTERNS
+        # ------------------------------------------------------
+
+        elif current_tab == 6:
+            for iid in list(self.pattern_rows):
+                if self.pattern_rows[iid] in self.selected_patterns:
+                    self._toggle_pattern(iid)
+
+
+
+
 
     # ======================================================
     # APPLY
