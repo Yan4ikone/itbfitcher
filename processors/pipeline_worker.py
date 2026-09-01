@@ -30,6 +30,16 @@ def process_classifier_task(item, decision_engine, card_builder):
                 ""
             ),
         )
+
+        # Исходное наименование товара из Excel
+        # последний шанс определить код, если по богатому заголовку с
+        # маркетплейса ни один товар не подошёл (см.
+        # resolver/product_resolver.py::_resolve_with_excel_title).
+        excel_title = str(item.get("excel_title", "") or "").strip()
+
+        if excel_title:
+            card.excel_title = excel_title
+
         result = decision_engine.decide(card, remember=False)
         result_data["success"] = True
         result_data["product"] = (

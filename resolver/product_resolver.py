@@ -1,5 +1,7 @@
 import time
 
+from copy import copy
+
 from resolver.candidate import Candidate
 from parser.product_parser import ProductParser
 from resolver.candidate_finder import CandidateFinder
@@ -55,17 +57,58 @@ class ProductResolver:
         t_after_candidates = time.perf_counter()
 
         if not candidates:
-            winner = Candidate(product="")
-            winner.review = True
-            winner.reason = "NO_CANDIDATES"
 
-            self._record_timing(
-                t_start, t_parse, t_after_candidates, 0,
-            )
+            # ПОСЛЕДНИЙ ШАНС: по богатому (но иногда слишком
+            # маркетинговому/длинному) заголовку с маркетплейса не
+            # нашлось НИ ОДНОГО кандидата. specs/description от маркетплейса не
+            # трогаем - они всё ещё могут подтвердить материал/кол-во.
+            excel_title = str(getattr(card, "excel_title", "") or "").strip()
 
-            return winner, []
+            if excel_title and excel_title.lower() != str(card.title or "").lower():
+
+                fallback_candidates, fallback_parsed = (
+                    self._resolve_with_excel_title(card, excel_title)
+                )
+
+                if fallback_candidates:
+
+                    debug_print(
+                        "[EXCEL TITLE FALLBACK] Найдено по исходному "
+                        "наименованию:", excel_title,
+                    )
+
+                    candidates = fallback_candidates
+                    parsed = fallback_parsed
+                    used_excel_title_fallback = True
+                else:
+                    used_excel_title_fallback = False
+            else:
+                used_excel_title_fallback = False
+
+            if not candidates:
+
+                winner = Candidate(product="")
+                winner.review = True
+                winner.reason = "NO_CANDIDATES"
+
+                self._record_timing(
+                    t_start, t_parse, t_after_candidates, 0,
+                )
+
+                return winner, []
+        else:
+            used_excel_title_fallback = False
 
         winner = candidates[0]
+
+        if used_excel_title_fallback:
+            # Сигнал слабее обычного (совпадение по короткому исходному
+            # названию, а не по полному описанию товара) - всегда
+            # уходит на ручную проверку, даже если счёт формально
+            # уверенный. Код при этом всё равно проставляется - это и
+            # есть цель фолбэка: не оставлять поле пустым.
+            winner.review = True
+            winner.reason = "RESOLVED_VIA_EXCEL_TITLE_FALLBACK"
 
         # 1. Проверяем уверенность
         low_confidence = winner.score < LOW_CONFIDENCE_THRESHOLD
@@ -173,6 +216,29 @@ class ProductResolver:
         )
 
         return winner, boosted
+
+    # ==========================================================
+    # EXCEL TITLE FALLBACK
+    #
+    # Пробует найти кандидатов по исходному простому наименованию
+    # товара из Excel (card.excel_title), не трогая остальные поля
+    # карточки (specs/description/material/quantity остаются от
+    # маркетплейса - они по-прежнему полезны для материала/кол-ва
+    # и уточнения кода дальше по пайплайну).
+    # ==========================================================
+    def _resolve_with_excel_title(self, card, excel_title):
+
+        fallback_card = copy(card)
+        fallback_card.title = excel_title
+        # slug обычно транслитерация исходного заголовка - если
+        # оставить старый (от сложного маркетингового title), он
+        # может тянуть в скоринг нерелевантные слова. Убираем.
+        fallback_card.slug = ""
+
+        parsed = self.parser.parse(fallback_card)
+        candidates = self.find_candidates(parsed)
+
+        return candidates, parsed
 
     def _record_timing(
         self,

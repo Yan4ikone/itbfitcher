@@ -944,6 +944,77 @@ class OzonParser:
     # MAIN PARSER
     # ==========================================================
 
+    def _fetch_features_page_specs(self, page, parser_log):
+        """
+        Основная страница товара Ozon показывает только часть
+        характеристик - полная таблица лежит на отдельной странице
+        .../features/. Заходим туда ДОПОЛНИТЕЛЬНО, после того как
+        title/description/specs с основной страницы уже собраны,
+        и возвращаемся обратно - чтобы последующий код (например,
+        извлечение изображений) продолжал работать с исходной
+        страницей товара.
+        Намеренно не бросает исключения наружу - это дополнительный,
+        не обязательный источник: если переход не удался (таймаут,
+        антибот-блокировка, изменившаяся структура сайта), парсинг
+        должен продолжиться с тем, что уже есть с основной страницы,
+        а не падать целиком.
+        """
+
+        specs = {}
+
+        try:
+
+            current_url = page.url
+
+            if not current_url or "/features" in current_url:
+                return specs
+
+            features_url = current_url.rstrip("/") + "/features/"
+
+            parser_log.append(
+                f"FEATURES PAGE: {features_url}"
+            )
+
+            print(
+                f"[OZON FEATURES PAGE] Переход: {features_url}"
+            )
+
+            page.goto(
+                features_url,
+                timeout=15000,
+                wait_until="domcontentloaded",
+            )
+
+            page.wait_for_timeout(1000)
+
+            specs = self.extract_specs_dl(
+                page,
+                parser_log,
+            )
+
+            print(
+                f"[OZON FEATURES PAGE] "
+                f"Извлечено характеристик: {len(specs)}"
+            )
+
+            page.goto(
+                current_url,
+                timeout=15000,
+                wait_until="domcontentloaded",
+            )
+
+        except Exception as e:
+
+            print(
+                f"[OZON FEATURES PAGE ERROR] {e}"
+            )
+
+            parser_log.append(
+                f"FEATURES PAGE ERROR: {e}"
+            )
+
+        return specs
+
     def parse_page(self, page):
 
         parser_log = []
@@ -1087,6 +1158,27 @@ class OzonParser:
 
         # DOM wins if the same field exists.
         for key, value in text_specs.items():
+
+            if key not in specs:
+                specs[key] = value
+
+        # ======================================================
+        # ПОЛНАЯ СТРАНИЦА ХАРАКТЕРИСТИК (.../features/)
+        #
+        # Основная страница товара показывает только ЧАСТЬ
+        # характеристик - полная таблица лежит на отдельной
+        # странице .../features/
+        # Дополнительный источник: если поле уже есть с основной
+        # страницы - не перезаписываем (DOM основной страницы
+        # приоритетнее, features - это добор недостающего).
+        # ======================================================
+
+        features_specs = self._fetch_features_page_specs(
+            page,
+            parser_log,
+        )
+
+        for key, value in features_specs.items():
 
             if key not in specs:
                 specs[key] = value

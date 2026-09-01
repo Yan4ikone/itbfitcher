@@ -2,12 +2,13 @@ import re
 
 from dictionaries.all_dictionaries import (
     IGNORED_ALIAS_WORDS,
-    MATERIAL_ALIASES,
     TRASH_MARKETING,
     TRASH_MARKETPLACE,
     TRASH_PACKAGE,
 )
 from learning.name_normalizer import normalize_dictionary_name
+from utils import material_extractor as _material_extractor
+
 
 # ==================================================================
 # ИЗВЛЕЧЕНИЕ ИСПРАВЛЕННЫХ КУРАТОРОМ ЗНАЧЕНИЙ
@@ -169,19 +170,8 @@ _MATERIAL_JUNK_WORDS = {
     "прочего", "прочие", "др", "другое",
 }
 
-# Плоский список известных названий материалов (алиасы из
-# MATERIAL_ALIASES, а не канонические группы) - используется, чтобы
-# при наличии нескольких слов в фразе выбрать именно материал, а не
-# случайно оставшееся прилагательное.
-_KNOWN_MATERIAL_WORDS = sorted(
-    {
-        alias.lower()
-        for aliases in MATERIAL_ALIASES.values()
-        for alias in aliases
-    },
-    key=len,
-    reverse=True,
-)
+# Плоский список известных названий материалов - единый источник
+_KNOWN_MATERIAL_WORDS = _material_extractor._KNOWN_MATERIAL_WORDS
 
 
 def _clean_material_phrase(phrase: str) -> str:
@@ -199,27 +189,15 @@ def _clean_material_phrase(phrase: str) -> str:
 
 def _pick_known_material(phrase: str) -> str:
     """Если во фразе есть слово/словосочетание из справочника известных
-    материалов - возвращает то, что встречается РАНЬШЕ ВСЕХ по тексту
-    (при нескольких материалах без % берём первый упомянутый - как и
-    просили). При совпадении на одной и той же позиции выбираем более
-    длинное/специфичное совпадение ('искусственная кожа' вместо
-    'кожа')."""
+    материалов - возвращает то, что встречается раньше всех по тексту.
+    Делегирует в utils.material_extractor.find_known_material (единый
+    источник)."""
 
-    best = None  # (start_pos, -length, word)
-
-    for known in _KNOWN_MATERIAL_WORDS:
-        match = re.search(rf"(?<!\w){re.escape(known)}(?!\w)", phrase)
-        if match:
-            candidate = (match.start(), -len(known), known)
-            if best is None or candidate < best:
-                best = candidate
-
-    return best[2] if best else ""
+    return _material_extractor.find_known_material(phrase)
 
 
 # ==================================================================
 # КЛЮЧЕВЫЕ СЛОВА ДЛЯ DROPDOWN-ВАРИАНТОВ ("ЗОНТИЧНЫЕ" КАТЕГОРИИ)
-#
 # Для товаров вроде "аксессуар для пылесоса"/"аксессуар для рыбалки" -
 # у которых внутри одного словарного описания несколько РАЗНЫХ по
 # сути предметов (см. resolver/dropdown_axis_resolver.py::

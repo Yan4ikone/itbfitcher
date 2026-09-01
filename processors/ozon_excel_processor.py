@@ -73,6 +73,7 @@ RESULT_COLUMNS = [
     "Blocked Requests",
     "Allowed Requests",
     "Error",
+    "Excel Title",
 ]
 # =============================================================================
 # LOGGER
@@ -112,11 +113,13 @@ class WorkItem:
         row_number: int,
         url: str,
         attempt: int = 1,
+        excel_title: str = "",
     ):
 
         self.row_number = row_number
         self.url = url
         self.attempt = attempt
+        self.excel_title = excel_title
 
 
 # =============================================================================
@@ -183,6 +186,7 @@ class OzonExcelProcessor:
         self.captcha_count = 0
         self.start_time = None
         self.url_column = None
+        self.title_column = None
         self.headers = {}
         self.wb = None
         self.ws = None
@@ -270,6 +274,47 @@ class OzonExcelProcessor:
         )
 
     # =========================================================================
+    # FIND TITLE COLUMN (исходное наименование товара, например "Пенал")
+    #
+    # Необязательная колонка - если не нашлась, self.title_column
+    # остаётся None и card.excel_title просто не заполняется (как и
+    # раньше). Используется как последний шанс определить код, если
+    # по богатому заголовку с маркетплейса ни один товар не подошёл
+    # (см. resolver/product_resolver.py::_resolve_with_excel_title).
+    # =========================================================================
+
+    def find_title_column(self):
+
+        possible_names = {
+            "наименование",
+            "Наименование",
+            "название",
+            "Название",
+            "название товара",
+            "Название товара",
+            "наименование товара",
+            "Наименование товара",
+            "исходное наименование",
+            "Исходное наименование",
+            "title",
+            "Title",
+            "Excel Title",
+        }
+
+        for cell in self.ws[1]:
+
+            if cell.value is None:
+                continue
+
+            value = str(cell.value).strip()
+
+            if value in possible_names:
+                self.title_column = cell.column
+                return
+
+        self.title_column = None
+
+    # =========================================================================
     # OPEN EXCEL
     # =========================================================================
 
@@ -335,6 +380,7 @@ class OzonExcelProcessor:
         self.ws = self.wb.active
 
         self.find_url_column()
+        self.find_title_column()
 
         self.logger.log(
             f"[EXCEL] URL column: "
@@ -489,12 +535,25 @@ class OzonExcelProcessor:
 
             lower_url = url.lower()
 
+            excel_title = ""
+
+            if self.title_column:
+
+                title_value = self.ws.cell(
+                    row=row_number,
+                    column=self.title_column,
+                ).value
+
+                if title_value is not None:
+                    excel_title = str(title_value).strip()
+
             if "ozon.ru" in lower_url:
 
                 self.work_queue.put(
                     WorkItem(
                         row_number=row_number,
                         url=url,
+                        excel_title=excel_title,
                     )
                 )
 
@@ -814,6 +873,8 @@ class OzonExcelProcessor:
 
         attempt = item.attempt
 
+        excel_title = getattr(item, "excel_title", "")
+
         started = time.perf_counter()
 
         self.logger.log(
@@ -889,6 +950,7 @@ class OzonExcelProcessor:
                         row_number=row_number,
                         url=url,
                         attempt=attempt + 1,
+                    excel_title=excel_title,
                     )
                 )
 
@@ -991,6 +1053,7 @@ class OzonExcelProcessor:
                         row_number=row_number,
                         url=url,
                         attempt=attempt + 1,
+                    excel_title=excel_title,
                     )
                 )
 
@@ -1037,6 +1100,7 @@ class OzonExcelProcessor:
                         row_number=row_number,
                         url=url,
                         attempt=attempt + 1,
+                    excel_title=excel_title,
                     )
                 )
 
@@ -1335,6 +1399,7 @@ class OzonExcelProcessor:
             "HTML Size": html_size,
             "Error":
                 parser_error or "",
+            "Excel Title": excel_title,
             # Служебные поля для PHASE 2 (classify_all) - не колонки
             # Excel, отфильтровываются автоматически в write_result(),
             # т.к. их нет в RESULT_COLUMNS.
@@ -1411,6 +1476,7 @@ class OzonExcelProcessor:
                                     or result.get("url")
                                 ),
                                 "parsed": result["_parsed_raw"],
+                                "excel_title": result.get("Excel Title", ""),
                             })
 
                     with self.results_lock:

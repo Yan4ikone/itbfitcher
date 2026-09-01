@@ -1,14 +1,10 @@
 import re
 
+from dictionaries.all_dictionaries import MATERIAL_ALIASES
+
 # ==================================================================
 # Единый источник извлечения "материала" из произвольного текста.
-# Раньше похожая regex-логика была только в
-# parser/ozon_parser.py::OzonParser._extract_material() и работала
-# ТОЛЬКО для карточек, пришедших через живой скрапинг Ozon.
 # Карточки, построенные через models/card_builder.py::build_from_excel()
-# (основной пакетный Excel-путь) материал вообще не извлекали -
-# card.material оставался пустым, из-за чего LearningAnalyzer никогда
-# не видел материал у таких товаров и new_material_codes был всегда 0.
 # ==================================================================
 
 _MATERIAL_PATTERNS = (
@@ -27,7 +23,6 @@ _COMPILED = [re.compile(p, re.IGNORECASE) for p in _MATERIAL_PATTERNS]
 # (стелька, подкладка, подошва, внутренняя отделка). Для классификации
 # нас интересует только материал верха/основной части - иначе код
 # может проставиться по материалу стельки, а не самого товара.
-#
 # Используется в двух местах, поэтому вынесено сюда как единый
 # источник (resolver/material_resolver.py - для подбора кода при
 # классификации, learning/analyzer.py - для вкладки "материалы" в
@@ -73,6 +68,46 @@ def strip_excluded_material_mentions(text: str) -> str:
     return _EXCLUDED_SEGMENT_PATTERN.sub(" ", text)
 
 
+# ------------------------------------------------------------------
+# ИЗВЕСТНЫЕ МАТЕРИАЛЫ (единый источник для extract_material() ниже и
+# learning.learning_filters.normalize_material - раньше этот список
+# дублировался в обоих местах и грозил разъехаться).
+# ------------------------------------------------------------------
+_KNOWN_MATERIAL_WORDS = sorted(
+    {
+        alias.lower()
+        for aliases in MATERIAL_ALIASES.values()
+        for alias in aliases
+    },
+    key=len,
+    reverse=True,
+)
+
+
+def find_known_material(text: str) -> str:
+    """Ищет в СВОБОДНОМ тексте (без метки "материал:") любое известное
+    слово-материал из справочника MATERIAL_ALIASES. Возвращает то, что
+    встречается РАНЬШЕ ВСЕХ по тексту; при совпадении на одной позиции
+    выбирает более длинное/специфичное ('искусственная кожа' вместо
+    'кожа')."""
+
+    if not text:
+        return ""
+
+    text = str(text).lower()
+
+    best = None  # (start_pos, -length, word)
+
+    for known in _KNOWN_MATERIAL_WORDS:
+        match = re.search(rf"(?<!\w){re.escape(known)}(?!\w)", text)
+        if match:
+            candidate = (match.start(), -len(known), known)
+            if best is None or candidate < best:
+                best = candidate
+
+    return best[2] if best else ""
+
+
 def extract_material(text: str) -> str:
     """
     Ищет явное упоминание материала в свободном тексте
@@ -98,4 +133,7 @@ def extract_material(text: str) -> str:
             if value:
                 return value
 
-    return ""
+    # ФОЛБЭК: явной метки "материал:"/"состав:" нет, но материал может
+    # быть просто упомянут в тексте без метки - как часто бывает в
+    # заголовках товаров
+    return find_known_material(text)

@@ -175,34 +175,36 @@ def build_product_card(url, parsed, raw_text):
         if "бренд" in key_l:
             if not card.brand:
                 card.brand = value_str
-        # ------------------------------------------------------------
-        # FALLBACK: если ни один спек не дал количество (его вообще
-        # нет как отдельного поля, оно только в заголовке - как
-        # "Носки для девочек, 5 пар") - пробуем достать из текста.
-        # ------------------------------------------------------------
-        if not card.quantity:
 
-            fallback_text = strip_heterogeneous_kit_segments(
-                " ".join(filter(None, [card.title, card.description]))
-            )
-            quantity = extract_quantity(fallback_text)
+    # ------------------------------------------------------------
+    # FALLBACK: если ни один спек не дал количество (его вообще нет
+    # как отдельного поля, оно только в заголовке - как "Носки для
+    # девочек, 5 пар", или его нет вообще, потому что characteristics
+    # у товара пустые).
+    # ------------------------------------------------------------
+    if not card.quantity:
 
-            if quantity:
-                card.quantity = quantity
+        fallback_text = strip_heterogeneous_kit_segments(
+            " ".join(filter(None, [card.title, card.description]))
+        )
+        quantity = extract_quantity(fallback_text)
+
+        if quantity:
+            card.quantity = quantity
 
     # ------------------------------------------------------------
     # МАТЕРИАЛ FALLBACK
     #
     # Если ни один spec-ключ не содержал "материал"/"состав" (Ozon
-    # иногда отдаёт материал только текстом внутри описания, а не
-    # отдельным полем характеристик), пробуем вытащить его оттуда же,
-    # где это уже делает parser/ozon_parser.py - тем же общим
-    # extract_material(), чтобы не поддерживать вторую копию regex.
+    # иногда отдаёт материал только текстом внутри описания или ДАЖЕ
+    # ТОЛЬКО в заголовке, пробуем вытащить его оттуда же, где это уже
+    # делает parser/ozon_parser.py - тем же общим extract_material(),
+    # чтобы не поддерживать вторую копию regex.
     # ------------------------------------------------------------
     if not card.material:
 
         material = extract_material(
-            " ".join(filter(None, [card.description, card.raw_text]))
+            " ".join(filter(None, [card.title, card.description, card.raw_text]))
         )
 
         if material:

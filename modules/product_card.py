@@ -32,3 +32,4 @@ class ProductCard:
     sections: dict = field(default_factory=dict)
     url_product_name: str = ""
     url_product_id: str = ""
+    excel_title: str = ""
