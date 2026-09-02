@@ -1,6 +1,8 @@
 import re
 from urllib.parse import urlparse, unquote
 
+from utils.material_extractor import extract_material as _shared_extract_material
+
 IMPORTANT_FIELDS = [
     "Тип",
     "Тип товара",
@@ -646,34 +648,13 @@ class OzonParser:
     # ==========================================================
 
     def _extract_material(self, text):
-
-        if not text:
-            return ""
-
-        patterns = [
-
-            r"материал\s*[:\-]\s*([^\n\r\.]+)",
-
-            r"изготовлен[ао]?\s+из\s+([^\n\r\.]+)",
-
-        ]
-
-        for pattern in patterns:
-
-            match = re.search(
-                pattern,
-                text,
-                re.I,
-            )
-
-            if match:
-
-                return (
-                    match.group(1)
-                    .strip()
-                )
-
-        return ""
+        # Делегирует в единый источник (utils/material_extractor.py),
+        # который проверяет найденное по метке значение против словаря
+        # известных материалов (MATERIAL_ALIASES) и не возвращает
+        # неподтверждённую сырую строку вроде "сплав цанги"/"мягкого".
+        # Раньше здесь был независимый дубль тех же паттернов без
+        # какой-либо проверки - это и было источником мусорных значений.
+        return _shared_extract_material(text)
 
     # ==========================================================
     # QUANTITY

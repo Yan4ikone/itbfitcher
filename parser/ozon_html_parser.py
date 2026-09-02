@@ -18,6 +18,8 @@ Ozon не может менять без поломки собственной S
 
 import json
 import asyncio
+
+from utils.material_extractor import find_known_material
 import re
 import logging
 from bs4 import BeautifulSoup
@@ -133,19 +135,32 @@ def _extract_material(result: dict) -> None:
     if not specs:
         return
 
+    # Значение под ключом "материал"/"состав" может быть составной
+    # строкой вроде "сплав цанги" или "мягкого" - это не название
+    # материала. Подтверждаем совпадением со словарём известных
+    # материалов (тот же справочник, что используют
+    # utils.material_extractor.extract_material и
+    # learning_filters.normalize_material) и не принимаем сырое
+    # значение, если известного материала внутри него нет.
+
     # 1. Точное совпадение по приоритету
     lowered = {k.lower().strip(): v for k, v in specs.items()}
     for candidate in _MATERIAL_KEY_PRIORITY:
         if candidate in lowered and lowered[candidate]:
-            result["material"] = lowered[candidate]
-            return
+            known = find_known_material(str(lowered[candidate]))
+            if known:
+                result["material"] = known
+                return
 
     # 2. Fallback: любой ключ, содержащий "матери" (материал, материалы,
-    # материал верха и т.п.) - берём первый непустой.
+    # материал верха и т.п.) - берём первый непустой ПОДТВЕРЖДЁННЫЙ
+    # словарём.
     for key, value in specs.items():
         if "матери" in key.lower() and value:
-            result["material"] = value
-            return
+            known = find_known_material(str(value))
+            if known:
+                result["material"] = known
+                return
 
 
 def _parse_ld_json(soup: BeautifulSoup, result: dict) -> None:
