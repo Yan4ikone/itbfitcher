@@ -1,5 +1,7 @@
 import re
 
+from utils.gender_extractor import find_known_gender
+
 
 class DropdownAxisResolver:
     """
@@ -36,12 +38,74 @@ class MaterialAxisResolver(DropdownAxisResolver):
         return None
 
 
+class GenderAxisResolver(DropdownAxisResolver):
+    """
+    Ось "пол/возрастная группа" (муж/жен/дет).
+
+    В отличие от материала, здесь не нужен product-специфичный словарь
+    кодов вида material_codes: код уже прописан прямо в варианте
+    dropdown'а (products.py), нужно только определить САМ ФАКТ пола -
+    и для этого используется общий словарь GENDER_ALIASES
+    (dictionaries/all_dictionaries.py), а не match-список внутри
+    конкретного варианта (который почти всегда пуст и не покрывает
+    реальные формулировки в карточках).
+
+    Канонический факт ("male"/"female"/"child") сравнивается с полем
+    "group" варианта - в products.py эти значения уже используются
+    именно в таком виде.
+    """
+
+    def find(self, variants, card, result):
+
+        text = self._text(card)
+
+        if not text:
+            return None
+
+        gender = find_known_gender(text)
+
+        if not gender:
+            return None
+
+        for variant in variants:
+
+            group = str(variant.get("group", "")).strip().lower()
+            explicit = str(variant.get("gender", "")).strip().lower()
+
+            if gender in (group, explicit):
+                return variant
+
+        return None
+
+    def _text(self, card):
+
+        parts = [
+            getattr(card, "title", ""),
+            getattr(card, "description", ""),
+            getattr(card, "cleaned_text", ""),
+        ]
+
+        specs = getattr(card, "specs", {}) or {}
+
+        for key, value in specs.items():
+            parts.append(str(key))
+            parts.append(str(value))
+
+        return " ".join(
+            str(part)
+            for part in parts
+            if part
+        ).lower()
+
+
 class KeywordAxisResolver(DropdownAxisResolver):
     """
     Универсальная ось по ключевым словам в тексте карточки.
-    Подходит для пола (муж/жен/дет), назначения (зип/пылесос),
-    механизма (кнопочный/поворотный) - везде, где вариант
-    отличается не материалом, а словами в названии/описании.
+    Подходит для назначения (зип/пылесос), механизма (кнопочный/
+    поворотный) - везде, где вариант отличается не материалом и не
+    полом, а product-специфичными словами в названии/описании,
+    которые не имеют смысла в общем словаре (см. GenderAxisResolver
+    для пола/возраста - там сигнал общий и переиспользуемый).
 
     Каждый вариант должен иметь список "match": [...] с ключевыми
     словами/фразами. Если у варианта нет "match" - он пропускается
@@ -320,7 +384,7 @@ class ScoredKeywordAxisResolver(DropdownAxisResolver):
 # --------------------------------------------------------------------
 AXIS_RESOLVERS = {
     "material": MaterialAxisResolver(),
-    "gender": KeywordAxisResolver(),
+    "gender": GenderAxisResolver(),
     "purpose": KeywordAxisResolver(),
     "mechanism": KeywordAxisResolver(),
     "material_volume": MaterialVolumeAxisResolver(),
