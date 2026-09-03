@@ -37,7 +37,6 @@ class LearningBuilder:
 
         self._new_products = {}            # description -> info
         self._new_aliases = {}             # product -> set(alias)
-        self._new_materials = {}           # product -> {material: code}
         self._new_dropdown_variants = {}   # product -> [variant, ...]
         self._dropdown_match_extensions = {}   # product -> {code: set(words)}
         self._new_dropdowns = {}           # product -> {"title":..., "variants": [...]}
@@ -73,20 +72,6 @@ class LearningBuilder:
             return
 
         self._new_aliases.setdefault(item.product, set()).add(alias)
-    # ==========================================================
-    # MATERIALS
-    # ==========================================================
-    def add_material(self, item):
-
-        material = str(item.material).strip().lower()
-
-        if not material:
-            return
-
-        self._new_materials.setdefault(
-            item.product,
-            {}
-        )[material] = str(item.code)
     # ==========================================================
     # DROPDOWNS (вариант к уже существующему dropdown)
     # ==========================================================
@@ -273,17 +258,9 @@ class LearningBuilder:
                     existing.append(alias)
                     known.add(alias)
 
-        # 3. Материалы.
-        for product, materials in self._new_materials.items():
-
-            target = current.get(product)
-
-            if not target:
-                continue
-
-            target.setdefault("material_codes", {}).update(materials)
-
-        # 4. Dropdown-варианты к уже существующему dropdown.
+        # 3. Dropdown-варианты к уже существующему dropdown (включая
+        # материал - group=материал, см. learning/analyzer.py
+        # ::_analyze_material).
         for product, variants in self._new_dropdown_variants.items():
 
             target = current.get(product)
@@ -309,7 +286,7 @@ class LearningBuilder:
                     existing_variants.append(variant)
                     known_codes.add(code)
 
-        # 5. Новые dropdown целиком (товар раньше вообще без dropdown).
+        # 4. Новые dropdown целиком (товар раньше вообще без dropdown).
         for product, dropdown in self._new_dropdowns.items():
 
             target = current.get(product)
@@ -353,7 +330,7 @@ class LearningBuilder:
                         existing.append(word)
                         known.add(word)
 
-        # 6. Паттерны.
+        # 5. Паттерны.
         for product, patterns in self._new_patterns.items():
 
             target = current.get(product)

@@ -9,14 +9,13 @@ from learning.learning_filters import (
 )
 from learning.name_normalizer import normalize_dictionary_name
 from learning.product_matcher import ProductMatcher
-from utils.material_extractor import is_excluded_material_key
+from utils.material_extractor import is_excluded_material_key, MATERIAL_GROUP_EN
 from utils.gender_extractor import find_known_gender
 
 from learning.review_models import (
     LearningReport,
     NewProduct,
     NewAlias,
-    NewMaterialCode,
     NewDropdownVariant,
     NewDropdownMatchWords,
     NewDropdownCandidate,
@@ -478,40 +477,78 @@ class LearningAnalyzer:
             material,
             code
     ):
+        """
+        material - уже провалидированный факт (найден в MATERIAL_ALIASES,
+        см. _get_material/normalize_material). Раньше здесь предлагалось
+        отдельное "material -> код" в material_codes (NewMaterialCode).
+        Теперь material_codes новыми записями не пополняется - вместо
+        этого предлагаем dropdown-вариант с group=material: тот же
+        механизм "факт -> код для товара", что и для любого другого
+        dropdown-варианта (см. NewDropdownVariant.group), только
+        источник факта - общий словарь материалов, а не product-
+        специфичный список.
+        """
 
-        if not material:
+        if not material or not code:
             return
 
-        known_materials = (
-                product_info.get(
-                    "material_codes",
-                    {}
-                )
-                or {}
-        )
-
-        normalized_known = {
-            str(key)
-            .strip()
-            .lower()
-            for key in known_materials
+        # 1. Уже покрыто ЛЕГАСИ-путём (material_codes у товара) -
+        # ничего предлагать не нужно, этот путь по-прежнему читается
+        # резолвером как есть (см. resolver/material_resolver.py).
+        known_materials = {
+            str(key).strip().lower()
+            for key in (product_info.get("material_codes", {}) or {})
         }
 
-        if material in normalized_known:
+        if material in known_materials:
             return
 
-        report.new_material_codes.append(
-            NewMaterialCode(
+        # 2. Уже покрыто СУЩЕСТВУЮЩИМ dropdown-вариантом - сравниваем
+        # и русское каноническое имя, и его английский эквивалент,
+        # т.к. group у разных товаров исторически записан в разных
+        # конвенциях (см. utils.material_extractor.MATERIAL_GROUP_EN).
+        group_candidates = {material}
+        english = MATERIAL_GROUP_EN.get(material)
+        if english:
+            group_candidates.add(english)
+
+        existing_variants = (
+            (product_info.get("dropdown") or {}).get("variants", [])
+            or []
+        )
+        existing_groups = {
+            str(v.get("group", "")).strip().lower()
+            for v in existing_variants
+        }
+
+        if group_candidates & existing_groups:
+            return
+
+        # 3. Уже предложено в ЭТОМ ЖЕ прогоне (в т.ч. другой карточкой
+        # с тем же product+code, или отдельно _analyze_dropdown -
+        # общий dedup по report.new_dropdown_variants).
+        for item in report.new_dropdown_variants:
+            if item.product == product_name and str(item.code).strip() == str(code).strip():
+                return
+
+        group = english or material
+
+        report.new_dropdown_variants.append(
+            NewDropdownVariant(
                 product=product_name,
-                material=material,
                 code=code,
+                name=material.capitalize(),
+                group=group,
+                match=(),
             )
         )
 
         print(
-            "NEW MATERIAL:",
+            "NEW MATERIAL DROPDOWN VARIANT:",
             product_name,
             material,
+            "->",
+            group,
             code
         )
     # ==========================================================
@@ -926,7 +963,7 @@ class LearningAnalyzer:
         print("ANALYZER FINISH")
         print("NEW PRODUCTS:", len(report.new_products))
         print("NEW ALIASES:", len(report.new_aliases))
-        print("NEW MATERIALS:", len(report.new_material_codes))
         print("NEW DROPDOWNS:", len(report.new_dropdown_variants))
         print("NEW DROPDOWN CANDIDATES:", len(report.new_dropdown_candidates))
         print("NEW PATTERNS:", len(report.new_patterns))
+        print("NEW DICTIONARY WORDS:", len(report.new_dictionary_words))

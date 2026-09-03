@@ -2,6 +2,7 @@ from dictionaries.all_dictionaries import MATERIAL_ALIASES
 from utils.material_extractor import (
     is_excluded_material_key,
     strip_excluded_material_mentions,
+    find_known_material_group,
 )
 
 
@@ -13,22 +14,39 @@ class MaterialResolver:
     def resolve(self, candidate, parsed):
 
         material_codes = candidate.info.get("material_codes", {})
-
-        if not material_codes:
-            return ""
-
         text = self._collect_text(parsed)
-        material = self._find_material(text, material_codes)
 
-        if not material:
+        if material_codes:
+
+            material = self._find_material(text, material_codes)
+
+            if material:
+                candidate.material = material
+                code = material_codes.get(material)
+
+                if code:
+                    candidate.material_code = str(code)
+                    return str(code)
+
             return ""
 
-        candidate.material = material
-        code = material_codes.get(material)
+        # material_codes у товара пуст - НОВЫЕ правила "материал ->
+        # код" теперь пишутся как dropdown-варианты, а не сюда (см.
+        # learning/analyzer.py). Но candidate.material (сам ФАКТ, не
+        # код) всё равно нужен - его использует MaterialAxisResolver
+        # в DropdownResolver, чтобы найти подходящий dropdown-вариант.
+        # Определяем факт по ОБЩЕМУ словарю MATERIAL_ALIASES, без
+        # привязки к конкретному товару - тем же способом, каким
+        # GenderAxisResolver определяет пол через GENDER_ALIASES.
+        #
+        # Код здесь намеренно НЕ назначаем (return "") - для товаров
+        # с material_codes код возвращался отсюда напрямую и мог
+        # полностью пропустить DropdownResolver (см.
+        # engines/decision_engine.py: "material_already_resolved").
+        # Для товаров без material_codes это не нужно - код должен
+        # прийти именно из dropdown-варианта.
+        candidate.material = find_known_material_group(text)
 
-        if code:
-            candidate.material_code = str(code)
-            return str(code)
         return ""
 
 

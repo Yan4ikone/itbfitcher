@@ -2,6 +2,28 @@ import re
 
 from dictionaries.all_dictionaries import MATERIAL_ALIASES
 
+# ------------------------------------------------------------------
+# РУССКОЕ каноническое имя (ключ MATERIAL_ALIASES) -> АНГЛИЙСКИЙ ярлык
+# группы, который реально используется в dropdown.variants["group"]
+# у подавляющего большинства товаров в products.py (напр. "металл" в
+# словаре, но "metal" в group dropdown'а - разные конвенции возникли
+# исторически). Используется в resolver/dropdown_axis_resolver.py
+# (MaterialAxisResolver), чтобы факт из общего словаря совпадал с
+# тем, что реально записано в group, независимо от того, какой из
+# двух вариантов использует конкретный товар.
+# ------------------------------------------------------------------
+MATERIAL_GROUP_EN = {
+    "металл": "metal",
+    "пластик": "plastic",
+    "дерево": "wood",
+    "стекло": "glass",
+    "кожа": "leather",
+    "текстиль": "textile",
+    "керамика": "ceramic",
+    "резина": "rubber",
+    "бумага": "paper",
+}
+
 # ==================================================================
 # Единый источник извлечения "материала" из произвольного текста.
 # Карточки, построенные через models/card_builder.py::build_from_excel()
@@ -108,6 +130,43 @@ def find_known_material(text: str) -> str:
     return best[2] if best else ""
 
 
+def find_known_material_group(text: str) -> str:
+    """Как find_known_material(), но возвращает КАНОНИЧЕСКОЕ имя группы
+    верхнего уровня словаря MATERIAL_ALIASES (напр. "металл"), а не
+    саму найденную алиас-фразу ("нержавеющая сталь"). Нужно там, где
+    результат сравнивается с variant["group"] в dropdown
+    (resolver/dropdown_axis_resolver.py::MaterialAxisResolver) -
+    независимо от того, есть ли у товара product-специфичный
+    material_codes (см. fallback в resolver/material_resolver.py)."""
+
+    if not text:
+        return ""
+
+    text = str(text).lower()
+
+    best = None  # (start_pos, -length, canonical_group)
+
+    for canonical, aliases in MATERIAL_ALIASES.items():
+
+        words = [canonical] + list(aliases)
+
+        for word in words:
+
+            word = str(word).strip().lower()
+
+            if not word:
+                continue
+
+            match = re.search(rf"(?<!\w){re.escape(word)}(?!\w)", text)
+
+            if match:
+                candidate = (match.start(), -len(word), canonical)
+                if best is None or candidate < best:
+                    best = candidate
+
+    return best[2] if best else ""
+
+
 def extract_material(text: str) -> str:
     """
     Ищет явное упоминание материала в свободном тексте
@@ -132,7 +191,13 @@ def extract_material(text: str) -> str:
 
             if value:
                 # Найденное по метке значение - это ФАКТ-кандидат, а не
-                # готовый материал
+                # готовый материал: "материал: сплав цанги" или
+                # "состав: мягкого" тоже совпадают с паттерном, хотя это
+                # не название материала. Подтверждаем совпадением со
+                # словарём известных материалов; если внутри найденного
+                # значения известного материала нет - НЕ возвращаем
+                # сырую строку, а пробуем следующий паттерн / общий
+                # фолбэк по всему тексту ниже.
                 known = find_known_material(value)
                 if known:
                     return known

@@ -20,25 +20,26 @@ class NewAlias:
 
 
 @dataclass(frozen=True)
-class NewMaterialCode:
-    product: str
-    material: str
-    code: str
-    selected: bool = True
-
-
-@dataclass(frozen=True)
 class NewDropdownVariant:
     """
     name/match - автозаполняются из карточки, которую куратор
     подтвердил (см. learning.learning_filters.extract_dropdown_keywords),
     чтобы не заполнять их вручную в products.py. Куратор может
     поправить их прямо в окне обучения перед подтверждением.
+
+    group - факт, по которому этот вариант выбирается при
+    классификации (см. resolver/dropdown_axis_resolver.py). Для
+    материала сюда попадает уже провалидированное словарём
+    MATERIAL_ALIASES имя (см. learning/analyzer.py::_analyze_material) -
+    это ЕДИНЫЙ путь "факт -> код для товара", заменивший собой старую
+    отдельную сущность "материал -> код" (material_codes/
+    NewMaterialCode).
     """
     product: str
     code: str
     name: str = ""
     match: tuple = ()
+    group: str = ""
     selected: bool = True
 
 
@@ -125,7 +126,6 @@ class LearningReport:
 
     new_products: list[NewProduct] = field(default_factory=list)
     new_aliases: list[NewAlias] = field(default_factory=list)
-    new_material_codes: list[NewMaterialCode] = field(default_factory=list)
     new_dropdowns: list = field(default_factory=list)
     new_dropdown_variants: list[NewDropdownVariant] = field(default_factory=list)
     new_dropdown_match_words: list[NewDropdownMatchWords] = field(default_factory=list)

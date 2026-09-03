@@ -15,7 +15,7 @@ def choose_by_material(similar_products, card):
 
     for item in similar_products:
 
-        materials: Counter = item["materials"]
+        materials: Counter = item.materials
 
         if material in materials:
             filtered.append(item)
@@ -27,6 +27,6 @@ def choose_by_material(similar_products, card):
 
     for item in filtered:
 
-        counter[item["code"]] += item["count"]
+        counter[item.code] += item.count
 
     return counter.most_common(1)[0][0]

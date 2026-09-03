@@ -7,12 +7,11 @@ class LearningApplier:
 
         self.builder = LearningBuilder()
 
-    def apply(self, products, aliases, materials, dropdowns, patterns=None,
+    def apply(self, products, aliases, dropdowns, patterns=None,
               dropdown_candidates=None, dropdown_match_words=None,
               dictionary_words=None):
         self._apply_products(products)
         self._apply_aliases(aliases)
-        self._apply_materials(materials)
         self._apply_dropdowns(dropdowns)
 
         if patterns:
@@ -46,14 +45,6 @@ class LearningApplier:
             if not item.selected:
                 continue
             self.builder.add_alias(item)
-    # ==========================================================
-    # MATERIALS
-    # ==========================================================
-    def _apply_materials(self, materials):
-        for item in materials:
-            if not item.selected:
-                continue
-            self.builder.add_material(item)
     # ==========================================================
     # DROPDOWNS
     # ==========================================================

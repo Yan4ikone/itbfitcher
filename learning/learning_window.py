@@ -24,7 +24,6 @@ class LearningWindow(Toplevel):
         self.applied = False
         self.selected_products = set()
         self.selected_aliases = set()
-        self.selected_materials = set()
         self.selected_dropdowns = set()
         self.selected_dropdown_match_words = set()
         self.selected_dropdown_candidates = set()
@@ -32,7 +31,6 @@ class LearningWindow(Toplevel):
         self.selected_dictionary_words = {}    # iid -> подтверждённый item (не set: NewDictionaryWord изменяемый -> нехэшируемый)
         self.product_rows = {}
         self.alias_rows = {}
-        self.material_rows = {}
         self.dropdown_rows = {}
         self.dropdown_match_words_rows = {}
         self.dropdown_candidate_rows = {}
@@ -41,7 +39,6 @@ class LearningWindow(Toplevel):
         self._build_ui()
         self._fill_products()
         self._fill_aliases()
-        self._fill_materials()
         self._fill_dropdowns()
         self._fill_dropdown_match_words()
         self._fill_dropdown_candidates()
@@ -64,7 +61,6 @@ class LearningWindow(Toplevel):
         )
         self.products_frame = ttk.Frame(self.notebook)
         self.aliases_frame = ttk.Frame(self.notebook)
-        self.materials_frame = ttk.Frame(self.notebook)
         self.dropdowns_frame = ttk.Frame(self.notebook)
         self.dropdown_match_words_frame = ttk.Frame(self.notebook)
         self.dropdown_candidates_frame = ttk.Frame(self.notebook)
@@ -77,10 +73,6 @@ class LearningWindow(Toplevel):
         self.notebook.add(
             self.aliases_frame,
             text=f"Алиасы ({len(self.report.new_aliases)})"
-        )
-        self.notebook.add(
-            self.materials_frame,
-            text=f"Материалы ({len(self.report.new_material_codes)})"
         )
         self.notebook.add(
             self.dropdowns_frame,
@@ -107,9 +99,6 @@ class LearningWindow(Toplevel):
         )
         self.alias_tree = self._create_alias_tree(
             self.aliases_frame
-        )
-        self.material_tree = self._create_material_tree(
-            self.materials_frame
         )
         self.dropdown_tree = self._create_dropdown_tree(
             self.dropdowns_frame
@@ -351,29 +340,6 @@ class LearningWindow(Toplevel):
 
         return tree
 
-    def _create_material_tree(self, parent):
-
-        tree = self._create_tree(
-            parent,
-            (
-                "selected",
-                "product",
-                "material",
-                "code"
-            )
-        )
-
-        tree.heading("selected", text="✓")
-        tree.heading("product", text="Товар")
-        tree.heading("material", text="Материал")
-        tree.heading("code", text="Код")
-        tree.column("selected", width=45, anchor="center")
-        tree.column("product", width=240)
-        tree.column("material", width=500)
-        tree.column("code", width=160)
-
-        return tree
-
     def _create_dropdown_tree(self, parent):
 
         tree = self._create_tree(
@@ -382,6 +348,7 @@ class LearningWindow(Toplevel):
                 "selected",
                 "product",
                 "code",
+                "group",
                 "name",
                 "match",
             )
@@ -390,13 +357,15 @@ class LearningWindow(Toplevel):
         tree.heading("selected", text="✓")
         tree.heading("product", text="Dropdown")
         tree.heading("code", text="Новый код")
+        tree.heading("group", text="Факт (материал/группа)")
         tree.heading("name", text="Название (автозаполнено)")
         tree.heading("match", text="Ключевые слова (автозаполнено)")
         tree.column("selected", width=45, anchor="center")
-        tree.column("product", width=250)
-        tree.column("code", width=140)
-        tree.column("name", width=220)
-        tree.column("match", width=350)
+        tree.column("product", width=220)
+        tree.column("code", width=130)
+        tree.column("group", width=180)
+        tree.column("name", width=200)
+        tree.column("match", width=300)
 
         return tree
 
@@ -482,23 +451,6 @@ class LearningWindow(Toplevel):
 
             self.alias_rows[iid] = item
 
-    def _fill_materials(self):
-
-        for item in self.report.new_material_codes:
-
-            iid = self.material_tree.insert(
-                "",
-                "end",
-                values=(
-                    "☐",
-                    item.product,
-                    item.material,
-                    item.code,
-                )
-            )
-
-            self.material_rows[iid] = item
-
     def _fill_dropdowns(self):
 
         for item in self.report.new_dropdown_variants:
@@ -510,6 +462,7 @@ class LearningWindow(Toplevel):
                     "☐",
                     item.product,
                     item.code,
+                    getattr(item, "group", ""),
                     getattr(item, "name", ""),
                     ", ".join(getattr(item, "match", ()) or ()),
                 )
@@ -614,9 +567,6 @@ class LearningWindow(Toplevel):
             elif widget is self.alias_tree:
                 self._toggle_alias(iid)
 
-            elif widget is self.material_tree:
-                self._toggle_material(iid)
-
             elif widget is self.dropdown_tree:
                 self._toggle_dropdown(iid)
 
@@ -682,32 +632,6 @@ class LearningWindow(Toplevel):
             values[0] = "☑"
 
         self.alias_tree.item(
-            iid,
-            values=values
-        )
-
-    def _toggle_material(self, iid):
-
-        item = self.material_rows[iid]
-
-        values = list(
-            self.material_tree.item(
-                iid,
-                "values"
-            )
-        )
-
-        if item in self.selected_materials:
-
-            self.selected_materials.remove(item)
-            values[0] = "☐"
-
-        else:
-
-            self.selected_materials.add(item)
-            values[0] = "☑"
-
-        self.material_tree.item(
             iid,
             values=values
         )
@@ -882,17 +806,10 @@ class LearningWindow(Toplevel):
                 if self.alias_rows[iid] not in self.selected_aliases:
                     self._toggle_alias(iid)
         # ------------------------------------------------------
-        # 2. МАТЕРИАЛЫ
-        # ------------------------------------------------------
-        elif current_tab == 2:
-            for iid in self.material_rows:
-                if self.material_rows[iid] not in self.selected_materials:
-                    self._toggle_material(iid)
-        # ------------------------------------------------------
-        # 3. DROPDOWN
+        # 2. DROPDOWN
         # ------------------------------------------------------
 
-        elif current_tab == 3:
+        elif current_tab == 2:
 
             for iid in self.dropdown_rows:
 
@@ -900,10 +817,10 @@ class LearningWindow(Toplevel):
                     self._toggle_dropdown(iid)
 
         # ------------------------------------------------------
-        # 4. РАСШИРИТЬ DROPDOWN
+        # 3. РАСШИРИТЬ DROPDOWN
         # ------------------------------------------------------
 
-        elif current_tab == 4:
+        elif current_tab == 3:
 
             for iid in self.dropdown_match_words_rows:
 
@@ -914,10 +831,10 @@ class LearningWindow(Toplevel):
                     self._toggle_dropdown_match_words(iid)
 
         # ------------------------------------------------------
-        # 5. НУЖЕН DROPDOWN?
+        # 4. НУЖЕН DROPDOWN?
         # ------------------------------------------------------
 
-        elif current_tab == 5:
+        elif current_tab == 4:
             for iid in self.dropdown_candidate_rows:
                 if (
                         self.dropdown_candidate_rows[iid]
@@ -925,17 +842,17 @@ class LearningWindow(Toplevel):
                 ):
                     self._toggle_dropdown_candidate(iid)
         # ------------------------------------------------------
-        # 6. PATTERNS
+        # 5. PATTERNS
         # ------------------------------------------------------
-        elif current_tab == 6:
+        elif current_tab == 5:
             for iid in self.pattern_rows:
                 if self.pattern_rows[iid] not in self.selected_patterns:
                     self._toggle_pattern(iid)
 
         # ------------------------------------------------------
-        # 7. НЕИЗВЕСТНЫЕ СЛОВА
+        # 6. НЕИЗВЕСТНЫЕ СЛОВА
         # ------------------------------------------------------
-        elif current_tab == 7:
+        elif current_tab == 6:
             messagebox.showinfo(
                 "Обучение",
                 "Для каждого слова нужно выбрать словарь и группу - "
@@ -972,21 +889,10 @@ class LearningWindow(Toplevel):
                     self._toggle_alias(iid)
 
         # ------------------------------------------------------
-        # 2. МАТЕРИАЛЫ
+        # 2. DROPDOWN
         # ------------------------------------------------------
 
         elif current_tab == 2:
-
-            for iid in list(self.material_rows):
-
-                if self.material_rows[iid] in self.selected_materials:
-                    self._toggle_material(iid)
-
-        # ------------------------------------------------------
-        # 3. DROPDOWN
-        # ------------------------------------------------------
-
-        elif current_tab == 3:
 
             for iid in list(self.dropdown_rows):
 
@@ -994,10 +900,10 @@ class LearningWindow(Toplevel):
                     self._toggle_dropdown(iid)
 
         # ------------------------------------------------------
-        # 4. РАСШИРИТЬ DROPDOWN
+        # 3. РАСШИРИТЬ DROPDOWN
         # ------------------------------------------------------
 
-        elif current_tab == 4:
+        elif current_tab == 3:
 
             for iid in list(self.dropdown_match_words_rows):
 
@@ -1008,10 +914,10 @@ class LearningWindow(Toplevel):
                     self._toggle_dropdown_match_words(iid)
 
         # ------------------------------------------------------
-        # 5. НУЖЕН DROPDOWN?
+        # 4. НУЖЕН DROPDOWN?
         # ------------------------------------------------------
 
-        elif current_tab == 5:
+        elif current_tab == 4:
 
             for iid in list(self.dropdown_candidate_rows):
 
@@ -1022,18 +928,18 @@ class LearningWindow(Toplevel):
                     self._toggle_dropdown_candidate(iid)
 
         # ------------------------------------------------------
-        # 6. PATTERNS
+        # 5. PATTERNS
         # ------------------------------------------------------
 
-        elif current_tab == 6:
+        elif current_tab == 5:
             for iid in list(self.pattern_rows):
                 if self.pattern_rows[iid] in self.selected_patterns:
                     self._toggle_pattern(iid)
 
         # ------------------------------------------------------
-        # 7. НЕИЗВЕСТНЫЕ СЛОВА
+        # 6. НЕИЗВЕСТНЫЕ СЛОВА
         # ------------------------------------------------------
-        elif current_tab == 7:
+        elif current_tab == 6:
             for iid in list(self.selected_dictionary_words):
 
                 item = self.dictionary_word_rows[iid]
@@ -1064,7 +970,6 @@ class LearningWindow(Toplevel):
         if (
             not self.selected_products
             and not self.selected_aliases
-            and not self.selected_materials
             and not self.selected_dropdowns
             and not self.selected_dropdown_match_words
             and not self.selected_dropdown_candidates
@@ -1084,7 +989,6 @@ class LearningWindow(Toplevel):
         applier.apply(
             products=list(self.selected_products),
             aliases=list(self.selected_aliases),
-            materials=list(self.selected_materials),
             dropdowns=list(self.selected_dropdowns),
             patterns=list(self.selected_patterns),
             dropdown_candidates=list(self.selected_dropdown_candidates),

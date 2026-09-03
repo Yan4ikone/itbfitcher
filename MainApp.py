@@ -516,8 +516,12 @@ class App:
             self.root.after(0, lambda: os.startfile(os.path.dirname(output_path)))
         except Exception as e:
             self.set_status("Ошибка")
-            self.gui_log(f"✗ Ошибка: {e}")
-            self.root.after(0, lambda: messagebox.showerror("Ошибка", str(e)))
+            error_message = str(e)
+            self.gui_log(f"✗ Ошибка: {error_message}")
+            self.root.after(
+                0,
+                lambda msg=error_message: messagebox.showerror("Ошибка", msg),
+            )
 
     # ========================================================
     # Ozon auto controls — kept for compatibility
@@ -547,8 +551,12 @@ class App:
         except Exception as e:
             self.current_processor["instance"] = None
             self.set_status("Ошибка")
-            self.gui_log(f"✗ Ошибка Ozon: {e}")
-            self.root.after(0, lambda: messagebox.showerror("Ошибка", str(e)))
+            error_message = str(e)
+            self.gui_log(f"✗ Ошибка Ozon: {error_message}")
+            self.root.after(
+                0,
+                lambda msg=error_message: messagebox.showerror("Ошибка", msg),
+            )
 
     def stop_ozon_auto(self):
         processor = self.current_processor.get("instance")

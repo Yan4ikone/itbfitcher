@@ -1,6 +1,7 @@
 import re
 
 from utils.gender_extractor import find_known_gender
+from utils.material_extractor import MATERIAL_GROUP_EN
 
 
 class DropdownAxisResolver:
@@ -16,7 +17,16 @@ class DropdownAxisResolver:
 class MaterialAxisResolver(DropdownAxisResolver):
     """
     Ось "материал" - сравниваем result.material
-    (уже найденный MaterialResolver'ом) с name/group варианта.
+    (уже найденный MaterialResolver'ом, каноническое РУССКОЕ имя вида
+    "металл") с name/group/material варианта.
+
+    ВАЖНО: у большинства товаров group в dropdown записан
+    по-английски ("metal"/"plastic"/...), а не по-русски - это
+    историческая конвенция dropdown-групп, отдельная от русскоязычного
+    словаря MATERIAL_ALIASES. Поэтому сравниваем И русское каноническое
+    имя, И его английский эквивалент (см. MATERIAL_GROUP_EN) - подходит
+    для любого из двух вариантов, которым мог быть записан конкретный
+    товар.
     """
 
     def find(self, variants, card, result):
@@ -26,13 +36,20 @@ class MaterialAxisResolver(DropdownAxisResolver):
         if not material:
             return None
 
+        candidates = {material}
+
+        english = MATERIAL_GROUP_EN.get(material)
+
+        if english:
+            candidates.add(english)
+
         for variant in variants:
 
             name = str(variant.get("name", "")).strip().lower()
             group = str(variant.get("group", "")).strip().lower()
             explicit = str(variant.get("material", "")).strip().lower()
 
-            if material in (name, group, explicit) and material:
+            if candidates & {name, group, explicit} - {""}:
                 return variant
 
         return None
