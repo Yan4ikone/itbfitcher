@@ -4,6 +4,9 @@ import importlib
 
 import dictionaries.products as products_dictionary
 from dictionaries.products import PRODUCTS
+from dictionaries import all_dictionaries
+from learning.dictionary_registry import DICTIONARY_REGISTRY
+from learning.dictionary_writer import update_dict_constant
 
 
 class LearningBuilder:
@@ -39,6 +42,7 @@ class LearningBuilder:
         self._dropdown_match_extensions = {}   # product -> {code: set(words)}
         self._new_dropdowns = {}           # product -> {"title":..., "variants": [...]}
         self._new_patterns = {}            # product -> set(pattern)
+        self._new_dictionary_words = {}    # constant_name -> {group: set(word)}
 
         # Только для чтения (например, LearningAnalyzer может
         # захотеть свериться с актуальным состоянием) - не участвует
@@ -174,6 +178,37 @@ class LearningBuilder:
             return
 
         self._new_patterns.setdefault(item.product, set()).add(pattern)
+    # ==========================================================
+    # DICTIONARY WORDS (материал/пол/... - расширение общего словаря,
+    # а не привязка слова к конкретному товару)
+    # ==========================================================
+    def add_dictionary_word(self, item):
+        """
+        item - NewDictionaryWord, к моменту вызова УЖЕ должен иметь
+        заполненные target_dictionary/target_group (куратор выбрал их
+        через диалог в окне обучения - см.
+        learning_window.DictionaryWordDialog). Если они не заполнены -
+        значит куратор выбрал строку, но не подтвердил выбор словаря/
+        группы в диалоге, и такую запись сохранять нельзя.
+        """
+
+        target_dictionary = str(item.target_dictionary or "").strip()
+        target_group = str(item.target_group or "").strip().lower()
+        word = str(item.word or "").strip().lower()
+
+        if not target_dictionary or not target_group or not word:
+            return
+
+        meta = DICTIONARY_REGISTRY.get(target_dictionary)
+
+        if not meta:
+            return
+
+        constant_name = meta["constant"]
+
+        self._new_dictionary_words.setdefault(
+            constant_name, {}
+        ).setdefault(target_group, set()).add(word)
     # ==========================================================
     # SAVE PRODUCTS
     # ==========================================================
@@ -333,8 +368,54 @@ class LearningBuilder:
                 if pattern not in existing:
                     existing.append(pattern)
     # ==========================================================
+    # SAVE DICTIONARIES (материал/пол/...)
+    # ==========================================================
+    def save_dictionaries(self):
+        """
+        Тот же принцип, что и save_products(): читаем all_dictionaries.
+        py заново ПРЯМО ПЕРЕД записью (importlib.reload), применяем
+        дельту поверх свежего состояния - никаких старых снимков,
+        которые могли бы "воскресить" вручную удалённое слово.
+
+        В отличие от save_products() - файл содержит МНОГО констант,
+        поэтому переписывается точечно только нужная константа (через
+        update_dict_constant), а не весь модуль целиком.
+        """
+
+        if not self._new_dictionary_words:
+            return
+
+        importlib.invalidate_caches()
+        fresh_module = importlib.reload(all_dictionaries)
+
+        for constant_name, groups in self._new_dictionary_words.items():
+
+            current = dict(
+                getattr(fresh_module, constant_name, {}) or {}
+            )
+
+            for group, words in groups.items():
+
+                existing = list(current.get(group, []))
+                known = {str(w).strip().lower() for w in existing}
+
+                for word in words:
+                    if word not in known:
+                        existing.append(word)
+                        known.add(word)
+
+                current[group] = existing
+
+            update_dict_constant(constant_name, current)
+
+        # Перечитываем ещё раз после записи, чтобы модуль в памяти
+        # отражал реально записанное на диск.
+        importlib.invalidate_caches()
+        importlib.reload(all_dictionaries)
+    # ==========================================================
     # SAVE
     # ==========================================================
     def save(self):
 
         self.save_products()
+        self.save_dictionaries()

@@ -10,6 +10,7 @@ from learning.learning_filters import (
 from learning.name_normalizer import normalize_dictionary_name
 from learning.product_matcher import ProductMatcher
 from utils.material_extractor import is_excluded_material_key
+from utils.gender_extractor import find_known_gender
 
 from learning.review_models import (
     LearningReport,
@@ -20,6 +21,7 @@ from learning.review_models import (
     NewDropdownMatchWords,
     NewDropdownCandidate,
     NewPattern,
+    NewDictionaryWord,
 )
 
 
@@ -61,6 +63,7 @@ class LearningAnalyzer:
         report = LearningReport()
         self._code_observations = {}
         self._code_keywords = {}
+        self._unknown_word_index = {}   # (dictionary, word) -> NewDictionaryWord
 
         for card in self.runtime.all_cards():
 
@@ -91,7 +94,7 @@ class LearningAnalyzer:
             if not code:
                 continue
 
-            material = self._get_material(card)
+            material, raw_material = self._get_material(card)
             print("DESCRIPTION:", description)
             print("CODE:", code)
             print("MATERIAL:", material)
@@ -107,6 +110,33 @@ class LearningAnalyzer:
                 continue
 
             print("PRODUCT NAME:", product_name)
+            # --------------------------------------------------
+            # НЕИЗВЕСТНОЕ СЛОВО СЛОВАРЯ
+            #
+            # raw_material непустой, но normalize_material() (внутри
+            # _get_material) не смог сопоставить его ни с одним
+            # известным материалом - значит это, возможно, ПОДЛИННО
+            # новое слово (напр. "неопрен"), а не просто "материал
+            # известен, но для этого товара ещё нет кода" (это ниже,
+            # в _analyze_material).
+            # --------------------------------------------------
+            if raw_material and not material:
+                self._analyze_unknown_word(
+                    report,
+                    dictionary="material",
+                    word=raw_material,
+                    product_name=product_name,
+                )
+
+            raw_gender = self._find_spec_gender(card.get("specs", {}) or {})
+
+            if raw_gender and not find_known_gender(raw_gender):
+                self._analyze_unknown_word(
+                    report,
+                    dictionary="gender",
+                    word=raw_gender,
+                    product_name=product_name,
+                )
             # --------------------------------------------------
             # DROPDOWN CANDIDATE OBSERVATION
             #
@@ -313,6 +343,31 @@ class LearningAnalyzer:
 
         return ""
 
+    def _find_spec_gender(self, specs):
+        """Ищет пол/возрастную группу среди характеристик по явному
+        ключу ("Пол", "Пол товара") - по тому же принципу, что
+        _find_spec_material ищет материал. Не путать со свободным
+        текстом заголовка/описания - там пол ищет GenderAxisResolver
+        (resolver/dropdown_axis_resolver.py) напрямую через
+        find_known_gender, без явного ключа."""
+
+        if not isinstance(specs, dict):
+            return ""
+
+        for key, value in specs.items():
+
+            if not value:
+                continue
+
+            key_l = str(key).strip().lower()
+
+            if key_l not in ("пол", "пол товара"):
+                continue
+
+            return str(value).strip().lower()
+
+        return ""
+
     def _get_material(self, card):
 
         raw_material = str(
@@ -359,7 +414,7 @@ class LearningAnalyzer:
             )
 
         if not raw_material:
-            return ""
+            return "", ""
 
         material = normalize_material(
             raw_material
@@ -370,7 +425,48 @@ class LearningAnalyzer:
             "->",
             repr(material)
         )
-        return material
+        return material, raw_material
+    # ==========================================================
+    # НЕИЗВЕСТНОЕ СЛОВО СЛОВАРЯ
+    # ==========================================================
+    def _analyze_unknown_word(self, report, dictionary, word, product_name):
+        """
+        word - сырое значение, которое не подтвердилось НИ ОДНИМ
+        известным словом из соответствующего словаря (см. вызов в
+        analyze()). Дедуплицируем по (dictionary, word) - одно и то
+        же неизвестное слово может встретиться в десятках карточек
+        за один прогон, куратору нужно увидеть его ОДИН раз со
+        счётчиком, а не сотню одинаковых строк.
+        """
+
+        word = str(word).strip().lower()
+
+        if not word:
+            return
+
+        # Полностью числовые/технические значения ("0x17.0x24",
+        # артикулы) - не показываем как кандидата в словарь, это
+        # мусор, а не слово.
+        if not re.search(r"[a-zа-я]", word):
+            return
+
+        key = (dictionary, word)
+
+        existing = self._unknown_word_index.get(key)
+
+        if existing:
+            existing.count += 1
+            return
+
+        item = NewDictionaryWord(
+            dictionary=dictionary,
+            word=word,
+            product=product_name,
+            count=1,
+        )
+
+        self._unknown_word_index[key] = item
+        report.new_dictionary_words.append(item)
     # ==========================================================
     # MATERIAL ANALYSIS
     # ==========================================================

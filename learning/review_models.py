@@ -88,6 +88,39 @@ class NewPattern:
 
 
 @dataclass
+class NewDictionaryWord:
+    """
+    Слово/фраза, не найденное НИ В ОДНОМ известном словаре (сейчас -
+    MATERIAL_ALIASES, GENDER_ALIASES; список словарей расширяемый,
+    см. learning/dictionary_registry.py).
+
+    В отличие от NewMaterialCode (который предлагает "материал X уже
+    известен системе, добавить код для ЭТОГО товара") - это подлинно
+    НОВОЕ знание: сам факт ни в одном словаре ещё не значится ни для
+    какого товара.
+
+    dictionary - словарь, в котором ПРЕДПОЛОЖИТЕЛЬНО не хватает слова
+    (куда его искали и не нашли, напр. "material"). Это подсказка по
+    умолчанию для диалога в окне обучения, а не окончательное решение.
+
+    target_dictionary/target_group - куда куратор РЕШИЛ добавить слово
+    (может отличаться от dictionary, если куратор решит, что слово на
+    самом деле относится к другому словарю). Заполняются диалогом в
+    learning_window.py, поэтому класс НЕ frozen - в отличие от
+    остальных моделей в этом файле, где "selected" - это просто
+    флаг вкл/выкл, здесь куратору нужно выбрать ЗНАЧЕНИЕ перед
+    подтверждением.
+    """
+    dictionary: str
+    word: str
+    product: str
+    count: int = 1
+    selected: bool = False
+    target_dictionary: str = ""
+    target_group: str = ""
+
+
+@dataclass
 class LearningReport:
 
     new_products: list[NewProduct] = field(default_factory=list)
@@ -98,4 +131,5 @@ class LearningReport:
     new_dropdown_match_words: list[NewDropdownMatchWords] = field(default_factory=list)
     new_dropdown_candidates: list[NewDropdownCandidate] = field(default_factory=list)
     new_patterns: list[NewPattern] = field(default_factory=list)
+    new_dictionary_words: list[NewDictionaryWord] = field(default_factory=list)
     processed_cards: list[str] = field(default_factory=list)
