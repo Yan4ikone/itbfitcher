@@ -11,6 +11,8 @@ from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
 from pathlib import Path
 from repositories.card_repository import CardRepository
+from excel.restrictions import apply_restrictions
+from excel.postprocessing import apply_visual_postprocessing
 
 
 class OzonAutoProcessor:
@@ -654,6 +656,40 @@ class OzonAutoProcessor:
         try:
 
             asyncio.run(self._run_async(rows_to_process, ws, wb, engine))
+
+            # ------------------------------------------------------
+            # ПОСТОБРАБОТКА
+            #
+            # Покраска строк по запрещённым/разрешённым префиксам
+            # кода. Раньше эта логика существовала (excel/restrictions.py,
+            # excel/postprocessing.py) и уже применялась в другом
+            # пайплайне (excel/processor.py -> core/app_controller.py),
+            # но никогда не вызывалась здесь, в авто-режиме.
+            #
+            # Отдельной колонки "статус" (Можно/Нельзя) в этом шаблоне
+            # нет - decision_col_idx не передаём, красится только код
+            # и связанная с ним строка.
+            # ------------------------------------------------------
+            self.log("Проверка ограничений...")
+
+            apply_restrictions(
+                ws,
+                code_col_idx=3,       # колонка C
+                is_first_pass=False,
+                max_row=ws.max_row,
+            )
+
+            visual_stats = apply_visual_postprocessing(
+                ws,
+                code_col_idx=3,       # колонка C
+                max_row=ws.max_row,
+            )
+
+            self.log(
+                f"Постобработка: "
+                f"красных={visual_stats['red']}, "
+                f"зелёных={visual_stats['green']}"
+            )
 
         except Exception:
 
