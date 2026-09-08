@@ -6,6 +6,7 @@ from learning.review_models import (
     LearningReport,
 )
 from learning.dictionary_registry import dictionary_choices, group_choices
+from learning import dictionary_editor
 
 
 class LearningWindow(Toplevel):
@@ -114,6 +115,18 @@ class LearningWindow(Toplevel):
         )
         self.dictionary_word_tree = self._create_dictionary_word_tree(
             self.dictionary_words_frame
+        )
+
+        ttk.Button(
+            self.dictionary_words_frame,
+            text="Редактор словарей...",
+            command=self._open_dictionary_editor,
+        ).grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=(6, 0),
         )
 
         bottom = ttk.Frame(self)
@@ -780,6 +793,16 @@ class LearningWindow(Toplevel):
             values=values
         )
 
+    def _open_dictionary_editor(self):
+        """Самостоятельный редактор словарей (материал/пол/
+        характеристики) - в отличие от вкладки выше, не привязан к
+        текущему прогону обучения: можно открыть в любой момент,
+        посмотреть все категории и слова, добавить/удалить что угодно
+        напрямую. Изменения пишутся на диск сразу, без отдельной
+        кнопки "Применить"."""
+
+        DictionaryEditorWindow(self)
+
 
     def select_all(self):
 
@@ -1150,3 +1173,307 @@ class DictionaryWordDialog(Toplevel):
 
         self.result = (key, group)
         self.destroy()
+
+
+class DictionaryEditorWindow(Toplevel):
+    """
+    Самостоятельный редактор общих словарей (материал/пол/
+    характеристики) - открывается кнопкой из окна обучения, но не
+    привязан к конкретному прогону: можно посмотреть все категории и
+    слова в любом словаре, добавить новую категорию или слово,
+    удалить существующие. Каждое действие сразу пишется на диск
+    (см. learning/dictionary_editor.py) - здесь нет отдельной кнопки
+    "Применить".
+    """
+
+    def __init__(self, parent):
+
+        super().__init__(parent)
+
+        self.title("Редактор словарей")
+        self.geometry("560x520")
+        self.transient(parent)
+
+        self._choices = dictionary_choices()          # [(key, label), ...]
+        self._label_by_key = dict(self._choices)
+        self._key_by_label = {
+            label: key for key, label in self._choices
+        }
+
+        container = ttk.Frame(self, padding=10)
+        container.pack(fill=BOTH, expand=True)
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(1, weight=1)
+
+        # --------------------------------------------------
+        # Выбор словаря
+        # --------------------------------------------------
+        top = ttk.Frame(container)
+        top.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+
+        ttk.Label(top, text="Словарь:").pack(side=LEFT)
+
+        self.dict_var = StringVar(
+            value=self._choices[0][1] if self._choices else ""
+        )
+
+        self.dict_combo = ttk.Combobox(
+            top,
+            textvariable=self.dict_var,
+            values=[label for _, label in self._choices],
+            state="readonly",
+            width=40,
+        )
+        self.dict_combo.pack(side=LEFT, padx=(6, 0))
+        self.dict_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda event: self._reload_tree(),
+        )
+
+        # --------------------------------------------------
+        # Дерево: категория -> слова
+        # --------------------------------------------------
+        tree_frame = ttk.Frame(container)
+        tree_frame.grid(row=1, column=0, sticky="nsew")
+        tree_frame.columnconfigure(0, weight=1)
+        tree_frame.rowconfigure(0, weight=1)
+
+        self.tree = ttk.Treeview(tree_frame, show="tree")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+
+        vsb = ttk.Scrollbar(
+            tree_frame, orient="vertical", command=self.tree.yview
+        )
+        vsb.grid(row=0, column=1, sticky="ns")
+        self.tree.configure(yscrollcommand=vsb.set)
+
+        # --------------------------------------------------
+        # Добавление
+        # --------------------------------------------------
+        add_frame = ttk.LabelFrame(container, text="Добавить", padding=8)
+        add_frame.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        add_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(add_frame, text="Новая категория:").grid(
+            row=0, column=0, sticky="w", pady=2
+        )
+        self.new_category_var = StringVar()
+        ttk.Entry(
+            add_frame, textvariable=self.new_category_var
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 6), pady=2)
+        ttk.Button(
+            add_frame, text="Добавить категорию",
+            command=self._add_category,
+        ).grid(row=0, column=2, pady=2)
+
+        ttk.Label(add_frame, text="Слово в категорию:").grid(
+            row=1, column=0, sticky="w", pady=2
+        )
+        self.new_word_var = StringVar()
+        ttk.Entry(
+            add_frame, textvariable=self.new_word_var
+        ).grid(row=1, column=1, sticky="ew", padx=(6, 6), pady=2)
+        ttk.Button(
+            add_frame, text="Добавить слово",
+            command=self._add_word,
+        ).grid(row=1, column=2, pady=2)
+
+        ttk.Label(
+            add_frame,
+            text="Слово добавляется в категорию, выбранную в дереве выше.",
+            foreground="#666666",
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
+        # --------------------------------------------------
+        # Удаление
+        # --------------------------------------------------
+        bottom = ttk.Frame(container)
+        bottom.grid(row=3, column=0, sticky="e", pady=(8, 0))
+
+        ttk.Button(
+            bottom, text="Удалить выбранное",
+            command=self._delete_selected,
+        ).pack(side=RIGHT)
+
+        self._reload_tree()
+
+    # ==========================================================
+
+    def _current_dict_key(self):
+        return self._key_by_label.get(self.dict_var.get())
+
+    def _reload_tree(self):
+
+        self.tree.delete(*self.tree.get_children())
+
+        key = self._current_dict_key()
+
+        if not key:
+            return
+
+        categories = dictionary_editor.list_categories(key)
+
+        for group, words in categories.items():
+
+            group_id = self.tree.insert(
+                "", "end", text=group, open=False,
+            )
+
+            for word in words:
+                self.tree.insert(group_id, "end", text=word)
+
+    def _selected_category(self):
+        """Категория, к которой относится текущий выбор в дереве -
+        сам узел категории, если выбрана она, либо родитель, если
+        выбрано слово. None, если ничего не выбрано."""
+
+        selection = self.tree.selection()
+
+        if not selection:
+            return None
+
+        iid = selection[0]
+        parent = self.tree.parent(iid)
+
+        if parent:
+            return self.tree.item(parent, "text")
+
+        return self.tree.item(iid, "text")
+
+    def _add_category(self):
+
+        key = self._current_dict_key()
+        group = self.new_category_var.get().strip().lower()
+
+        if not key:
+            messagebox.showwarning(
+                "Редактор словарей", "Выберите словарь.", parent=self
+            )
+            return
+
+        if not group:
+            messagebox.showwarning(
+                "Редактор словарей",
+                "Введите название новой категории.",
+                parent=self,
+            )
+            return
+
+        try:
+            dictionary_editor.create_category(key, group)
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор словарей", str(error), parent=self
+            )
+            return
+
+        self.new_category_var.set("")
+        self._reload_tree()
+
+    def _add_word(self):
+
+        key = self._current_dict_key()
+        group = self._selected_category()
+        word = self.new_word_var.get().strip().lower()
+
+        if not key:
+            messagebox.showwarning(
+                "Редактор словарей", "Выберите словарь.", parent=self
+            )
+            return
+
+        if not group:
+            messagebox.showwarning(
+                "Редактор словарей",
+                "Сначала выберите категорию в дереве, "
+                "в которую нужно добавить слово.",
+                parent=self,
+            )
+            return
+
+        if not word:
+            messagebox.showwarning(
+                "Редактор словарей", "Введите слово.", parent=self
+            )
+            return
+
+        try:
+            dictionary_editor.add_word(key, group, word)
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор словарей", str(error), parent=self
+            )
+            return
+
+        self.new_word_var.set("")
+        self._reload_tree()
+
+    def _delete_selected(self):
+
+        key = self._current_dict_key()
+        selection = self.tree.selection()
+
+        if not key or not selection:
+            messagebox.showwarning(
+                "Редактор словарей",
+                "Выберите категорию или слово для удаления.",
+                parent=self,
+            )
+            return
+
+        iid = selection[0]
+        parent = self.tree.parent(iid)
+
+        if parent:
+            # Выбрано слово - удаляем только его
+            group = self.tree.item(parent, "text")
+            word = self.tree.item(iid, "text")
+
+            if not messagebox.askyesno(
+                "Удалить слово",
+                f"Удалить слово «{word}» из категории «{group}»?",
+                parent=self,
+            ):
+                return
+
+            dictionary_editor.delete_word(key, group, word)
+
+        else:
+            # Выбрана целая категория
+            group = self.tree.item(iid, "text")
+
+            usage = dictionary_editor.find_group_usage(key, group)
+
+            if usage:
+
+                preview = ", ".join(usage[:10])
+
+                if len(usage) > 10:
+                    preview += f" и ещё {len(usage) - 10}"
+
+                if not messagebox.askyesno(
+                    "Категория используется",
+                    f"Категория «{group}» используется в товарах: "
+                    f"{preview}.\n\n"
+                    f"После удаления система перестанет узнавать "
+                    f"этот факт для этих товаров (их dropdown-"
+                    f"варианты перестанут срабатывать автоматически). "
+                    f"Удалить всё равно?",
+                    parent=self,
+                    icon="warning",
+                ):
+                    return
+
+            else:
+
+                if not messagebox.askyesno(
+                    "Удалить категорию",
+                    f"Удалить категорию «{group}» целиком "
+                    f"(вместе со всеми словами в ней)?",
+                    parent=self,
+                ):
+                    return
+
+            dictionary_editor.delete_category(key, group)
+
+        self._reload_tree()

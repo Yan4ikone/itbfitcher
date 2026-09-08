@@ -5,6 +5,7 @@ from openpyxl.comments import Comment
 from openpyxl.styles import PatternFill
 
 from dictionaries.all_dictionaries import MATERIAL_COLORS
+from utils.dropdown_helpers import variant_display_name, variant_color_key
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -197,9 +198,7 @@ def apply_specific_dropdowns(
                 item.get("code", "")
             ).strip()
 
-            name = str(
-                item.get("name", "")
-            ).strip()
+            display = variant_display_name(item)
 
             group = str(
                 item.get("group", "")
@@ -208,13 +207,13 @@ def apply_specific_dropdowns(
             if not code:
                 continue
 
-            if name and group:
+            if display and group and display.lower() != group.lower():
                 comment_lines.append(
-                    f"{code} - {name} ({group})"
+                    f"{code} - {display} ({group})"
                 )
-            elif name:
+            elif display:
                 comment_lines.append(
-                    f"{code} - {name}"
+                    f"{code} - {display}"
                 )
             else:
                 comment_lines.append(
@@ -243,12 +242,10 @@ def apply_specific_dropdowns(
             if not isinstance(item, dict):
                 continue
 
-            name = str(
-                item.get("name", "")
-            ).strip().lower()
+            key = variant_color_key(item)
 
-            if name:
-                materials.add(name)
+            if key:
+                materials.add(key)
 
         if len(materials) == 1:
 

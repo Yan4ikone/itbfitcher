@@ -11,7 +11,6 @@ from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
 from pathlib import Path
 from repositories.card_repository import CardRepository
-from excel.restrictions import apply_restrictions
 from excel.postprocessing import apply_visual_postprocessing
 
 
@@ -488,6 +487,31 @@ class OzonAutoProcessor:
             ):
                 return value
         return None
+
+    def find_last_data_row(self, ws):
+        """ws.max_row в openpyxl нередко завышен - он отражает границу
+        форматирования листа, а не последнюю реально заполненную
+        строку (например, если стиль применён на тысячи строк вперёд
+        в шаблоне). Из-за этого apply_restrictions/
+        apply_visual_postprocessing красили пустые строки ниже
+        реальных данных как "запрещённые/нулевой код".
+
+        Сканируем СНИЗУ ВВЕРХ от ws.max_row и ищем первую строку, где
+        есть хоть что-то значимое: наименование (B), код (C) или
+        ссылка (D/E)."""
+
+        for row in range(ws.max_row, 1, -1):
+
+            if str(ws[f"B{row}"].value or "").strip():
+                return row
+
+            if str(ws[f"C{row}"].value or "").strip():
+                return row
+
+            if self.get_url_from_row(ws, row):
+                return row
+
+        return 1
     # ==========================================================
     # APPLY CACHE RESULT
     # ==========================================================
@@ -659,30 +683,17 @@ class OzonAutoProcessor:
 
             # ------------------------------------------------------
             # ПОСТОБРАБОТКА
-            #
             # Покраска строк по запрещённым/разрешённым префиксам
-            # кода. Раньше эта логика существовала (excel/restrictions.py,
-            # excel/postprocessing.py) и уже применялась в другом
-            # пайплайне (excel/processor.py -> core/app_controller.py),
-            # но никогда не вызывалась здесь, в авто-режиме.
-            #
-            # Отдельной колонки "статус" (Можно/Нельзя) в этом шаблоне
-            # нет - decision_col_idx не передаём, красится только код
-            # и связанная с ним строка.
+            # кода.          
             # ------------------------------------------------------
             self.log("Проверка ограничений...")
 
-            apply_restrictions(
-                ws,
-                code_col_idx=3,       # колонка C
-                is_first_pass=False,
-                max_row=ws.max_row,
-            )
+            postprocess_last_row = self.find_last_data_row(ws)
 
             visual_stats = apply_visual_postprocessing(
                 ws,
                 code_col_idx=3,       # колонка C
-                max_row=ws.max_row,
+                max_row=postprocess_last_row,
             )
 
             self.log(

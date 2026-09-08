@@ -5,6 +5,7 @@ from dictionaries.all_dictionaries import (
     TRASH_MARKETING,
     TRASH_MARKETPLACE,
     TRASH_PACKAGE,
+    TRASH_BRANDS,
 )
 from learning.name_normalizer import normalize_dictionary_name
 from utils import material_extractor as _material_extractor
@@ -81,6 +82,18 @@ _STRONG_TRASH_MARKERS = {
 }
 
 
+# Максимальная длина алиаса в словах. Алиас - это СИНОНИМ названия
+# товара ("сумка" -> "барсетка"), а не его описание. По реальным
+# данным products.py: подавляющее большинство осмысленных синонимов
+# укладываются в 1-4 слова ("чехол на телефон", "аксессуар для
+# волос", "сумка через плечо"); начиная с 5 слов почти всегда идут
+# куски маркетингового текста или вообще описание другого товара
+# ("чехол для iphone pro max с кожаной текстурой в простом стиле и
+# однотонном цвете тёмно синий" - 16 слов, реальный пример из
+# products.py до этого фикса).
+_MAX_ALIAS_WORDS = 4
+
+
 def is_valid_alias(alias, product_name=""):
 
     alias = (alias or "").strip().lower()
@@ -96,6 +109,19 @@ def is_valid_alias(alias, product_name=""):
         return False
 
     words = alias.split()
+
+    if len(words) > _MAX_ALIAS_WORDS:
+        return False
+
+    # Цифры, модели, артикулы ("dwst833951", "rg 35xxpro2025") -
+    # синонимом названия товара не бывают.
+    if any(re.search(r"\d", word) for word in words):
+        return False
+
+    # Бренды/названия конкретных моделей - синоним ТИПА товара, а не
+    # конкретного бренда ("сумка" -> "vivienne westwood" - неверно).
+    if any(word in TRASH_BRANDS for word in words):
+        return False
 
     # Если alias состоит из нескольких слов, проверяем,
     # не является ли он просто набором служебных/мусорных слов.

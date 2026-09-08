@@ -1,4 +1,4 @@
-from openpyxl.styles import PatternFill, Font
+from openpyxl.styles import PatternFill
 
 from dictionaries.all_dictionaries import (
     ALLOWED_PREFIXES,
@@ -11,17 +11,11 @@ from dictionaries.all_dictionaries import (
 # ============================================================
 RED_ROW_FILL = PatternFill(
     fill_type="solid",
-    fgColor="FCE4E4",
+    fgColor="FF0000",
 )
 GREEN_ROW_FILL = PatternFill(
     fill_type="solid",
     fgColor="E8F5E9",
-)
-RED_FONT = Font(
-    color="C00000",
-)
-GREEN_FONT = Font(
-    color="008000",
 )
 # ============================================================
 # НОРМАЛИЗАЦИЯ КОДА
@@ -167,7 +161,6 @@ def apply_visual_postprocessing(
                 ws=ws,
                 row=row,
                 fill=RED_ROW_FILL,
-                font=RED_FONT,
                 code_col_idx=code_col_idx,
             )
             if decision_col_idx:
@@ -191,7 +184,6 @@ def apply_visual_postprocessing(
                 ws=ws,
                 row=row,
                 fill=GREEN_ROW_FILL,
-                font=GREEN_FONT,
                 code_col_idx=code_col_idx,
             )
             if decision_col_idx:
@@ -214,7 +206,6 @@ def apply_visual_postprocessing(
                 ws=ws,
                 row=row,
                 fill=RED_ROW_FILL,
-                font=RED_FONT,
                 code_col_idx=code_col_idx,
             )
             if decision_col_idx:
@@ -265,13 +256,16 @@ def _paint_row(
     ws,
     row,
     fill,
-    font,
     code_col_idx,
 ):
     """
-    Красит всю строку, кроме ячейки кода.
-    Ячейку кода пропускаем специально,
-    потому что её цвет отвечает за MATERIAL_COLORS.
+    Красит ЗАЛИВКУ всей строки, кроме ячейки кода. Шрифт не трогаем
+    вообще - раньше здесь дополнительно менялся font, из-за чего
+    менялся не только фон, но и цвет текста (который к постобработке
+    отношения не имеет и мог маскировать другое форматирование).
+
+    Ячейку кода пропускаем специально, потому что её цвет отвечает
+    за MATERIAL_COLORS.
     """
     for col in range(
         1,
@@ -286,4 +280,3 @@ def _paint_row(
             column=col,
         )
         cell.fill = fill
-        cell.font = font

@@ -1,6 +1,7 @@
 import re
 
 from utils.gender_extractor import find_known_gender
+from utils.characteristic_extractor import find_known_characteristic
 from utils.material_extractor import MATERIAL_GROUP_EN
 
 
@@ -115,6 +116,59 @@ class GenderAxisResolver(DropdownAxisResolver):
         ).lower()
 
 
+class CharacteristicAxisResolver(DropdownAxisResolver):
+    """
+    Ось "характеристика" (электро/бытовое/ручное).
+
+    Тот же принцип, что и GenderAxisResolver: факт определяется по
+    общему словарю CHARACTERISTIC_ALIASES
+    (dictionaries/all_dictionaries.py), а не match-списку внутри
+    конкретного варианта. Канонический факт ("electric"/"manual"/
+    "household") сравнивается с полем "group" варианта.
+    """
+
+    def find(self, variants, card, result):
+
+        text = self._text(card)
+
+        if not text:
+            return None
+
+        characteristic = find_known_characteristic(text)
+
+        if not characteristic:
+            return None
+
+        for variant in variants:
+
+            group = str(variant.get("group", "")).strip().lower()
+
+            if characteristic == group:
+                return variant
+
+        return None
+
+    def _text(self, card):
+
+        parts = [
+            getattr(card, "title", ""),
+            getattr(card, "description", ""),
+            getattr(card, "cleaned_text", ""),
+        ]
+
+        specs = getattr(card, "specs", {}) or {}
+
+        for key, value in specs.items():
+            parts.append(str(key))
+            parts.append(str(value))
+
+        return " ".join(
+            str(part)
+            for part in parts
+            if part
+        ).lower()
+
+
 class KeywordAxisResolver(DropdownAxisResolver):
     """
     Универсальная ось по ключевым словам в тексте карточки.
@@ -198,9 +252,16 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
 
         if material:
 
+            material_candidates = {material}
+            english = MATERIAL_GROUP_EN.get(material)
+            if english:
+                material_candidates.add(english)
+
             by_material = [
                 v for v in variants
-                if str(v.get("material", v.get("name", ""))).strip().lower() == material
+                if str(
+                    v.get("material") or v.get("group") or v.get("name") or ""
+                ).strip().lower() in material_candidates
             ]
 
             if by_material:
@@ -403,7 +464,7 @@ AXIS_RESOLVERS = {
     "material": MaterialAxisResolver(),
     "gender": GenderAxisResolver(),
     "purpose": KeywordAxisResolver(),
-    "mechanism": KeywordAxisResolver(),
+    "mechanism": CharacteristicAxisResolver(),
     "material_volume": MaterialVolumeAxisResolver(),
     "keyword_score": ScoredKeywordAxisResolver(),
 }

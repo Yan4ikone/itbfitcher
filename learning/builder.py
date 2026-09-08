@@ -39,7 +39,7 @@ class LearningBuilder:
         self._new_aliases = {}             # product -> set(alias)
         self._new_dropdown_variants = {}   # product -> [variant, ...]
         self._dropdown_match_extensions = {}   # product -> {code: set(words)}
-        self._new_dropdowns = {}           # product -> {"title":..., "variants": [...]}
+        self._new_dropdowns = {}           # product -> {"variants": [...]}
         self._new_patterns = {}            # product -> set(pattern)
         self._new_dictionary_words = {}    # constant_name -> {group: set(word)}
 
@@ -59,7 +59,6 @@ class LearningBuilder:
             "code": str(item.code),
             "patterns": [],
             "aliases": [],
-            "material_codes": {},
         }
     # ==========================================================
     # ALIASES
@@ -87,7 +86,6 @@ class LearningBuilder:
             []
         ).append({
             "code": code,
-            "name": getattr(item, "name", "") or f"Вариант {code}",
             "group": getattr(item, "group", "") or "other",
             "match": list(getattr(item, "match", ()) or ()),
         })
@@ -136,11 +134,9 @@ class LearningBuilder:
                 continue
 
             words = tuple(keywords_by_code.get(code, ()))
-            name = words[0].capitalize() if words else f"Авто {index}"
 
             variants.append({
                 "code": code,
-                "name": name,
                 "group": "other",
                 "match": list(words),
             })
@@ -149,7 +145,6 @@ class LearningBuilder:
             return
 
         self._new_dropdowns[item.product] = {
-            "title": "Выберите вариант",
             "variants": variants,
         }
     # ==========================================================
@@ -270,7 +265,7 @@ class LearningBuilder:
 
             dropdown = target.setdefault(
                 "dropdown",
-                {"title": "Выберите вариант", "variants": []}
+                {"variants": []}
             )
             existing_variants = dropdown.setdefault("variants", [])
             known_codes = {

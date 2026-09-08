@@ -24,6 +24,11 @@ DICTIONARY_REGISTRY = {
         "constant": "GENDER_ALIASES",
     },
 
+    "characteristic": {
+        "label": "Характеристики (электро/бытовое/ручное)",
+        "constant": "CHARACTERISTIC_ALIASES",
+    },
+
     # "purpose": {
     #     "label": "Назначение",
     #     "constant": "PURPOSE_ALIASES",

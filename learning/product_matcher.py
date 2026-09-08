@@ -1,3 +1,4 @@
+from collections import Counter
 from difflib import SequenceMatcher
 
 from cleaner.morphology import Morphology
@@ -6,6 +7,10 @@ from learning.name_normalizer import normalize_dictionary_name
 
 
 class ProductMatcher:
+
+    # Пороги подобраны по реальному распределению products.py
+    _GENERIC_CODE_FULL_BONUS_UPTO = 8
+    _GENERIC_CODE_ZERO_BONUS_FROM = 20
 
     def __init__(self, repository):
         self.repository = repository
@@ -19,12 +24,20 @@ class ProductMatcher:
     def match(self, description, code):
 
         description = self.extractor.extract(description)
+
+        all_products = list(self.repository.all())
+
+        code_counts = Counter(
+            str(info.get("code") or "").strip()
+            for _, info in all_products
+        )
+
         best_product = None
         best_score = 0
 
-        for product, info in self.repository.all():
+        for product, info in all_products:
 
-            score = self.score(description, code, product, info)
+            score = self.score(description, code, product, info, code_counts)
 
             if score > best_score:
                 best_score = score
@@ -38,18 +51,48 @@ class ProductMatcher:
             "score": best_score,
         }
 
+    # ==========================================================
+    # КОД: МАСШТАБИРОВАННЫЙ БОНУС
+    # ==========================================================
 
-    def score(self, description, code, product, info):
+    def _code_bonus(self, code, full_bonus, code_counts):
+        """Полный бонус только если код действительно "принадлежит"
+        узкому кругу товаров. Пустой код и "0" (незаполненный/
+        плейсхолдер) бонуса не дают вообще."""
+
+        code = str(code or "").strip()
+
+        if not code or code == "0":
+            return 0
+
+        shared = code_counts.get(code, 0) if code_counts else 1
+
+        if shared <= self._GENERIC_CODE_FULL_BONUS_UPTO:
+            return full_bonus
+
+        if shared >= self._GENERIC_CODE_ZERO_BONUS_FROM:
+            return 0
+
+        # Линейное затухание между "ещё нормально" и "уже свалка".
+        span = self._GENERIC_CODE_ZERO_BONUS_FROM - self._GENERIC_CODE_FULL_BONUS_UPTO
+        fraction = 1 - (shared - self._GENERIC_CODE_FULL_BONUS_UPTO) / span
+
+        return int(full_bonus * fraction)
+
+    def score(self, description, code, product, info, code_counts=None):
         score = 0
 
         if str(info.get("code")) == str(code):
-            score += 40
+            score += self._code_bonus(code, 40, code_counts)
 
         # ------------------------------------------------------
         # Название товара
         # ------------------------------------------------------
 
-        score = max(score, self._product_score(description, code, product, info),)
+        score = max(
+            score,
+            self._product_score(description, code, product, info, code_counts),
+        )
 
         # ------------------------------------------------------
         # Алиасы
@@ -57,7 +100,10 @@ class ProductMatcher:
 
         for alias in info.get("aliases", []):
 
-            score = max(score, self._alias_score(description, alias, code, info),)
+            score = max(
+                score,
+                self._alias_score(description, alias, code, info, code_counts),
+            )
 
         # ------------------------------------------------------
         # Score words
@@ -69,6 +115,7 @@ class ProductMatcher:
                 description,
                 code,
                 info,
+                code_counts,
             ),
         )
 
@@ -78,12 +125,12 @@ class ProductMatcher:
     # PRODUCT SCORE
     # ==========================================================
 
-    def _product_score(self, description, code, product, info):
+    def _product_score(self, description, code, product, info, code_counts=None):
 
         score = 0
 
         if str(info.get("code")) == str(code):
-            score += 40
+            score += self._code_bonus(code, 40, code_counts)
 
         score += self._word_score(description, product)
         score += self._similarity_score(description, product)
@@ -94,12 +141,12 @@ class ProductMatcher:
     # ALIAS SCORE
     # ==========================================================
 
-    def _alias_score(self, description, alias, code, info):
+    def _alias_score(self, description, alias, code, info, code_counts=None):
 
         score = 0
 
         if str(info.get("code")) == str(code):
-            score += 30
+            score += self._code_bonus(code, 30, code_counts)
 
         score += self._word_score(description, alias)
         score += self._similarity_score(description, alias)
@@ -110,12 +157,12 @@ class ProductMatcher:
     # SCORE WORDS
     # ==========================================================
 
-    def _score_words_score(self, description, code, info):
+    def _score_words_score(self, description, code, info, code_counts=None):
 
         score = 0
 
         if str(info.get("code")) == str(code):
-            score += 20
+            score += self._code_bonus(code, 20, code_counts)
 
         score_words = info.get("score_words", [])
 

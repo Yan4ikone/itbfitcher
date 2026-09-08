@@ -1,4 +1,6 @@
 from resolver.dropdown_axis_resolver import AXIS_RESOLVERS, get_axis_resolver
+from utils.dropdown_helpers import variant_display_name
+from utils.material_extractor import MATERIAL_GROUP_EN
 
 class DropdownResolver:
 
@@ -91,12 +93,17 @@ class DropdownResolver:
 
         if material:
 
+            material_candidates = {material}
+            english = MATERIAL_GROUP_EN.get(material)
+            if english:
+                material_candidates.add(english)
+
             for variant in variants:
 
                 name = str(variant.get("name", "")).strip().lower()
                 group = str(variant.get("group", "")).strip().lower()
 
-                if material == name or (group and material == group):
+                if (material_candidates & {name, group}) - {""}:
 
                     self._apply_variant(
                         result,
@@ -116,8 +123,9 @@ class DropdownResolver:
         result.source = "DROPDOWN_FIRST"
         result.confidence = 60
         result.alternatives = {
-            item["code"]: item["name"]
+            item.get("code", ""): variant_display_name(item)
             for item in variants
+            if item.get("code")
         }
     # ==========================================================
     # AXIS DISPATCH
@@ -161,7 +169,7 @@ class DropdownResolver:
 
         result.code = code
         result.dropdown_group = str(variant.get("group", "")).strip()
-        result.dropdown = str(variant.get("name", "")).strip()
+        result.dropdown = variant_display_name(variant)
         result.source = source
         result.confidence = confidence
         result.review = review
