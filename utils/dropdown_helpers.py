@@ -53,15 +53,29 @@ def variant_display_name(variant: dict) -> str:
     return ""
 
 
+def group_color_key(group: str) -> str:
+    """Ключ для поиска цвета в MATERIAL_COLORS (там ключи материалов -
+    по-русски) по голому значению факта ("group" варианта, или то же
+    самое значение, уже записанное в отдельную колонку Excel -
+    см. excel/postprocessing.py::apply_group_colors). Переводит с
+    английского на русский, если нужно (group хранится по-английски
+    у большинства товаров - metal/plastic/...)."""
+
+    group = str(group or "").strip().lower()
+
+    if not group:
+        return ""
+
+    return MATERIAL_GROUP_RU.get(group, group)
+
+
 def variant_color_key(variant: dict) -> str:
-    """Ключ для поиска цвета в MATERIAL_COLORS (там ключи
-    материалов - по-русски). Пробуем group (переведя на русский,
-    если нужно), затем name как запасной вариант для старых
-    записей."""
+    """Ключ для поиска цвета в MATERIAL_COLORS - пробуем group,
+    затем name как запасной вариант для старых записей."""
 
     group = str(variant.get("group", "") or "").strip().lower()
 
     if group:
-        return MATERIAL_GROUP_RU.get(group, group)
+        return group_color_key(group)
 
     return str(variant.get("name", "") or "").strip().lower()

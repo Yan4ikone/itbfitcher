@@ -183,3 +183,41 @@ def find_group_usage(dict_key: str, group: str) -> list:
                 break
 
     return used_in
+
+
+def add_trash_word(word: str) -> None:
+    """Добавляет слово/фразу в TRASH_MARKETING - общий словарь
+    маркетингового/бессмысленного мусора, который is_valid_alias()
+    (learning/learning_filters.py) использует, чтобы не предлагать
+    такие слова как алиасы снова и снова. Вызывается прямо из вкладки
+    "Алиасы" в окне обучения - куратор видит неудачный алиас и сразу
+    отправляет его в мусорный словарь, без похода в общий редактор
+    словарей.
+
+    TRASH_MARKETING - плоское множество (не структура категория->
+    слова, как MATERIAL_ALIASES/GENDER_ALIASES/CHARACTERISTIC_ALIASES),
+    поэтому работаем с ним напрямую, в обход dictionary_registry."""
+
+    word = str(word or "").strip().lower()
+
+    if not word:
+        raise ValueError("Слово/фраза не должны быть пустыми")
+
+    _reload()
+    current = set(getattr(all_dictionaries, "TRASH_MARKETING", set()) or set())
+    current.add(word)
+
+    update_dict_constant("TRASH_MARKETING", current)
+    _reload()
+
+
+def is_trash_word(word: str) -> bool:
+    """Уже есть в TRASH_MARKETING? Используется, чтобы не предлагать
+    повторное добавление того, что уже туда попало."""
+
+    word = str(word or "").strip().lower()
+
+    if not word:
+        return False
+
+    return word in (getattr(all_dictionaries, "TRASH_MARKETING", set()) or set())

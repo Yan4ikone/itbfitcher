@@ -115,6 +115,10 @@ class CardRepository(JsonRepository):
                 else existing.get("code", ""),
             "material":
                 card.material,
+            "dropdown_group":
+                getattr(result, "dropdown_group", "")
+                if result
+                else existing.get("dropdown_group", ""),
             "quantity":
                 card.quantity,
             "brand":

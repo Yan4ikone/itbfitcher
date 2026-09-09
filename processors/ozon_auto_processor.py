@@ -11,7 +11,7 @@ from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
 from pathlib import Path
 from repositories.card_repository import CardRepository
-from excel.postprocessing import apply_visual_postprocessing
+from excel.postprocessing import apply_visual_postprocessing, apply_group_colors
 
 
 class OzonAutoProcessor:
@@ -544,6 +544,8 @@ class OzonAutoProcessor:
         if description:
             ws[f"B{row}"] = description
 
+        ws[f"N{row}"] = cached_card.get("dropdown_group", "") or ""
+
         if code and code not in ("0", "nan"):
             try:
                 ws[f"C{row}"] = int(code)
@@ -580,6 +582,11 @@ class OzonAutoProcessor:
             else ""
         )
         ws[f"M{row}"] = result.material or ""
+        # N - факт, на котором реально выбран dropdown-вариант
+        # (материал/пол/характеристика: "metal"/"male"/"electric" и
+        # т.п.) - нужен постобработке для покраски ячейки кода
+        # (см. excel/postprocessing.py::apply_group_colors).
+        ws[f"N{row}"] = getattr(result, "dropdown_group", "") or ""
         # ------------------------------------------------------
         # Decision Logger
         # ------------------------------------------------------
@@ -723,6 +730,23 @@ class OzonAutoProcessor:
                 f"Постобработка: "
                 f"красных={visual_stats['red']}, "
                 f"зелёных={visual_stats['green']}"
+            )
+
+            # Покраска ячейки кода по факту (материал/пол/
+            # характеристика), на котором реально выбран dropdown-
+            # вариант - для наглядности, тем же справочником цветов,
+            # что уже используется в ручном режиме
+            # (modules/dropdown_manager.py).
+            group_stats = apply_group_colors(
+                ws,
+                code_col_idx=3,        # колонка C
+                group_col_idx=14,      # колонка N
+                max_row=postprocess_last_row,
+            )
+
+            self.log(
+                f"Покраска по факту: "
+                f"покрашено={group_stats['colored']}"
             )
 
         except Exception:

@@ -29,8 +29,7 @@ class CandidateScorer:
             candidate.product,
             specs_weight,
         )
-        for alias in info.get("aliases", []):
-            self._score_alias(candidate, prepared, alias)
+        self._score_aliases(candidate, prepared, info.get("aliases", []))
 
         self._score_patterns(candidate, parsed, info.get("patterns", []))
         self._score_words(candidate, parsed, info.get("score_words", []))
@@ -107,43 +106,68 @@ class CandidateScorer:
     # ==============================================================
     # ALIAS
     # ==============================================================
-    def _score_alias(self, candidate, parsed, alias):
+    def _score_aliases(self, candidate, parsed, aliases):
+        """Как и с паттернами (_score_patterns) - несколько РАЗНЫХ
+        алиасов одного товара, совпавших в одном и том же поле, всё
+        ещё описывают ОДИН факт "текст похож на этот товар", а не
+        независимые улики. Раньше каждый совпавший алиас добавлял
+        очки НЕЗАВИСИМО (суммируясь) - например, если описание
+        одновременно упоминало "кеды" и "кроссовки" (оба - алиасы
+        товара "кроссовки"), это давало двойной счёт (300+300=600) и
+        позволяло случайному перечислению ("подходит для кроссовок,
+        туфель, кед") обогнать товар, чьё название БУКВАЛЬНО совпадает
+        с заголовком карточки. Теперь на каждое поле берётся ЛУЧШЕЕ
+        совпадение среди всех алиасов, не более одного раза."""
 
-        self._field_score(
-            candidate,
-            parsed["title"],
-            alias,
-            300,
-            "TITLE_ALIAS",
+        if not aliases:
+            return
+
+        fields = (
+            ("title", 300, "TITLE_ALIAS"),
+            ("slug", 220, "SLUG_ALIAS"),
+            ("description", 300, "DESC_ALIAS"),
+            ("cleaned_text", 250, "CLEANED_ALIAS"),
         )
-        self._field_score(
-            candidate,
-            parsed["slug"],
-            alias,
-            220,
-            "SLUG_ALIAS",
-        )
-        self._field_score(
-            candidate,
-            parsed["description"],
-            alias,
-            300,
-            "DESC_ALIAS",
-        )
-        self._field_score(
-            candidate,
-            parsed["cleaned_text"],
-            alias,
-            250,
-            "CLEANED_ALIAS",
-        )
+
+        for field_key, weight, source in fields:
+
+            text = parsed[field_key]
+
+            best = None  # (matched_weight, is_similar, alias)
+
+            for alias in aliases:
+
+                result = self._match_weight(text, alias, weight)
+
+                if result is None:
+                    continue
+
+                matched_weight, is_similar = result
+
+                if best is None or matched_weight > best[0]:
+                    best = (matched_weight, is_similar, alias)
+
+            if best:
+
+                matched_weight, is_similar, alias = best
+
+                candidate.add(
+                    source + ("_SIMILAR" if is_similar else ""),
+                    matched_weight,
+                    alias,
+                )
     # ==============================================================
     # PATTERN
     # ==============================================================
     def _score_patterns(self, candidate, parsed, patterns):
         """PATTERN засчитывается НЕ БОЛЕЕ ОДНОГО РАЗА за кандидата,
         даже если совпало несколько его паттернов - несколько
-        паттернов """
+        паттернов ("комбинез" и "комбинез.*") обычно описывают один и
+        тот же факт (альтернативные способы поймать одно и то же
+        слово), а не независимые улики. Раньше каждый совпавший
+        паттерн добавлял +350 отдельно (Candidate.add суммирует по
+        reason), из-за чего товар с двумя перекрывающимися паттернами
+        получал вдвое больше веса без всякого основания."""
 
         matched_pattern = None
 
@@ -185,8 +209,30 @@ class CandidateScorer:
 
     def _field_score(self, candidate, text, phrase, weight, source):
 
-        if not text or not phrase:
+        result = self._match_weight(text, phrase, weight)
+
+        if result is None:
             return
+
+        matched_weight, is_similar = result
+
+        candidate.add(
+            source + ("_SIMILAR" if is_similar else ""),
+            matched_weight,
+            phrase,
+        )
+
+    def _match_weight(self, text, phrase, weight):
+        """Вычисляет вес совпадения БЕЗ начисления очков кандидату -
+        отдельно от _field_score, чтобы можно было найти ЛУЧШЕЕ
+        совпадение среди НЕСКОЛЬКИХ фраз (см. _score_aliases) и
+        начислить очки только один раз, а не за каждую фразу отдельно.
+
+        Возвращает (вес, признак_нечёткого_совпадения) или None, если
+        совпадения нет вообще."""
+
+        if not text or not phrase:
+            return None
 
         text = text.lower()
         phrase = phrase.lower()
@@ -197,9 +243,7 @@ class CandidateScorer:
 
             weight = self._weaken_if_modifier_context(text, phrase, weight)
 
-            candidate.add(source, weight, phrase)
-
-            return
+            return weight, False
 
         words = phrase.split()
 
@@ -212,8 +256,7 @@ class CandidateScorer:
             try:
                 if re.search(gap_pattern, text):
                     weight = self._weaken_if_modifier_context(text, phrase, weight)
-                    candidate.add(source, weight, phrase)
-                    return
+                    return weight, False
             except re.error:
                 pass
 
@@ -235,22 +278,20 @@ class CandidateScorer:
                 # Ослабляем сильнее, чем при точном совпадении - это
                 # менее строгая проверка (без учёта порядка/близости
                 # слов), поэтому не даём ей полный вес.
-                candidate.add(source, int(weight * 0.6), phrase)
-                return
+                return int(weight * 0.6), False
+
         # -------------------------------------------------
         # Нечёткий поиск только для коротких строк
         # -------------------------------------------------
         if len(text) > 300:
-            return
+            return None
 
         similarity = SequenceMatcher(None, text, phrase).ratio()
 
         if similarity > 0.85:
-            candidate.add(
-                source + "_SIMILAR",
-                int(weight * similarity * 0.4),
-                phrase
-            )
+            return int(weight * similarity * 0.4), True
+
+        return None
 
     def _weaken_if_modifier_context(self, text, phrase, weight):
         """Если фраза стоит сразу после предлога-модификатора

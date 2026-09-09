@@ -3,7 +3,9 @@ from openpyxl.styles import PatternFill
 from dictionaries.all_dictionaries import (
     ALLOWED_PREFIXES,
     RESTRICTED_PREFIXES,
+    MATERIAL_COLORS,
 )
+from utils.dropdown_helpers import group_color_key
 
 
 # ============================================================
@@ -280,3 +282,56 @@ def _paint_row(
             column=col,
         )
         cell.fill = fill
+
+
+# ============================================================
+# ПОКРАСКА ЯЧЕЙКИ КОДА ПО ФАКТУ (материал/пол/характеристика)
+# ============================================================
+def apply_group_colors(ws, code_col_idx, group_col_idx, max_row=None):
+    """
+    Красит ЯЧЕЙКУ КОДА по факту, на котором реально был выбран
+    dropdown-вариант (материал/пол/характеристика - "group" из
+    resolver/dropdown_resolver.py, записанный в отдельную колонку
+    при обработке). Тот же справочник цветов MATERIAL_COLORS, что
+    уже применяется в ручном режиме (modules/dropdown_manager.py) -
+    здесь просто тот же принцип, но для уже автоматически
+    определённых кодов, а не для настройки выпадающего списка.
+
+    Ячейку кода не трогает apply_visual_postprocessing()/_paint_row()
+    специально ради этого - см. комментарий там.
+    """
+
+    if max_row is None:
+        max_row = ws.max_row
+
+    colored_count = 0
+    skipped_count = 0
+
+    for row in range(2, max_row + 1):
+
+        group_cell = ws.cell(row=row, column=group_col_idx)
+        group_value = str(group_cell.value or "").strip()
+
+        if not group_value:
+            skipped_count += 1
+            continue
+
+        color = MATERIAL_COLORS.get(group_color_key(group_value))
+
+        if not color:
+            skipped_count += 1
+            continue
+
+        code_cell = ws.cell(row=row, column=code_col_idx)
+        code_cell.fill = PatternFill(fill_type="solid", fgColor=color)
+        colored_count += 1
+
+    print(
+        f"[GROUP COLORS] покрашено={colored_count} "
+        f"пропущено (нет факта/цвета)={skipped_count}"
+    )
+
+    return {
+        "colored": colored_count,
+        "skipped": skipped_count,
+    }

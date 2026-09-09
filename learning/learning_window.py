@@ -101,6 +101,18 @@ class LearningWindow(Toplevel):
         self.alias_tree = self._create_alias_tree(
             self.aliases_frame
         )
+
+        ttk.Button(
+            self.aliases_frame,
+            text="В словарь мусора...",
+            command=self._send_alias_to_trash,
+        ).grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=(6, 0),
+        )
         self.dropdown_tree = self._create_dropdown_tree(
             self.dropdowns_frame
         )
@@ -648,6 +660,48 @@ class LearningWindow(Toplevel):
             iid,
             values=values
         )
+
+    def _send_alias_to_trash(self):
+        """Отправить выделенный алиас в мусорный словарь
+        (TRASH_MARKETING) - чтобы такое слово/фраза больше не
+        предлагались как алиас ни для какого товара. Раз это мусор,
+        а не алиас - строка убирается из списка на добавление и из
+        выбранных, если была отмечена."""
+
+        selection = self.alias_tree.selection()
+
+        if not selection:
+            messagebox.showwarning(
+                "В словарь мусора",
+                "Сначала выберите алиас в списке.",
+            )
+            return
+
+        iid = selection[0]
+        item = self.alias_rows[iid]
+
+        dialog = TrashWordDialog(self, item.alias)
+        self.wait_window(dialog)
+
+        if dialog.result is None:
+            return
+
+        try:
+            already = dictionary_editor.is_trash_word(dialog.result)
+            dictionary_editor.add_trash_word(dialog.result)
+        except ValueError as error:
+            messagebox.showwarning("В словарь мусора", str(error))
+            return
+
+        if already:
+            messagebox.showinfo(
+                "В словарь мусора",
+                f"«{dialog.result}» уже в словаре мусора.",
+            )
+
+        self.selected_aliases.discard(item)
+        self.alias_rows.pop(iid, None)
+        self.alias_tree.delete(iid)
 
     def _toggle_dropdown(self, iid):
 
@@ -1477,3 +1531,91 @@ class DictionaryEditorWindow(Toplevel):
             dictionary_editor.delete_category(key, group)
 
         self._reload_tree()
+
+
+class TrashWordDialog(Toplevel):
+    """
+    Подтверждение перед отправкой алиаса в мусорный словарь
+    (TRASH_MARKETING). Текст редактируемый - если в мусор нужно
+    отправить не всю фразу целиком, а только её часть (например,
+    из "футболка акции скидки" в мусор должно уйти "акции скидки",
+    а не "футболка" - это легитимное слово), куратор может подрезать
+    текст перед подтверждением.
+    """
+
+    def __init__(self, parent, alias_text):
+
+        super().__init__(parent)
+
+        self.title("В словарь мусора")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self.result = None
+
+        frame = ttk.Frame(self, padding=12)
+        frame.grid(row=0, column=0, sticky="nsew")
+
+        ttk.Label(
+            frame,
+            text="Добавить в словарь мусора (TRASH_MARKETING):",
+        ).grid(row=0, column=0, sticky="w")
+
+        ttk.Label(
+            frame,
+            text=(
+                "Если в мусор нужна не вся фраза, а часть - "
+                "подрежьте текст перед подтверждением."
+            ),
+            foreground="#666666",
+        ).grid(row=1, column=0, sticky="w", pady=(2, 8))
+
+        self.text_var = StringVar(value=alias_text)
+
+        entry = ttk.Entry(
+            frame,
+            textvariable=self.text_var,
+            width=50,
+        )
+        entry.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        entry.focus_set()
+        entry.select_range(0, "end")
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=3, column=0, sticky="e")
+
+        ttk.Button(
+            buttons,
+            text="Отмена",
+            command=self.destroy,
+        ).pack(side=RIGHT, padx=(6, 0))
+
+        ttk.Button(
+            buttons,
+            text="Добавить",
+            command=self._confirm,
+        ).pack(side=RIGHT)
+
+        self.bind("<Return>", lambda event: self._confirm())
+        self.bind("<Escape>", lambda event: self.destroy())
+
+        self.update_idletasks()
+        self.geometry(
+            f"+{parent.winfo_rootx() + 80}+{parent.winfo_rooty() + 80}"
+        )
+
+    def _confirm(self):
+
+        text = self.text_var.get().strip()
+
+        if not text:
+            messagebox.showwarning(
+                "В словарь мусора",
+                "Текст не должен быть пустым.",
+                parent=self,
+            )
+            return
+
+        self.result = text
+        self.destroy()
