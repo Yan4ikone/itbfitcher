@@ -28,12 +28,6 @@ DICTIONARY_REGISTRY = {
         "label": "Характеристики (электро/бытовое/ручное)",
         "constant": "CHARACTERISTIC_ALIASES",
     },
-
-    # "purpose": {
-    #     "label": "Назначение",
-    #     "constant": "PURPOSE_ALIASES",
-    # },  # пока пустой словарь без реальных данных - см. сессию про
-    #     # GENDER_ALIASES, включим когда появятся реальные слова.
 }
 
 

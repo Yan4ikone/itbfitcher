@@ -1,5 +1,5 @@
 import re
-from dictionaries.all_dictionaries import (MATERIAL_ALIASES, PRODUCT_TYPE_ALIASES, PURPOSE_ALIASES, )
+from dictionaries.all_dictionaries import MATERIAL_ALIASES
 
 def _find_alias(words, aliases):
 
@@ -22,16 +22,6 @@ def extract_features(card):
 
     if material:
         features["material"] = material
-
-    product_type = _find_alias(words, PRODUCT_TYPE_ALIASES)
-
-    if product_type:
-        features["product_type"] = product_type
-
-    purpose = _find_alias(words, PURPOSE_ALIASES)
-
-    if purpose:
-        features["purpose"] = purpose
 
     return features
 
