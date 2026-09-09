@@ -32,8 +32,7 @@ class CandidateScorer:
         for alias in info.get("aliases", []):
             self._score_alias(candidate, prepared, alias)
 
-        for pattern in info.get("patterns", []):
-            self._score_pattern(candidate, parsed, pattern)
+        self._score_patterns(candidate, parsed, info.get("patterns", []))
         self._score_words(candidate, parsed, info.get("score_words", []))
         # При обычном скоринге specs_weight=150 (штраф за отсутствие
         # TITLE/SLUG применяется в полную силу). При доразборе
@@ -141,15 +140,24 @@ class CandidateScorer:
     # ==============================================================
     # PATTERN
     # ==============================================================
-    def _score_pattern(self, candidate, parsed, pattern):
+    def _score_patterns(self, candidate, parsed, patterns):
+        """PATTERN засчитывается НЕ БОЛЕЕ ОДНОГО РАЗА за кандидата,
+        даже если совпало несколько его паттернов - несколько
+        паттернов """
 
-        try:
-            if re.search(pattern, parsed["search_text"]):
+        matched_pattern = None
 
-                candidate.add("PATTERN", 350, pattern)
+        for pattern in patterns:
 
-        except re.error:
-            return
+            try:
+                if re.search(pattern, parsed["search_text"]):
+                    matched_pattern = pattern
+                    break
+            except re.error:
+                continue
+
+        if matched_pattern:
+            candidate.add("PATTERN", 350, matched_pattern)
     # ==============================================================
     # SCORE WORDS
     # ==============================================================
