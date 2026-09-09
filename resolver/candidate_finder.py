@@ -1,4 +1,5 @@
 from resolver.candidate import Candidate
+from utils.tokenizer import lemmatized_tokens
 
 
 class CandidateFinder:
@@ -17,16 +18,33 @@ class CandidateFinder:
 
         tokens = parsed.get("tokens", set())
 
-        if not tokens:
+        breadcrumb_tokens = set()
+
+        for crumb in parsed.get("breadcrumbs", []) or []:
+            breadcrumb_tokens |= lemmatized_tokens(crumb)
+
+        if not tokens and not breadcrumb_tokens:
             return []
 
         # ----------------------------------------------------------
         # БЫСТРЫЙ ИНДЕКС
+        #
+        # Объединяем товары, найденные по токенам заголовка/описания,
+        # с товарами, найденные по токенам категории/подкатегории
+        # (breadcrumbs с маркетплейса) - иначе товар с мусорным
+        # названием, но чёткой категорией ("Мягкие игрушки"), никогда
+        # не попадёт в этот список вообще, и _can_match() до него не
+        # дойдёт.
         # ----------------------------------------------------------
 
-        products = self.repository.find_candidate_products(
-            tokens
+        products = set(
+            self.repository.find_candidate_products(tokens)
         )
+
+        if breadcrumb_tokens:
+            products |= self.repository.find_candidate_products(
+                breadcrumb_tokens
+            )
 
         # ----------------------------------------------------------
         # FALLBACK
@@ -124,6 +142,34 @@ class CandidateFinder:
         )
 
         # ----------------------------------------------------------
+        # BREADCRUMBS (категория/подкатегория с маркетплейса)
+        #
+        # Раньше breadcrumbs учитывались только в CandidateScorer при
+        # досчёте очков УЖЕ отобранным кандидатам - но не здесь, при
+        # первичном отборе. Если название карточки состоит целиком из
+        # маркетингового текста без единого пересечения с товаром, а
+        # категория чётко говорит "Мягкие игрушки" - товар должен хотя
+        # бы ПОПАСТЬ в кандидаты, чтобы его вообще могли оценить.
+        # ----------------------------------------------------------
+
+        breadcrumb_tokens = set()
+
+        for crumb in parsed.get("breadcrumbs", []) or []:
+            breadcrumb_tokens |= lemmatized_tokens(crumb)
+
+        if breadcrumb_tokens:
+
+            product_tokens_for_breadcrumb = (
+                self.repository.product_tokens.get(product)
+            )
+
+            if product_tokens_for_breadcrumb is None:
+                product_tokens_for_breadcrumb = self._tokens(product)
+
+            if product_tokens_for_breadcrumb & breadcrumb_tokens:
+                return True
+
+        # ----------------------------------------------------------
         # PRODUCT TOKENS
         #
         # Используем заранее построенный кэш ProductRepository.
@@ -202,8 +248,7 @@ class CandidateFinder:
             for word in score_words:
 
                 word_lower = (
-                    str(word)
-                    .lower()
+                    next(iter(lemmatized_tokens(word)), "")
                 )
 
                 if word_lower in tokens:
@@ -243,8 +288,4 @@ class CandidateFinder:
     @staticmethod
     def _tokens(text):
 
-        return {
-            word.lower()
-            for word in str(text).split()
-            if len(word) > 2
-        }
+        return lemmatized_tokens(text)

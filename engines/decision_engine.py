@@ -139,7 +139,7 @@ class DecisionEngine:
         # ==========================================================
         # 9. SAVE CARD
         # ==========================================================
-        if remember:
+        if remember and not result.review:
 
             self.knowledge.card_repository.remember(card, result)
             self._decide_count += 1

@@ -5,6 +5,7 @@ import importlib
 
 
 import dictionaries.products as products_dictionary
+from utils.tokenizer import lemmatized_tokens
 
 
 class ProductRepository:
@@ -38,14 +39,7 @@ class ProductRepository:
 
     @staticmethod
     def _tokens(text):
-        if not text:
-            return set()
-
-        return {
-            word.lower()
-            for word in str(text).split()
-            if len(word) > 2
-        }
+        return lemmatized_tokens(text)
 
     # ==============================================================
     # PRODUCTS

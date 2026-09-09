@@ -1,6 +1,7 @@
 from cleaner.product_cleaner import clean_text
 from cleaner.product_extractor import ProductExtractor
 from utils.quantity_extractor import extract_quantity
+from utils.tokenizer import lemmatized_tokens
 
 
 class ProductParser:
@@ -79,6 +80,6 @@ class ProductParser:
                 str(item).lower()
                 for item in getattr(card, "breadcrumbs", [])
             ],
-            "tokens": set(raw_text.lower().split()),
+            "tokens": lemmatized_tokens(raw_text),
             "product_name": product,
         }

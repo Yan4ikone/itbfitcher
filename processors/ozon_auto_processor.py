@@ -55,6 +55,7 @@ class OzonAutoProcessor:
         self.result_path = str(p.with_name(f"{p.stem}_RESULT{p.suffix}"))
         self.decision_logger = DecisionLogger()
         self.card_repository = CardRepository()
+        self.knowledge_base = None
         # ------------------------------------------------------
         # Защита общей статистики
         # ------------------------------------------------------
@@ -82,6 +83,20 @@ class OzonAutoProcessor:
         if not url:
             return None
 
+        # 1. Постоянный кэш - карточка прошла полное обучение и
+        # подтверждена куратором (LearningRuntime.mark_learning_
+        # processed). Проверяем ПЕРВЫМ: это самый надёжный и самый
+        # дешёвый источник, и именно сюда попадают карточки,
+        # УДАЛЁННЫЕ из card_repository после архивации.
+        if self.knowledge_base is not None:
+
+            lean = self.knowledge_base.get(url)
+
+            if lean:
+                return lean
+
+        # 2. Временный кэш - карточка уже обрабатывалась в этом или
+        # прошлом запуске, но ещё не прошла обучение/подтверждение.
         card = self.card_repository.find_by_url(url)
 
         if card:
@@ -674,6 +689,14 @@ class OzonAutoProcessor:
         # ==========================================================
         learning_history = (load_learning_history(self.excel_path))
         engine = DecisionEngine(learning_history)
+        self.card_repository = engine.knowledge.card_repository
+
+        # Постоянный кэш карточек, прошедших полное обучение и
+        # подтверждение куратором (см. get_cached_card ниже) -
+        # LearningRuntime.mark_learning_processed() архивирует сюда и
+        # УДАЛЯЕТ карточку из card_repository/runtime_cards.json,
+        # поэтому get_cached_card обязан проверять оба источника.
+        self.knowledge_base = engine.knowledge.knowledge_base
         # ==========================================================
         # ASYNC PARSING
         # ==========================================================
@@ -684,7 +707,7 @@ class OzonAutoProcessor:
             # ------------------------------------------------------
             # ПОСТОБРАБОТКА
             # Покраска строк по запрещённым/разрешённым префиксам
-            # кода.          
+            # кода.
             # ------------------------------------------------------
             self.log("Проверка ограничений...")
 
@@ -708,6 +731,12 @@ class OzonAutoProcessor:
 
             raise
         finally:
+
+            # Финальный flush - без него "хвост" карточек после
+            # последней контрольной точки (DecisionEngine сбрасывает
+            # кэш на диск каждые 20 карточек) никогда не попадает в
+            # storage/runtime_cards.json
+            engine.knowledge.card_repository.flush()
 
             wb.save(self.result_path)
         self.print_summary()
