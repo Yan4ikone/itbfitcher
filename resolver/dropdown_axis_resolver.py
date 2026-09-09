@@ -320,6 +320,97 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
             value = value / 1000.0
 
         return value
+
+
+class MaterialCharacteristicAxisResolver(DropdownAxisResolver):
+    """
+    Составная ось: сначала сужаем варианты по материалу (если он
+    известен), затем внутри них ищем более ТОЧНЫЙ вариант - тот, у
+    которого явно указана характеристика ("household"/"бытовой",
+    "manual"/"ручной", "electric"/"электро" - см.
+    CHARACTERISTIC_ALIASES), и она подтверждается в тексте карточки
+    (пример: держатель "пластиковый БЫТОВОЙ" - другой код, чем
+    просто "пластиковый").
+
+    Вариант без "characteristic" считается ОБЩИМ/дефолтным для этого
+    материала - используется, если по тексту характеристика не
+    определена, или не совпала ни с одним точным вариантом.
+    """
+
+    def find(self, variants, card, result):
+
+        material = str(result.material or "").strip().lower()
+
+        if not material:
+            return None
+
+        material_candidates = {material}
+        english = MATERIAL_GROUP_EN.get(material)
+        if english:
+            material_candidates.add(english)
+
+        by_material = [
+            v for v in variants
+            if str(
+                v.get("material") or v.get("group") or v.get("name") or ""
+            ).strip().lower() in material_candidates
+        ]
+
+        if not by_material:
+            return None
+
+        text = self._text(card)
+        characteristic = find_known_characteristic(text)
+
+        if characteristic:
+
+            for variant in by_material:
+
+                if str(
+                    variant.get("characteristic", "")
+                ).strip().lower() == characteristic:
+                    return variant
+
+        # Характеристика не найдена в тексте (или не совпала ни с
+        # одним точным вариантом) - используем общий вариант для
+        # этого материала, у которого characteristic не задан.
+        for variant in by_material:
+
+            if not variant.get("characteristic"):
+                return variant
+
+        return None
+
+    def _text(self, card):
+
+        parts = [
+            getattr(card, "title", ""),
+            getattr(card, "description", ""),
+            getattr(card, "cleaned_text", ""),
+        ]
+
+        specs = getattr(card, "specs", {}) or {}
+
+        for key, value in specs.items():
+            parts.append(str(key))
+            parts.append(str(value))
+
+        return " ".join(
+            str(part)
+            for part in parts
+            if part
+        ).lower()
+
+        if not match:
+            return None
+
+        value = float(match.group(1).replace(",", "."))
+        unit = match.group(2)
+
+        if unit == "мл":
+            value = value / 1000.0
+
+        return value
 class ScoredKeywordAxisResolver(DropdownAxisResolver):
     """
     Для "зонтичных" категорий словаря, где вариант - это НЕ разные
@@ -466,6 +557,7 @@ AXIS_RESOLVERS = {
     "purpose": KeywordAxisResolver(),
     "mechanism": CharacteristicAxisResolver(),
     "material_volume": MaterialVolumeAxisResolver(),
+    "material_characteristic": MaterialCharacteristicAxisResolver(),
     "keyword_score": ScoredKeywordAxisResolver(),
 }
 

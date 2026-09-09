@@ -6,6 +6,7 @@ class DropdownResolver:
 
     DEFAULT_AXES = (
         "material_volume",
+        "material_characteristic",
         "material",
         "gender",
         "purpose",
