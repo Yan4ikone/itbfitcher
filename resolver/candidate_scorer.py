@@ -170,18 +170,34 @@ class CandidateScorer:
         получал вдвое больше веса без всякого основания."""
 
         matched_pattern = None
+        match_start = None
 
         for pattern in patterns:
 
             try:
-                if re.search(pattern, parsed["search_text"]):
+                match = re.search(pattern, parsed["search_text"])
+                if match:
                     matched_pattern = pattern
+                    match_start = match.start()
                     break
             except re.error:
                 continue
 
         if matched_pattern:
-            candidate.add("PATTERN", 350, matched_pattern)
+
+            weight = 350
+
+            if match_start is not None and match_start > 0:
+
+                text = parsed["search_text"]
+                preceding = text[:match_start].rstrip()
+
+                for prep in self._CONTEXT_PREPOSITIONS:
+                    if preceding == prep or preceding.endswith(" " + prep):
+                        weight = int(weight * 0.25)
+                        break
+
+            candidate.add("PATTERN", weight, matched_pattern)
     # ==============================================================
     # SCORE WORDS
     # ==============================================================
@@ -284,7 +300,15 @@ class CandidateScorer:
             if phrase_lemmas <= text_lemmas:
                 # Ослабляем сильнее, чем при точном совпадении - это
                 # менее строгая проверка (без учёта порядка/близости
-                # слов), поэтому не даём ей полный вес.
+                # слов), поэтому не даём ей полный вес. Плюс отдельно
+                # проверяем предлог-модификатор ПО ЛЕММЕ -
+                # text.find(phrase) здесь не сработал бы: в тексте
+                # стоит другая словоформа ("газонокосилки", а не
+                # "газонокосилка" из словаря), обычный поиск подстроки
+                # её не находит вообще.
+                weight = self._weaken_if_modifier_context_lemma(
+                    text, phrase_lemmas, weight
+                )
                 return int(weight * 0.6), False
 
         # -------------------------------------------------
@@ -317,6 +341,42 @@ class CandidateScorer:
         for prep in self._CONTEXT_PREPOSITIONS:
             if preceding == prep or preceding.endswith(" " + prep):
                 return int(weight * 0.25)
+
+        return weight
+
+    def _weaken_if_modifier_context_lemma(self, text, phrase_lemmas, weight):
+        """Как _weaken_if_modifier_context, но для лемматизированного
+        совпадения - в тексте стоит другая словоформа ("газонокосилки"
+        вместо "газонокосилка" из словаря), обычный text.find(phrase)
+        её не находит вообще, поэтому штраф за предлог-модификатор
+        никогда не применялся к этому пути. Ищем слово по лемме и
+        проверяем предлог перед НИМ, а не перед точной фразой."""
+
+        words = text.split()
+
+        for i, word in enumerate(words):
+
+            word_clean = word.strip(".,!?;:()\"'«»-")
+
+            if not word_clean:
+                continue
+
+            word_lemma = next(
+                iter(lemmatized_tokens(word_clean)),
+                None,
+            )
+
+            if word_lemma and word_lemma in phrase_lemmas:
+
+                if i == 0:
+                    return weight
+
+                preceding = words[i - 1].strip(".,!?;:()\"'«»-").lower()
+
+                if preceding in self._CONTEXT_PREPOSITIONS:
+                    return int(weight * 0.25)
+
+                return weight
 
         return weight
     # ==============================================================
