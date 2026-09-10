@@ -237,13 +237,20 @@ class CandidateScorer:
         text = text.lower()
         phrase = phrase.lower()
         # -------------------------------------------------
-        # Быстрый поиск точного совпадения
+        # Быстрый поиск точного совпадения - С ГРАНИЦАМИ СЛОВА.
         # -------------------------------------------------
-        if phrase in text:
+        try:
+            if re.search(
+                r"(?<!\w)" + re.escape(phrase) + r"(?!\w)",
+                text,
+            ):
 
-            weight = self._weaken_if_modifier_context(text, phrase, weight)
+                weight = self._weaken_if_modifier_context(text, phrase, weight)
 
-            return weight, False
+                return weight, False
+
+        except re.error:
+            pass
 
         words = phrase.split()
 

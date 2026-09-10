@@ -1,6 +1,7 @@
 # ==============================================================
 # ОБЩИЕ НАСТРОЙКИ ПРОЕКТА
 # ==============================================================
+import os
 
 # Печатать подробные диагностические сообщения (utils/debug.py)
 DEBUG = False
@@ -40,3 +41,18 @@ DISAMBIGUATION_GAP_THRESHOLD = 60
 # доп. описанию (source="SPECS") при повторном скоринге
 # неоднозначных карточек
 SPECS_BOOST_MULTIPLIER = 3
+# Идентификатор конкретного сервера (для логов)
+SERVER_ID = os.environ.get("KOD_SERVER_ID", "server-1")
+
+# CDP / браузер
+CDP_PORT = int(os.environ.get("KOD_CDP_PORT", "9222"))
+CDP_URL = f"http://127.0.0.1:{CDP_PORT}"
+
+YANDEX_BROWSER_PATH = os.environ.get(
+    "KOD_BROWSER_PATH",
+    r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe",
+)
+YANDEX_USER_DATA_DIR = os.environ.get(
+    "KOD_PROFILE_DIR",
+    r"C:\Users\Public\YandexAutomationProfile",
+)
