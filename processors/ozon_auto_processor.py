@@ -71,7 +71,10 @@ class OzonAutoProcessor:
     # ==========================================================
     def log(self, text):
 
-        print(text)
+        try:
+            print(text)
+        except UnicodeEncodeError:
+            print(text.encode("ascii", errors="replace").decode("ascii"))
 
         if self.logger:
             self.logger(text)
