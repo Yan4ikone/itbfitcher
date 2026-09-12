@@ -347,6 +347,7 @@ TRASH_BRANDS = {
     "decathlon",
     "reef",
     "quicksilver",
+    "Polo Ralph Lauren",
     "billabong"
 }
 
