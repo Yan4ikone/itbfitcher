@@ -22,6 +22,7 @@ import asyncio
 from utils.material_extractor import find_known_material
 import re
 import logging
+from urllib.parse import quote
 from bs4 import BeautifulSoup
 
 
@@ -348,6 +349,100 @@ _READY_SELECTOR = (
 )
 
 
+async def fetch_ozon_composer_specs(page, timeout=8000):
+    """
+    Быстрый способ получить характеристики карточки Ozon - через тот
+    же внутренний API (entrypoint-api.bx/page/json/v2), которым сама
+    витрина Ozon подгружает содержимое, вместо ожидания полного
+    рендеринга DOM браузером.
+
+    Структура ответа ПОДТВЕРЖДЕНА реальными данными: нужный контейнер
+    - "pdpPage2column". Внутри widgetStates ключ вида
+    "webCharacteristics-<id>-pdpPage2column-<n>" содержит
+    {"characteristics": [{"short": [...], "long": [...]}], "productTitle": "..."}
+    - "short" - однозначные характеристики, "long" - многозначные
+    (список вариантов).
+
+    ВАЖНО: запрос идёт через page.request (APIRequestContext) уже
+    открытой страницы - переиспользует куки/сессию текущего браузера,
+    прошедшего антибот-проверки Ozon. Отдельный requests.get() c
+    высокой вероятностью будет заблокирован.
+
+    Возвращает (specs_dict, title) - оба пустые при любой ошибке
+    (неофициальный API, могут поменять формат без предупреждения -
+    отказ здесь НЕ фатален, обычный путь через DOM подхватит то, что
+    сможет).
+    """
+
+    try:
+        product_path = re.sub(r"^https?://[^/]+", "", page.url)
+    except Exception:
+        return {}, ""
+
+    url = (
+        "https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2"
+        f"?url={quote(product_path, safe='')}"
+        "&layout_container=pdpPage2column"
+        "&layout_page_index=2"
+    )
+
+    try:
+        response = await page.request.get(url, timeout=timeout)
+
+        if not response.ok:
+            return {}, ""
+
+        envelope = await response.json()
+
+    except Exception:
+        # Неофициальный API - Ozon может поменять формат/заблокировать
+        # запрос без предупреждения. Не фатально: обычный путь через
+        # DOM (ниже) подхватит то, что сможет.
+        return {}, ""
+
+    specs = {}
+    title = ""
+
+    for key, raw_value in (envelope.get("widgetStates") or {}).items():
+
+        if not key.startswith("webCharacteristics"):
+            continue
+
+        try:
+            value = json.loads(raw_value)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        title = re.sub(
+            r"^Характеристики:\s*",
+            "",
+            value.get("productTitle", ""),
+        ).strip()
+
+        for group in value.get("characteristics", []):
+
+            for item in (
+                (group.get("short") or [])
+                + (group.get("long") or [])
+            ):
+
+                name = item.get("name")
+
+                if not name:
+                    continue
+
+                texts = [
+                    v.get("text", "")
+                    for v in item.get("values", [])
+                    if isinstance(v, dict) and v.get("text")
+                ]
+
+                if texts:
+                    specs[name] = ", ".join(texts)
+
+    return specs, title
+
+
 async def parse_ozon_page_async(page, timeout=15000) -> dict:
     """
     Асинхронный разбор уже открытой страницы Ozon.
@@ -367,6 +462,14 @@ async def parse_ozon_page_async(page, timeout=15000) -> dict:
     хотя бы попадёт в классификацию, а не потеряется полностью).
     """
     selector_found = True
+
+    # Быстрый запрос характеристик через API - запускаем ПАРАЛЛЕЛЬНО
+    # с ожиданием DOM ниже (не последовательно), чтобы не тратить
+    # время впустую: пока браузер ждёт рендеринга страницы, запрос
+    # уже летит и почти наверняка успевает вернуться раньше.
+    composer_task = asyncio.ensure_future(
+        fetch_ozon_composer_specs(page)
+    )
 
     try:
         await page.wait_for_selector(
@@ -408,6 +511,23 @@ async def parse_ozon_page_async(page, timeout=15000) -> dict:
     # ASYNCIO EVENT LOOP
     # ======================================================
     data = await asyncio.to_thread(parse_ozon_html, html)
+
+    # Сливаем результат быстрого API-запроса характеристик - он не
+    # зависит от того, успела ли секция характеристик отрендериться
+    # в DOM к моменту снятия HTML (см. историю про webCharacteristics
+    # против ld+json/webGallery в _READY_SELECTOR), поэтому предпочитаем
+    # его, если он вообще что-то вернул.
+    try:
+        composer_specs, composer_title = await composer_task
+    except Exception:
+        composer_specs, composer_title = {}, ""
+
+    if composer_specs:
+        data.setdefault("specs", {})
+        data["specs"].update(composer_specs)
+
+    if composer_title and not data.get("title"):
+        data["title"] = composer_title
 
     # Последний резерв - специфично для редиректов на /search/,
     # когда даже <title> страницы не дал ничего полезного.
