@@ -6,6 +6,7 @@ import time
 import requests
 from playwright.async_api import async_playwright
 
+import config
 from models.card_builder import build_product_card
 from parser.wb_parser import WBParser
 
@@ -17,7 +18,7 @@ GOTO_RETRY_DELAY = 1.5
 
 class CDPWBParser:
 
-    def __init__(self, cdp_url="http://127.0.0.1:9222"):
+    def __init__(self, cdp_url=config.CDP_URL):
 
         self.cdp_url = cdp_url
         self.parser = WBParser()
@@ -40,7 +41,7 @@ class CDPWBParser:
         try:
 
             requests.get(
-                "http://127.0.0.1:9222/json/version",
+                f"{config.CDP_URL}/json/version",
                 timeout=2,
             )
             return True
@@ -49,27 +50,22 @@ class CDPWBParser:
 
     def start_yandex_browser(self):
 
-        browser_path = (
-            r"C:\Program Files\Yandex\YandexBrowser"
-            r"\Application\browser.exe"
-        )
+        browser_path = config.YANDEX_BROWSER_PATH
         if not os.path.exists(browser_path):
             raise RuntimeError(f"Не найден Яндекс.Браузер: {browser_path}")
-        user_data_dir = (
-            r"C:\Users\Yan\AppData\Local"
-            r"\YandexAutomationProfile"
-        )
-        profile_directory = "Default"
+        user_data_dir = config.YANDEX_USER_DATA_DIR
+        profile_directory = config.YANDEX_PROFILE_DIRECTORY
         profile_path = os.path.join(user_data_dir, profile_directory)
         os.makedirs(profile_path, exist_ok=True)
         log.info(
-            "Запускаем Yandex Browser "
-            "для WB"
+            "[%s] Запускаем Yandex Browser для WB (порт %d)",
+            config.SERVER_ID,
+            config.CDP_PORT,
         )
         subprocess.Popen(
             [
                 browser_path,
-                "--remote-debugging-port=9222",
+                f"--remote-debugging-port={config.CDP_PORT}",
                 "--remote-debugging-address=127.0.0.1",
                 f"--user-data-dir={user_data_dir}",
                 f"--profile-directory={profile_directory}",

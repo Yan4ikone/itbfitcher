@@ -6,6 +6,7 @@ import time
 import requests
 from playwright.async_api import async_playwright
 
+import config
 from engines.image_description_engine import ImageDescriptionEngine
 from models.card_builder import build_product_card
 from parser.ozon_html_parser import (
@@ -27,7 +28,7 @@ GOTO_RETRY_DELAY = 1.5
 
 class CDPProductParser:
 
-    def __init__(self, cdp_url="http://127.0.0.1:9222"):
+    def __init__(self, cdp_url=config.CDP_URL):
         self.cdp_url = cdp_url
         image_engine = ImageDescriptionEngine()
         image_service = ImageDescriptionService(image_engine)
@@ -49,25 +50,26 @@ class CDPProductParser:
 
     def is_cdp_running(self):
         try:
-            requests.get("http://127.0.0.1:9222/json/version", timeout=2)
+            requests.get(f"{config.CDP_URL}/json/version", timeout=2)
             return True
         except requests.RequestException:
             return False
 
     def start_yandex_browser(self):
-        browser_path = (
-            r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe"
-        )
+        browser_path = config.YANDEX_BROWSER_PATH
         if not os.path.exists(browser_path):
             raise RuntimeError(
                 f"Не найден Яндекс.Браузер: {browser_path}"
             )
         # Отдельный профиль для автоматизации
-        user_data_dir = r"C:\Users\Yan\AppData\Local\YandexAutomationProfile"
-        profile_directory = "Default"
+        user_data_dir = config.YANDEX_USER_DATA_DIR
+        profile_directory = config.YANDEX_PROFILE_DIRECTORY
         profile_path = os.path.join(user_data_dir, profile_directory)
         os.makedirs(profile_path, exist_ok=True)
-        log.info("Запускаем Yandex Browser (автоматизационный профиль)")
+        log.info(
+            "[%s] Запускаем Yandex Browser (автоматизационный профиль)",
+            config.SERVER_ID,
+        )
         log.info(
             "User Data: %s",
             user_data_dir,
@@ -79,7 +81,7 @@ class CDPProductParser:
         subprocess.Popen(
             [
                 browser_path,
-                "--remote-debugging-port=9222",
+                f"--remote-debugging-port={config.CDP_PORT}",
                 "--remote-debugging-address=127.0.0.1",
                 f"--user-data-dir={user_data_dir}",
                 f"--profile-directory={profile_directory}",

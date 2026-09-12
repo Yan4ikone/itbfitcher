@@ -1,10 +1,44 @@
 # ==============================================================
 # ОБЩИЕ НАСТРОЙКИ ПРОЕКТА
 # ==============================================================
+
 import os
 
 # Печатать подробные диагностические сообщения (utils/debug.py)
 DEBUG = False
+
+# --------------------------------------------------------------
+# Идентификация сервера и Яндекс.Браузер (CDP)
+#
+# Всё, что здесь, читается из переменных окружения, чтобы код
+# был одинаковым на всех серверах флота — отличаются только
+# переменные окружения конкретной машины. Значения по умолчанию
+# соответствуют тому, как это было настроено на первом сервере.
+# --------------------------------------------------------------
+
+# Имя сервера — попадает в логи, чтобы отличать машины друг от друга
+SERVER_ID = os.environ.get("KOD_SERVER_ID", "server-1")
+
+# Порт CDP (remote debugging) для Яндекс.Браузера на этой машине.
+CDP_PORT = int(os.environ.get("KOD_CDP_PORT", "9222"))
+CDP_URL = f"http://127.0.0.1:{CDP_PORT}"
+
+# Путь к исполняемому файлу Яндекс.Браузера на этой машине
+YANDEX_BROWSER_PATH = os.environ.get(
+    "KOD_BROWSER_PATH",
+    r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe",
+)
+
+# Папка профиля автоматизации (куки/сессия — по сути, аккаунт,
+# залогиненный на этой машине)
+YANDEX_USER_DATA_DIR = os.environ.get(
+    "KOD_PROFILE_DIR",
+    r"C:\Users\Public\YandexAutomationProfile",
+)
+YANDEX_PROFILE_DIRECTORY = os.environ.get(
+    "KOD_PROFILE_NAME",
+    "Default",
+)
 
 # --------------------------------------------------------------
 # classifier/similarity_engine.py
@@ -41,18 +75,3 @@ DISAMBIGUATION_GAP_THRESHOLD = 60
 # доп. описанию (source="SPECS") при повторном скоринге
 # неоднозначных карточек
 SPECS_BOOST_MULTIPLIER = 3
-# Идентификатор конкретного сервера (для логов)
-SERVER_ID = os.environ.get("KOD_SERVER_ID", "server-1")
-
-# CDP / браузер
-CDP_PORT = int(os.environ.get("KOD_CDP_PORT", "9222"))
-CDP_URL = f"http://127.0.0.1:{CDP_PORT}"
-
-YANDEX_BROWSER_PATH = os.environ.get(
-    "KOD_BROWSER_PATH",
-    r"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe",
-)
-YANDEX_USER_DATA_DIR = os.environ.get(
-    "KOD_PROFILE_DIR",
-    r"C:\Users\Public\YandexAutomationProfile",
-)

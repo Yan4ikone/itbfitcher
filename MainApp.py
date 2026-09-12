@@ -1,5 +1,5 @@
-# ITB FITCHER — modern GUI v2.0
-# pyinstaller --clean MainApp.spec
+# ITB FITCHER — modern GUI v3.0
+
 
 import os
 import sys
