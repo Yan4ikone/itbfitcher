@@ -92,11 +92,34 @@ class ExcelNameBuilder:
 
         specs = getattr(card, "specs", {}) or {}
 
+
+        # Достаём единицу из имени поля, если она там есть.
+        fields_with_unit = [
+            ("Объем, мл", "мл"),
+            ("Объём, мл", "мл"),
+            ("Объем, л", "л"),
+            ("Объём, л", "л"),
+        ]
+        for field, unit in fields_with_unit:
+
+            value = specs.get(field)
+
+            if not value:
+                continue
+
+            value = str(value).strip()
+
+            if re.search(r"(мл|л)\b", value, flags=re.IGNORECASE):
+                return value
+
+            if re.match(r"^\d+([.,]\d+)?$", value):
+                return f"{value} {unit}"
+
+            return value
+
         fields = [
             "Объем",
             "Объём",
-            "Объем, мл",
-            "Объём, мл",
             "Объем товара",
             "Объём товара",
         ]

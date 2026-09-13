@@ -9,6 +9,13 @@ from cleaner.morphology import Morphology
 # а Morphology.normal() уже кэширует результаты по словам (lru_cache).
 _morphology = Morphology()
 
+# Знаки препинания, приклеивающиеся к слову без пробела в обычном
+# тексте ("Велокамера, диаметр..." / "товар." / "цвет:красный").
+# из-за чего лемматизация не находила соответствие товару/слову без
+# запятой - это ломало сопоставление по лемме ВЕЗДЕ, где совпадение
+# оказывалось рядом со знаком препинания, а не только в конце фразы.
+_PUNCTUATION = ".,!?;:()\"'«»-–—"
+
 
 def lemmatized_tokens(text) -> set:
     """Токены текста, приведённые к нормальной форме (лемме).
@@ -19,9 +26,10 @@ def lemmatized_tokens(text) -> set:
         return set()
 
     words = [
-        word
+        word.strip(_PUNCTUATION)
         for word in str(text).lower().split()
-        if len(word) > 2
     ]
+
+    words = [word for word in words if len(word) > 2]
 
     return {_morphology.normal(word) for word in words}
