@@ -171,6 +171,7 @@ class CandidateScorer:
 
         matched_pattern = None
         match_start = None
+        match_end = None
 
         for pattern in patterns:
 
@@ -179,6 +180,7 @@ class CandidateScorer:
                 if match:
                     matched_pattern = pattern
                     match_start = match.start()
+                    match_end = match.end()
                     break
             except re.error:
                 continue
@@ -191,11 +193,20 @@ class CandidateScorer:
 
                 text = parsed["search_text"]
                 preceding = text[:match_start].rstrip()
+                following = text[match_end:].lstrip()
 
                 for prep in self._CONTEXT_PREPOSITIONS:
                     if preceding == prep or preceding.endswith(" " + prep):
                         weight = int(weight * 0.25)
                         break
+                else:
+                    if (
+                            preceding.endswith(",")
+                            or preceding.endswith(" или")
+                            or following.startswith(",")
+                            or following.startswith("или ")
+                    ):
+                        weight = int(weight * 0.25)
 
             candidate.add("PATTERN", weight, matched_pattern)
     # ==============================================================
@@ -329,7 +340,14 @@ class CandidateScorer:
         ("на"/"для"/"под"/"от"/"к"), она почти наверняка описывает,
         ДЛЯ ЧЕГО нужен товар, а не сам товар - ослабляем вес, но не
         обнуляем полностью (иногда единственное упоминание всё же
-        верное)."""
+        верное).
+
+        Также ослабляем, если фраза - один из вариантов в перечислении
+        через запятую/"или" ("подходит для телефона, mp3-плеера или
+        планшета" - это описание СОВМЕСТИМОСТИ товара с разными
+        устройствами, а не сам товар; раньше такое перечисление в
+        длинном маркетинговом описании давало полный вес каждому
+        упомянутому устройству)."""
 
         pos = text.find(phrase)
 
@@ -337,10 +355,19 @@ class CandidateScorer:
             return weight
 
         preceding = text[:pos].rstrip()
+        following = text[pos + len(phrase):].lstrip()
 
         for prep in self._CONTEXT_PREPOSITIONS:
             if preceding == prep or preceding.endswith(" " + prep):
                 return int(weight * 0.25)
+
+        if (
+                preceding.endswith(",")
+                or preceding.endswith(" или")
+                or following.startswith(",")
+                or following.startswith("или ")
+        ):
+            return int(weight * 0.25)
 
         return weight
 
@@ -371,9 +398,21 @@ class CandidateScorer:
                 if i == 0:
                     return weight
 
-                preceding = words[i - 1].strip(".,!?;:()\"'«»-").lower()
+                preceding_raw = words[i - 1]
+                preceding = preceding_raw.strip(".,!?;:()\"'«»-").lower()
 
                 if preceding in self._CONTEXT_PREPOSITIONS:
+                    return int(weight * 0.25)
+
+                following_raw = words[i + 1] if i + 1 < len(words) else ""
+                following = following_raw.strip(".,!?;:()\"'«»-").lower()
+
+                if (
+                        preceding_raw.rstrip().endswith(",")
+                        or preceding == "или"
+                        or following_raw.lstrip().startswith(",")
+                        or following == "или"
+                ):
                     return int(weight * 0.25)
 
                 return weight
