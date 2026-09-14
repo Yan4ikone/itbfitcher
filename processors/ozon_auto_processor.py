@@ -616,6 +616,18 @@ class OzonAutoProcessor:
             ws[f"B{row}"] = (result.dropdown)
         elif result.product:
             ws[f"B{row}"] = (result.product)
+        elif getattr(card, "title", "") or getattr(card, "description", ""):
+            # Код не присвоен и продукт не определён - но карточка
+            # реально спарсилась (название/описание с самой страницы
+            # Ozon есть). Пишем ЕГО вместо того, чтобы молча оставить
+            # то, что уже было в B (часто - просто старое/пустое
+            # значение) - куратор сразу видит, что реально написано
+            # на странице, и может понять, какой код/алиас нужен,
+            # вместо пустой догадки.
+            ws[f"B{row}"] = (
+                getattr(card, "title", "")
+                or getattr(card, "description", "")
+            )
         else:
             ws[f"B{row}"] = original
         # ------------------------------------------------------
