@@ -16,6 +16,12 @@ from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
 from learning.learning_window import LearningWindow
 from result_window import ResultWindow
+from server_split import (
+    split_by_servers,
+    merge_server_results,
+    find_rows_with_url,
+)
+import openpyxl
 
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")
@@ -54,6 +60,166 @@ def make_category_rule(product_name):
         return ""
     pattern = ".*".join(w[:5] for w in words if len(w) >= 4)
     return f'r"{pattern}": "{product_name}",'
+
+
+class SplitDialog(tk.Toplevel):
+    """Окно настройки разделения файла по машинам/серверам -
+    количество машин задаётся свободно, количество строк на каждую
+    машину можно скорректировать вручную (по умолчанию - поровну)."""
+
+    def __init__(self, parent, app, total_rows):
+        super().__init__(parent)
+        self.app = app
+        self.total_rows = total_rows
+        self.dest_dir = None
+
+        self.title("Разделить по серверам")
+        self.geometry("420x520")
+        self.configure(bg=app.BG)
+        self.transient(parent)
+        self.grab_set()
+
+        self.entry_vars = []
+
+        tk.Label(
+            self, text=f"Всего строк: {total_rows}",
+            bg=app.BG, fg=app.TEXT, font=("Segoe UI", 12, "bold"),
+        ).pack(pady=(15, 5))
+
+        n_row = tk.Frame(self, bg=app.BG)
+        n_row.pack(pady=5)
+
+        tk.Label(
+            n_row, text="Количество машин:",
+            bg=app.BG, fg=app.TEXT, font=("Segoe UI", 10),
+        ).pack(side="left", padx=(0, 8))
+
+        self.n_var = tk.StringVar(value="5")
+        n_entry = tk.Entry(
+            n_row, textvariable=self.n_var, width=5,
+            font=("Segoe UI", 10),
+        )
+        n_entry.pack(side="left")
+
+        ttk.Button(
+            n_row, text="Обновить", command=self._rebuild_rows,
+        ).pack(side="left", padx=8)
+
+        self.rows_frame = tk.Frame(self, bg=app.BG)
+        self.rows_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        self.remaining_label = tk.Label(
+            self, text="", bg=app.BG, fg=app.TEXT,
+            font=("Segoe UI", 11, "bold"),
+        )
+        self.remaining_label.pack(pady=5)
+
+        dest_row = tk.Frame(self, bg=app.BG)
+        dest_row.pack(pady=5, fill="x", padx=15)
+
+        self.dest_var = tk.StringVar(value="Папка не выбрана")
+
+        tk.Label(
+            dest_row, textvariable=self.dest_var,
+            bg=app.BG, fg=app.MUTED, font=("Segoe UI", 9),
+            anchor="w",
+        ).pack(side="left", fill="x", expand=True)
+
+        ttk.Button(
+            dest_row, text="Папка...", command=self._choose_dest,
+        ).pack(side="right")
+
+        ttk.Button(
+            self, text="Разделить", command=self._do_split,
+            style="Primary.TButton",
+        ).pack(pady=15, fill="x", padx=15)
+
+        self._rebuild_rows()
+
+    def _rebuild_rows(self):
+        for widget in self.rows_frame.winfo_children():
+            widget.destroy()
+        self.entry_vars = []
+
+        try:
+            n = max(1, int(self.n_var.get()))
+        except ValueError:
+            n = 1
+            self.n_var.set("1")
+
+        per_machine = self.total_rows // n
+        extra = self.total_rows % n
+
+        for i in range(n):
+            count = per_machine + (1 if i < extra else 0)
+
+            row = tk.Frame(self.rows_frame, bg=self.app.BG)
+            row.pack(fill="x", pady=2)
+
+            tk.Label(
+                row, text=f"Машина {i + 1}:",
+                bg=self.app.BG, fg=self.app.TEXT,
+                width=12, anchor="w", font=("Segoe UI", 10),
+            ).pack(side="left")
+
+            var = tk.StringVar(value=str(count))
+            var.trace_add("write", lambda *a: self._update_remaining())
+            entry = tk.Entry(row, textvariable=var, width=8)
+            entry.pack(side="left", padx=5)
+
+            self.entry_vars.append(var)
+
+        self._update_remaining()
+
+    def _update_remaining(self):
+        used = 0
+        for var in self.entry_vars:
+            try:
+                used += int(var.get())
+            except ValueError:
+                pass
+
+        remaining = self.total_rows - used
+
+        self.remaining_label.config(
+            text=f"Осталось нераспределённых: {remaining}",
+            fg="#16a34a" if remaining == 0 else "#dc2626",
+        )
+
+    def _choose_dest(self):
+        folder = filedialog.askdirectory(title="Куда сохранить файлы")
+        if folder:
+            self.dest_dir = folder
+            self.dest_var.set(folder)
+
+    def _do_split(self):
+        try:
+            counts = [int(var.get()) for var in self.entry_vars]
+        except ValueError:
+            messagebox.showerror(
+                "Ошибка", "Количество строк должно быть числом.",
+            )
+            return
+
+        if sum(counts) != self.total_rows:
+            messagebox.showerror(
+                "Ошибка",
+                f"Сумма ({sum(counts)}) не совпадает с общим "
+                f"числом строк ({self.total_rows}).",
+            )
+            return
+
+        if any(c < 0 for c in counts):
+            messagebox.showerror("Ошибка", "Количество не может быть отрицательным.")
+            return
+
+        dest_dir = self.dest_dir or os.path.join(
+            os.path.dirname(self.app.selected_file["path"]),
+            "распределено_по_серверам",
+        )
+
+        self.destroy()
+        self.app.run_split(len(counts), counts, dest_dir)
 
 
 class App:
@@ -350,6 +516,20 @@ class App:
             style="Secondary.TButton"
         ).pack(side="right")
 
+        row2 = tk.Frame(body, bg=self.CARD)
+        row2.pack(fill="x", pady=(7, 0))
+
+        ttk.Button(
+            row2, text="Разделить по серверам",
+            command=self.open_split_dialog,
+            style="Secondary.TButton"
+        ).pack(side="left")
+        ttk.Button(
+            row2, text="Собрать с серверов",
+            command=self.merge_from_servers,
+            style="Secondary.TButton"
+        ).pack(side="left", padx=7)
+
         tk.Checkbutton(
             body,
             text="Пропускать товары, у которых код уже заполнен",
@@ -577,6 +757,94 @@ class App:
             processor.pause()
             self.set_status("Пауза")
             self.gui_log("Ⅱ Обработка поставлена на паузу")
+
+    # ========================================================
+    # Разделение по серверам / сборка результатов
+    # ========================================================
+
+    def open_split_dialog(self):
+        if not self._require_file():
+            return
+
+        try:
+            wb = openpyxl.load_workbook(self.selected_file["path"])
+            rows = find_rows_with_url(wb.active)
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось прочитать файл: {e}")
+            return
+
+        total = len(rows)
+
+        if total == 0:
+            messagebox.showwarning(
+                "Нет строк",
+                "В выбранном файле не найдено ни одной строки со ссылкой.",
+            )
+            return
+
+        SplitDialog(self.root, self, total)
+
+    def run_split(self, n, counts, dest_dir):
+        try:
+            paths = split_by_servers(
+                self.selected_file["path"],
+                n=n,
+                output_dir=dest_dir,
+                counts=counts,
+                log=self.gui_log,
+            )
+            messagebox.showinfo(
+                "Готово",
+                f"Создано файлов: {len(paths)}\nПапка:\n{dest_dir}",
+            )
+            self.gui_log(f"✓ Разделено на {len(paths)} машин(ы)")
+            try:
+                os.startfile(dest_dir)
+            except Exception:
+                pass
+        except Exception as e:
+            self.gui_log(f"✗ Ошибка разделения: {e}")
+            messagebox.showerror("Ошибка разделения", str(e))
+
+    def merge_from_servers(self):
+        if not self._require_file():
+            return
+
+        paths = filedialog.askopenfilenames(
+            title="Выберите обработанные файлы со всех машин",
+            filetypes=[("Excel files", "*.xlsx *.xlsm")],
+        )
+
+        if not paths:
+            return
+
+        base, ext = os.path.splitext(self.selected_file["path"])
+        output_path = f"{base}_RESULT{ext}"
+
+        if os.path.exists(output_path):
+            if not messagebox.askyesno(
+                "Файл уже существует",
+                f"{os.path.basename(output_path)} уже существует. "
+                "Перезаписать?",
+            ):
+                return
+
+        try:
+            merge_server_results(
+                list(paths),
+                output_path,
+                log=self.gui_log,
+            )
+            self.gui_log(f"✓ Результаты собраны: {output_path}")
+            messagebox.showinfo(
+                "Готово",
+                f"Результаты собраны в файл:\n{output_path}\n\n"
+                "Теперь можно нажать «Обучение», чтобы применить "
+                "исправления локально.",
+            )
+        except Exception as e:
+            self.gui_log(f"✗ Ошибка сборки: {e}")
+            messagebox.showerror("Ошибка сборки", str(e))
 
     # ========================================================
     # Learning
