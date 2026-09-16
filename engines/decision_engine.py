@@ -9,6 +9,10 @@ from engines.engine import ResolverEngine
 from resolver.excel_name_builder import ExcelNameBuilder
 from resolver.special_product_resolver import SpecialProductResolver
 
+from engines.image_description_engine import ImageDescriptionEngine
+from services.image_description_service import ImageDescriptionService
+from processors.card_image_processor import CardImageProcessor
+
 
 class DecisionEngine:
 
@@ -24,6 +28,19 @@ class DecisionEngine:
         self.special_products = SpecialProductResolver()
         self._decide_count = 0
         self._flush_every = 20
+
+        # Распознавание по картинке - ТОЛЬКО для карточек, которые
+        # обычная классификация не смогла определить (см. decide()
+        # ниже). Инициализация может упасть (нет ANTHROPIC_API_KEY,
+        # библиотека не установлена и т.п.) - это не должно ронять
+        # весь движок, просто отключает эту конкретную подстраховку.
+        try:
+            image_engine = ImageDescriptionEngine()
+            image_service = ImageDescriptionService(image_engine)
+            self.image_processor = CardImageProcessor(image_service)
+        except Exception as e:
+            print(f"IMAGE PROCESSOR INIT ERROR (распознавание по картинке отключено): {e}")
+            self.image_processor = None
 
     def decide(self, card, remember=True):
 
@@ -130,6 +147,45 @@ class DecisionEngine:
         # 7. LEARNING
         # ==========================================================
         result = self.learning_classifier.apply(result)
+        # ==========================================================
+        # 7.5. ИИ-РАСПОЗНАВАНИЕ ПО КАРТИНКЕ (последний резерв)
+        #
+        # Только если код так и не определился ВСЕМИ обычными
+        # путями (текст, breadcrumb, trace/history/learning) - это
+        # платный внешний запрос, поэтому не тратим его на карточки,
+        # которые и так удалось классифицировать. card.image_description
+        # запрашивается один раз и добавляет отдельное поле IMAGE_DESC
+        # в скоринг (см. resolver/candidate_scorer.py) - с весом,
+        # сравнимым с CLEANED, т.к. это целевой, надёжный сигнал.
+        # ==========================================================
+        if not result.code and self.image_processor:
+
+            self.image_processor.process(card)
+
+            if getattr(card, "image_description", ""):
+
+                print(
+                    "[IMAGE FALLBACK]",
+                    card.url,
+                    "->",
+                    card.image_description,
+                )
+
+                retried = self.product_engine.classify(card)
+                retried.quantity = getattr(card, "quantity", "")
+                if not retried.material:
+                    retried.material = getattr(card, "material", "")
+
+                if self.dropdown.resolve(retried.product):
+                    self.dropdown.resolve_code(retried, card)
+
+                if retried.code:
+                    retried.trace.add(
+                        "IMAGE_FALLBACK",
+                        f"Определено по описанию с картинки: "
+                        f"{card.image_description}"
+                    )
+                    result = retried
         # ==========================================================
         # 8. EXCEL NAME
         # ==========================================================

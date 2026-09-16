@@ -27,6 +27,12 @@ class ProductParser:
             texts.append(card.material)
         if card.quantity:
             texts.append(card.quantity)
+        if getattr(card, "image_description", ""):
+            # Без этого CandidateFinder вообще не находил бы товары
+            # по описанию с картинки (он ищет кандидатов по токенам
+            # raw_text) - даже с высоким весом в скоринге ниже, самих
+            # кандидатов просто не было бы в списке для оценки.
+            texts.append(card.image_description)
         for key, value in card.specs.items():
             if not value:
                 continue
@@ -82,4 +88,7 @@ class ProductParser:
             ],
             "tokens": lemmatized_tokens(raw_text),
             "product_name": product,
+            "image_description": str(
+                getattr(card, "image_description", "") or ""
+            ).lower(),
         }

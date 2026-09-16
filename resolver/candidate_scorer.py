@@ -20,6 +20,9 @@ class CandidateScorer:
             "slug": normalize_dictionary_name(parsed["slug"]).lower().strip(),
             "description": normalize_dictionary_name(parsed["description"]).lower().strip(),
             "cleaned_text": normalize_dictionary_name(parsed["cleaned_text"]).lower().strip(),
+            "image_description": normalize_dictionary_name(
+                parsed.get("image_description", "")
+            ).lower().strip(),
         }
         prepared = {**parsed, **normalized}
         info = candidate.info
@@ -72,6 +75,19 @@ class CandidateScorer:
             product,
             350,
             "CLEANED",
+        )
+        # Описание с картинки (получено через ИИ-распознавание -
+        # см. processors/card_image_processor.py) - запрашивается
+        # ТОЛЬКО когда обычный текст уже не дал результата, поэтому
+        # это целевой, надёжный сигнал. Вес - наравне с CLEANED
+        # (максимальный среди обычных полей), а не как рядовое
+        # дополнение к описанию.
+        self._field_score(
+            candidate,
+            parsed.get("image_description", ""),
+            product,
+            350,
+            "IMAGE_DESC",
         )
         type_keys = ("тип", "тип товара")
 
@@ -127,6 +143,7 @@ class CandidateScorer:
             ("slug", 220, "SLUG_ALIAS"),
             ("description", 300, "DESC_ALIAS"),
             ("cleaned_text", 250, "CLEANED_ALIAS"),
+            ("image_description", 350, "IMAGE_DESC_ALIAS"),
         )
 
         for field_key, weight, source in fields:
@@ -429,9 +446,18 @@ class CandidateScorer:
         desc = breakdown.get("DESCRIPTION", 0)
         specs = breakdown.get("SPECS", 0)
         breadcrumb = breakdown.get("BREADCRUMB", 0)
+        image_desc = breakdown.get("IMAGE_DESC", 0) + breakdown.get(
+            "IMAGE_DESC_ALIAS", 0
+        )
 
         if title == 0 and slug == 0:
-            if breadcrumb > 0:
+            if image_desc > 0:
+                # Описание с картинки запрашивается ИМЕННО когда
+                # title/description уже пусты - это ожидаемый, а не
+                # тревожный случай. Применяем тот же смягчённый штраф,
+                # что и для breadcrumb, а не полный -500.
+                candidate.score -= 150
+            elif breadcrumb > 0:
                 # Категория/подкатегория с маркетплейса - надёжный
                 # сигнал сам по себе, даже когда заголовок - сплошной
                 candidate.score -= 150
