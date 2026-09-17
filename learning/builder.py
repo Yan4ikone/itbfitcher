@@ -1,5 +1,16 @@
 from pathlib import Path
 import importlib
+import sys
+
+# См. подробный комментарий в learning/dictionary_editor.py и
+# MainApp.py: save_products()/save_dictionaries() ниже читают свежее
+# состояние с диска через importlib.reload непосредственно перед
+# записью, а стандартный .pyc-кэш Python инвалидируется по mtime,
+# усечённому до целой секунды - при двух сохранениях в пределах одной
+# секунды reload() может вернуть устаревшее содержимое и "откатить"
+# только что сохранённые изменения. Дублируем отключение здесь на
+# случай использования без старта через MainApp.
+sys.dont_write_bytecode = True
 
 import dictionaries.products as products_dictionary
 from dictionaries.products import PRODUCTS

@@ -1577,7 +1577,7 @@ class VariantEditorWindow(Toplevel):
         super().__init__(parent)
 
         self.title("Редактор match / group")
-        self.geometry("620x560")
+        self.geometry("680x860")
         self.transient(parent)
 
         self.current_product = None
@@ -1681,8 +1681,110 @@ class VariantEditorWindow(Toplevel):
             foreground="#666666",
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
 
+        # --------------------------------------------------
+        # Код выбранного варианта (изменить)
+        #
+        # ИСТОРИЯ ПРАВКИ: раньше редактор умел менять только
+        # match/group у УЖЕ существующего варианта - структурные
+        # правки (код, добавление/удаление целого варианта, перенос
+        # между товарами) можно было сделать только вручную правкой
+        # products.py текстом. Это не давало вычистить мусор,
+        # накопленный автообучением через слепое слияние по общему
+        # коду ТН ВЭД (см. products-dict-gradation-audit.md - вариант
+        # "доска" с match-словами карате/шлем/носилки под чужим кодом).
+        # --------------------------------------------------
+        code_frame = ttk.LabelFrame(
+            container, text="Код выбранного варианта", padding=8
+        )
+        code_frame.grid(row=5, column=0, sticky="ew", pady=(8, 0))
+        code_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(code_frame, text="Новый код:").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.new_code_var = StringVar()
+        ttk.Entry(
+            code_frame, textvariable=self.new_code_var
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 6))
+        ttk.Button(
+            code_frame, text="Изменить код",
+            command=self._change_variant_code,
+        ).grid(row=0, column=2)
+
+        # --------------------------------------------------
+        # Новый вариант (добавить в dropdown товара)
+        # --------------------------------------------------
+        new_variant_frame = ttk.LabelFrame(
+            container, text="Добавить новый вариант товару", padding=8
+        )
+        new_variant_frame.grid(row=6, column=0, sticky="ew", pady=(8, 0))
+        new_variant_frame.columnconfigure(1, weight=1)
+        new_variant_frame.columnconfigure(3, weight=1)
+
+        ttk.Label(new_variant_frame, text="Код:").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.add_variant_code_var = StringVar()
+        ttk.Entry(
+            new_variant_frame, textvariable=self.add_variant_code_var, width=14
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 6))
+
+        ttk.Label(new_variant_frame, text="Group:").grid(
+            row=0, column=2, sticky="w"
+        )
+        self.add_variant_group_var = StringVar()
+        ttk.Entry(
+            new_variant_frame, textvariable=self.add_variant_group_var
+        ).grid(row=0, column=3, sticky="ew", padx=(6, 6))
+
+        ttk.Label(new_variant_frame, text="Название:").grid(
+            row=1, column=0, sticky="w", pady=(4, 0)
+        )
+        self.add_variant_name_var = StringVar()
+        ttk.Entry(
+            new_variant_frame, textvariable=self.add_variant_name_var
+        ).grid(row=1, column=1, columnspan=2, sticky="ew", padx=(6, 6), pady=(4, 0))
+
+        ttk.Button(
+            new_variant_frame, text="Добавить вариант",
+            command=self._add_variant,
+        ).grid(row=1, column=3, pady=(4, 0))
+
+        # --------------------------------------------------
+        # Перенос варианта в другой товар
+        # --------------------------------------------------
+        move_frame = ttk.LabelFrame(
+            container, text="Перенести выбранный вариант в другой товар", padding=8
+        )
+        move_frame.grid(row=7, column=0, sticky="ew", pady=(8, 0))
+        move_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(move_frame, text="Товар-получатель:").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.move_target_var = StringVar()
+        ttk.Entry(
+            move_frame, textvariable=self.move_target_var
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 6))
+        ttk.Button(
+            move_frame, text="Перенести",
+            command=self._move_variant,
+        ).grid(row=0, column=2)
+
+        ttk.Label(
+            move_frame,
+            text="Точное название уже существующего товара - если "
+            "вариант приклеился не к тому товару автообучением.",
+            foreground="#666666",
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
         bottom = ttk.Frame(container)
-        bottom.grid(row=5, column=0, sticky="e", pady=(8, 0))
+        bottom.grid(row=8, column=0, sticky="e", pady=(8, 0))
+
+        ttk.Button(
+            bottom, text="Удалить вариант целиком",
+            command=self._delete_selected_variant,
+        ).pack(side=RIGHT, padx=(6, 0))
 
         ttk.Button(
             bottom, text="Удалить выбранное слово",
@@ -1899,6 +2001,137 @@ class VariantEditorWindow(Toplevel):
         dictionary_editor.delete_match_word(
             self.current_product, code, word
         )
+        self._reload_tree()
+
+    def _delete_selected_variant(self):
+
+        code = self._require_product_and_variant()
+
+        if not code:
+            return
+
+        if not messagebox.askyesno(
+            "Удалить вариант",
+            f"Удалить вариант с кодом «{code}» у «{self.current_product}» "
+            "целиком (код, name и все match-слова)? Отменить нельзя.",
+            parent=self,
+        ):
+            return
+
+        try:
+            dictionary_editor.delete_variant(self.current_product, code)
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор match / group", str(error), parent=self
+            )
+            return
+
+        self._reload_tree()
+
+    def _change_variant_code(self):
+
+        code = self._require_product_and_variant()
+
+        if not code:
+            return
+
+        new_code = self.new_code_var.get().strip()
+
+        if not new_code:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Введите новый код.",
+                parent=self,
+            )
+            return
+
+        try:
+            dictionary_editor.set_variant_code(
+                self.current_product, code, new_code
+            )
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор match / group", str(error), parent=self
+            )
+            return
+
+        self.new_code_var.set("")
+        self._reload_tree()
+
+    def _add_variant(self):
+
+        if not self.current_product:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Сначала найдите и выберите товар.",
+                parent=self,
+            )
+            return
+
+        code = self.add_variant_code_var.get().strip()
+
+        if not code:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Введите код нового варианта.",
+                parent=self,
+            )
+            return
+
+        try:
+            dictionary_editor.add_variant(
+                self.current_product,
+                code,
+                group=self.add_variant_group_var.get().strip(),
+                name=self.add_variant_name_var.get().strip(),
+            )
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор match / group", str(error), parent=self
+            )
+            return
+
+        self.add_variant_code_var.set("")
+        self.add_variant_group_var.set("")
+        self.add_variant_name_var.set("")
+        self._reload_tree()
+
+    def _move_variant(self):
+
+        code = self._require_product_and_variant()
+
+        if not code:
+            return
+
+        target = self.move_target_var.get().strip()
+
+        if not target:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Введите точное название товара-получателя.",
+                parent=self,
+            )
+            return
+
+        if not messagebox.askyesno(
+            "Перенести вариант",
+            f"Перенести вариант с кодом «{code}» из «{self.current_product}» "
+            f"в «{target}»?",
+            parent=self,
+        ):
+            return
+
+        try:
+            dictionary_editor.move_variant(
+                self.current_product, code, target
+            )
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор match / group", str(error), parent=self
+            )
+            return
+
+        self.move_target_var.set("")
         self._reload_tree()
 
 
