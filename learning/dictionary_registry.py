@@ -28,6 +28,11 @@ DICTIONARY_REGISTRY = {
         "label": "Характеристики (электро/бытовое/ручное)",
         "constant": "CHARACTERISTIC_ALIASES",
     },
+
+    "purpose": {
+        "label": "Назначение (авто/мото/вода/животные/...)",
+        "constant": "PURPOSE_ALIASES",
+    },
 }
 
 

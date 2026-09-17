@@ -2,6 +2,7 @@ import re
 
 from utils.gender_extractor import find_known_gender
 from utils.characteristic_extractor import find_known_characteristic
+from utils.purpose_extractor import find_known_purpose
 from utils.material_extractor import MATERIAL_GROUP_EN
 
 
@@ -144,6 +145,72 @@ class CharacteristicAxisResolver(DropdownAxisResolver):
             group = str(variant.get("group", "")).strip().lower()
 
             if characteristic == group:
+                return variant
+
+        return None
+
+    def _text(self, card):
+
+        parts = [
+            getattr(card, "title", ""),
+            getattr(card, "description", ""),
+            getattr(card, "cleaned_text", ""),
+        ]
+
+        specs = getattr(card, "specs", {}) or {}
+
+        for key, value in specs.items():
+            parts.append(str(key))
+            parts.append(str(value))
+
+        return " ".join(
+            str(part)
+            for part in parts
+            if part
+        ).lower()
+
+
+class PurposeCategoryAxisResolver(DropdownAxisResolver):
+    """
+    Ось "назначение" (авто/мото/вело/вода/воздух/магнит/мебель/
+    животные/...).
+
+    Тот же принцип, что и GenderAxisResolver/CharacteristicAxisResolver:
+    факт определяется по общему словарю PURPOSE_ALIASES
+    (dictionaries/all_dictionaries.py), а не match-списку внутри
+    конкретного варианта - в отличие от KeywordAxisResolver ниже,
+    который смотрит на product-специфичные "match"-слова конкретного
+    варианта. Здесь сигнал общий и переиспользуемый между товарами
+    (см. "Обновление 2026-09-17" в аудите словаря products.py -
+    добавлено, когда чистка group='other' породила десятки вариантов
+    с одним и тем же по смыслу назначением - "для автомобиля",
+    "для животных" и т.п. - у разных товаров).
+
+    Канонический факт (ключ PURPOSE_ALIASES, напр. "automobile"/
+    "animal"/"water") сравнивается с полем "group" варианта.
+
+    ВАЖНО: в отличие от MaterialAxisResolver, здесь нет двуязычного
+    fallback - group должен быть записан ровно тем же английским
+    ключом, что и в PURPOSE_ALIASES (см. пример в products.py).
+    """
+
+    def find(self, variants, card, result):
+
+        text = self._text(card)
+
+        if not text:
+            return None
+
+        purpose = find_known_purpose(text)
+
+        if not purpose:
+            return None
+
+        for variant in variants:
+
+            group = str(variant.get("group", "")).strip().lower()
+
+            if purpose == group:
                 return variant
 
         return None
@@ -555,6 +622,7 @@ AXIS_RESOLVERS = {
     "material": MaterialAxisResolver(),
     "gender": GenderAxisResolver(),
     "purpose": KeywordAxisResolver(),
+    "purpose_category": PurposeCategoryAxisResolver(),
     "mechanism": CharacteristicAxisResolver(),
     "material_volume": MaterialVolumeAxisResolver(),
     "material_characteristic": MaterialCharacteristicAxisResolver(),

@@ -1200,6 +1200,16 @@ PRODUCTS = {
                     'name': 'Стекло',
                     'group': 'glass',
                 },
+                {
+                    'code': '6302510009',
+                    'name': 'Хлопок',
+                    'group': 'other',
+                },
+                {
+                    'code': '6302539000',
+                    'name': 'Синтет',
+                    'group': 'other',
+                },
             ],
         },
     },
@@ -1216,6 +1226,10 @@ PRODUCTS = {
             'бутылочка',
             'detskaya butylochka dlya kormleniya novorozhdennyh',
         ],
+        'dropdown': {
+            'title': 'Выберите вариант',
+            'variants': [],
+        },
     },
     'бытовой инструмент': {
         'code': '8205510090',
@@ -1437,7 +1451,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8712003000',
-                    'group': 'взрослый',
+                    'group': 'adult',
                 },
                 {
                     'code': '9503001009',
@@ -2210,6 +2224,10 @@ PRODUCTS = {
             'гребень для груминга собак и кошекрасческа для собак и кошек moon гребень профессиональный для груминга антистатический эффект см',
             'greben',
         ],
+        'dropdown': {
+            'title': 'Выберите вариант',
+            'variants': [],
+        },
     },
     'грейфер для чистки колодца': {
         'code': '8201100000',
@@ -2467,7 +2485,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8505199000',
-                    'group': 'магнит',
+                    'group': 'magnet',
                     'match': [
                         'магнитный',
                         'руку',
@@ -3112,11 +3130,11 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8301200009',
-                    'group': 'автомобиль',
+                    'group': 'automobile',
                 },
                 {
                     'code': '8301401100',
-                    'group': 'мебель',
+                    'group': 'furniture',
                 },
             ],
         },
@@ -3297,7 +3315,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7009920000',
-                    'group': 'бытовой',
+                    'group': 'household',
                     'match': [
                         'подсветкой',
                         'макияжа',
@@ -3348,7 +3366,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '7117900000',
-                    'group': 'бижутерия',
+                    'group': 'jewelry',
                 },
                 {
                     'code': '7018909000',
@@ -4400,7 +4418,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8302200000',
-                    'group': 'мебель',
+                    'group': 'furniture',
                     'match': [
                         'тачки',
                         'сумка',
@@ -4411,7 +4429,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8708709909',
-                    'group': 'автомобиль',
+                    'group': 'automobile',
                     'match': [
                         'садовой',
                         'тачки',
@@ -5254,7 +5272,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8302420000',
-                    'group': 'мебель',
+                    'group': 'furniture',
                 },
                 {
                     'code': '3926909709',
@@ -5843,7 +5861,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8215991000',
-                    'group': 'столовые приборы',
+                    'group': 'tableware',
                 },
                 {
                     'code': '7323990000',
@@ -7273,15 +7291,15 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8414807300',
-                    'group': 'воздух',
+                    'group': 'air',
                 },
                 {
                     'code': '8413810000',
-                    'group': 'вода',
+                    'group': 'water',
                 },
                 {
                     'code': '8413302008',
-                    'group': 'топливо',
+                    'group': 'fuel',
                 },
                 {
                     'code': '8414202000',
@@ -7290,7 +7308,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8414208000',
-                    'group': 'ручной',
+                    'group': 'manual',
                     'match': [
                         'резиновая',
                         'груша',
@@ -8927,7 +8945,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8413810000',
-                    'group': 'вода',
+                    'group': 'water',
                     'match': [
                         'фонтана',
                         'автоматическая',
@@ -8973,19 +8991,19 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4011100009',
-                    'group': 'автомобиль',
+                    'group': 'automobile',
                 },
                 {
                     'code': '4011400000',
-                    'group': 'мотоцикл',
+                    'group': 'motorcycle',
                 },
                 {
                     'code': '4011500009',
-                    'group': 'велосипед',
+                    'group': 'bicycle',
                 },
                 {
                     'code': '9507209000',
-                    'group': 'рыболовное',
+                    'group': 'fishing',
                 },
             ],
         },
@@ -9413,7 +9431,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503009909',
-                    'group': 'игрушки',
+                    'group': 'toys',
                     'match': [
                         'мебель',
                         'кукол',
@@ -9889,7 +9907,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '4010320000',
-                    'group': 'автомобиль',
+                    'group': 'automobile',
                     'match': [
                         'вариатора',
                         'приводной',
@@ -10521,7 +10539,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6110909000',
-                    'group': 'взрослый',
+                    'group': 'adult',
                 },
                 {
                     'code': '6111909000',
@@ -10530,7 +10548,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '4201000000',
-                    'group': 'животные',
+                    'group': 'animal',
                     'match': [
                         'свитшот',
                         'утепленной',
@@ -12669,15 +12687,15 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8421210009',
-                    'group': 'вода',
+                    'group': 'water',
                 },
                 {
                     'code': '8421392008',
-                    'group': 'воздух',
+                    'group': 'air',
                 },
                 {
                     'code': '8421230000',
-                    'group': 'топливо',
+                    'group': 'fuel',
                 },
             ],
         },
@@ -12934,7 +12952,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8302420000',
-                    'group': 'мебель',
+                    'group': 'furniture',
                 },
                 {
                     'code': '8308900000',
@@ -13641,15 +13659,15 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4011100009',
-                    'group': 'автомобиль',
+                    'group': 'automobile',
                 },
                 {
                     'code': '4011400000',
-                    'group': 'мотоцикл',
+                    'group': 'motorcycle',
                 },
                 {
                     'code': '4011500009',
-                    'group': 'велосипед',
+                    'group': 'bicycle',
                 },
                 {
                     'code': '6305900000',
@@ -14009,7 +14027,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9603909100',
-                    'group': 'бытовой',
+                    'group': 'household',
                 },
                 {
                     'code': '9603500009',

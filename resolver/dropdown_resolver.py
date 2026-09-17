@@ -9,6 +9,7 @@ class DropdownResolver:
         "material_characteristic",
         "material",
         "gender",
+        "purpose_category",
         "purpose",
         "mechanism",
     )
