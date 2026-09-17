@@ -129,7 +129,7 @@ class OzonAutoProcessor:
         self.pause_event.set()
         self.log("Получена команда остановки...")
 
-    async def async_worker(self, worker_id, page, task_queue, result_queue, engine):
+    async def async_worker(self, worker_id, page, task_queue, result_queue, engine, context=None, route_handler=None):
 
         self.log(
             f"[OzonWorker-{worker_id}] "
@@ -222,6 +222,41 @@ class OzonAutoProcessor:
                     "card": card,
                 })
             except Exception as exc:
+
+                is_goto_failure = (
+                    "goto" in str(exc).lower()
+                    or "timeout" in type(exc).__name__.lower()
+                )
+
+                if is_goto_failure and context is not None:
+
+                    self.log(
+                        f"[OzonWorker-{worker_id}] "
+                        f"Вкладка не отвечает - пересоздаю..."
+                    )
+
+                    try:
+                        await page.close()
+                    except Exception:
+                        pass
+
+                    try:
+                        page = await context.new_page()
+
+                        if route_handler is not None:
+                            await page.route("**/*", route_handler)
+
+                        self.log(
+                            f"[OzonWorker-{worker_id}] "
+                            f"Новая вкладка готова"
+                        )
+                    except Exception as recreate_exc:
+                        self.log(
+                            f"[OzonWorker-{worker_id}] "
+                            f"Не удалось пересоздать вкладку: "
+                            f"{recreate_exc}"
+                        )
+
                 await result_queue.put({
                     "row": task[0],
                     "url": task[1],
@@ -365,6 +400,8 @@ class OzonAutoProcessor:
                         task_queue,
                         result_queue,
                         engine,
+                        context=context,
+                        route_handler=route_handler,
                     )
                 )
             )
