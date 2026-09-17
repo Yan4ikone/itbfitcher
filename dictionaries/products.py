@@ -596,6 +596,15 @@ PRODUCTS = {
             'берет',
             'beysbolka',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '6505003000',
+                    'group': 'textile',
+                    'match': [],
+                },
+            ],
+        },
     },
     'беспроводная колонка': {
         'code': '8519899009',
@@ -1559,6 +1568,15 @@ PRODUCTS = {
         'material_codes': {
             'пластик': '3924900009',
         },
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '7323990000',
+                    'group': 'metal',
+                    'match': [],
+                },
+            ],
+        },
     },
     'вибратор': {
         'code': '9019101000',
@@ -1600,9 +1618,20 @@ PRODUCTS = {
     'вилка': {
         'code': '8215991000',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'vilka',
+        ],
         'material_codes': {
             'латунь': '8536699008',
+        },
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '8215991000',
+                    'group': 'нержавеющая сталь',
+                    'match': [],
+                },
+            ],
         },
     },
     'вилка штепсельная': {
@@ -2019,7 +2048,9 @@ PRODUCTS = {
     'гетры': {
         'code': '6406909000',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'getry',
+        ],
         'dropdown': {
             'variants': [
                 {
@@ -2164,6 +2195,15 @@ PRODUCTS = {
             'система приготовления пищи',
             'gorelka',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '8205600000',
+                    'group': 'metal',
+                    'match': [],
+                },
+            ],
+        },
     },
     'горжетка': {
         'code': '4304000000',
@@ -2538,7 +2578,9 @@ PRODUCTS = {
     'джинсы': {
         'code': '',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'dzhinsy',
+        ],
         'dropdown': {
             'title': 'Выберите вариант',
             'variants': [
@@ -3235,7 +3277,9 @@ PRODUCTS = {
     'защита голени': {
         'code': '9021101000',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'zashchita goleni',
+        ],
     },
     'защита для кабеля от износа': {
         'code': '3926909709',
@@ -3515,6 +3559,7 @@ PRODUCTS = {
             'конструктор',
             'игрушечное',
             'настраиваемая печать с именем ребенка синяя сова',
+            'igrushka',
         ],
         'dropdown': {
             'variants': [
@@ -3862,6 +3907,15 @@ PRODUCTS = {
         'code': '3402500000',
         'patterns': [],
         'aliases': [],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '3402500000',
+                    'group': 'ткань',
+                    'match': [],
+                },
+            ],
+        },
     },
     'капуста нори': {
         'code': '1212210000',
@@ -4286,6 +4340,15 @@ PRODUCTS = {
         'aliases': [
             'klyuchnitsa',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '8303004000',
+                    'group': 'abs пластик',
+                    'match': [],
+                },
+            ],
+        },
     },
     'книга детская': {
         'code': '4903000000',
@@ -4691,6 +4754,15 @@ PRODUCTS = {
         'code': '6302399000',
         'patterns': [],
         'aliases': [],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '6302399000',
+                    'group': 'хлопок',
+                    'match': [],
+                },
+            ],
+        },
     },
     'комплект украшений': {
         'code': '7117900000',
@@ -5043,6 +5115,7 @@ PRODUCTS = {
             'форма хоккейная',
             'спортивный костюм',
             'forma futbolnaya',
+            'kostyum sportivnyy',
         ],
         'dropdown': {
             'title': 'Выберите вариант',
@@ -5350,6 +5423,15 @@ PRODUCTS = {
         'aliases': [
             'kronshteyn',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '3924900009',
+                    'group': 'abs пластик',
+                    'match': [],
+                },
+            ],
+        },
     },
     'кроссовки': {
         'code': '',
@@ -5649,6 +5731,7 @@ PRODUCTS = {
             'parka',
             'косуха',
             'bomber',
+            'palto',
         ],
         'dropdown': {
             'title': 'Выберите вариант',
@@ -5740,7 +5823,19 @@ PRODUCTS = {
     'лежак для животных': {
         'code': '6307909800',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'lezhanka',
+            'лежанка',
+        ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '6307909800',
+                    'group': 'мех искусственный',
+                    'match': [],
+                },
+            ],
+        },
     },
     'лежанка': {
         'code': '6307909800',
@@ -6145,6 +6240,15 @@ PRODUCTS = {
         'aliases': [
             'massazher',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '9019109009',
+                    'group': 'abs пластик',
+                    'match': [],
+                },
+            ],
+        },
     },
     'массажер электрический': {
         'code': '9019101000',
@@ -7535,6 +7639,9 @@ PRODUCTS = {
                     'group': 'бамбук',
                     'match': [
                         'бамбук',
+                        'кожа',
+                        'металл',
+                        'искусственная',
                     ],
                 },
             ],
@@ -8368,7 +8475,17 @@ PRODUCTS = {
         'aliases': [
             'пилка маникюрная',
             'пилка пушер',
+            'pilka',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '8214200000',
+                    'group': 'ceramic',
+                    'match': [],
+                },
+            ],
+        },
     },
     'пильное полотно': {
         'code': '8202998000',
@@ -8840,6 +8957,11 @@ PRODUCTS = {
                         'цветов',
                     ],
                 },
+                {
+                    'code': '9405500000',
+                    'group': 'нержавеющая сталь',
+                    'match': [],
+                },
             ],
         },
     },
@@ -9235,6 +9357,8 @@ PRODUCTS = {
         ],
         'aliases': [
             'posuda',
+            'салатник',
+            'salatnik',
         ],
         'material_codes': {
             'пластик': '3924100000',
@@ -9490,7 +9614,9 @@ PRODUCTS = {
     'прокладки': {
         'code': '9619007909',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'prokladki',
+        ],
     },
     'прокладки женские': {
         'code': '9619007909',
@@ -9879,6 +10005,15 @@ PRODUCTS = {
         'code': '3924900009',
         'patterns': [],
         'aliases': [],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '7323990000',
+                    'group': 'metal',
+                    'match': [],
+                },
+            ],
+        },
     },
     'реле': {
         'code': '8536411000',
@@ -10501,6 +10636,15 @@ PRODUCTS = {
             'potolochnyy svetilnik led',
             'ночник',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '9405290039',
+                    'group': 'abs пластик',
+                    'match': [],
+                },
+            ],
+        },
     },
     'светодиодная лента': {
         'code': '8539520009',
@@ -10511,6 +10655,15 @@ PRODUCTS = {
         'code': '3406000000',
         'patterns': [],
         'aliases': [],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '3406000000',
+                    'group': 'abs пластик',
+                    'match': [],
+                },
+            ],
+        },
     },
     'свеча зажигания': {
         'code': '8511100009',
@@ -11082,6 +11235,15 @@ PRODUCTS = {
         'aliases': [
             'sorter',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '9503009909',
+                    'group': 'латекс',
+                    'match': [],
+                },
+            ],
+        },
     },
     'сосиски': {
         'code': '1601009901',
@@ -11193,6 +11355,7 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [
             'спрей ухода за волосами',
+            'крем для волос',
         ],
     },
     'спрей для полости': {
@@ -11260,7 +11423,18 @@ PRODUCTS = {
     'стакан': {
         'code': '4823699000',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'stakan',
+        ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '7013379900',
+                    'group': 'glass',
+                    'match': [],
+                },
+            ],
+        },
     },
     'стакан для зубных щеток': {
         'code': '3924900009',
@@ -11301,6 +11475,15 @@ PRODUCTS = {
         'code': '3926909200',
         'patterns': [],
         'aliases': [],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '3926909200',
+                    'group': 'glass',
+                    'match': [],
+                },
+            ],
+        },
     },
     'стекло фары': {
         'code': '3926909200',
@@ -11428,6 +11611,15 @@ PRODUCTS = {
         'aliases': [
             'шампур',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '8215201000',
+                    'group': 'нержавеющая сталь',
+                    'match': [],
+                },
+            ],
+        },
     },
     'столовый набор': {
         'code': '8215201000',
@@ -11574,6 +11766,7 @@ PRODUCTS = {
             'termosumka',
             'мотосумка',
             'sumka na plecho',
+            'sumka sakvoyazh',
         ],
         'dropdown': {
             'title': 'Выберите вариант',
@@ -11907,6 +12100,15 @@ PRODUCTS = {
         'code': '7616999008',
         'patterns': [],
         'aliases': [],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '3926909709',
+                    'group': 'полимер',
+                    'match': [],
+                },
+            ],
+        },
     },
     'термокружка': {
         'code': '9617000001',
@@ -11950,6 +12152,15 @@ PRODUCTS = {
         'code': '9617000001',
         'patterns': [],
         'aliases': [],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '9617000001',
+                    'group': 'нержавеющая сталь',
+                    'match': [],
+                },
+            ],
+        },
     },
     'термостат': {
         'code': '9032102000',
@@ -13566,6 +13777,15 @@ PRODUCTS = {
             'shampun dlya volos',
             'shampun',
         ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '3305100000',
+                    'group': 'leather',
+                    'match': [],
+                },
+            ],
+        },
     },
     'шампунь сухой': {
         'code': '3305100000',
@@ -13866,9 +14086,20 @@ PRODUCTS = {
     'шлем': {
         'code': '6506101000',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'shlem',
+        ],
         'material_codes': {
             'ткань': '6307909800',
+        },
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '6506101000',
+                    'group': 'поликарбонат',
+                    'match': [],
+                },
+            ],
         },
     },
     'шлепанцы': {
@@ -14000,6 +14231,15 @@ PRODUCTS = {
         'code': '9620000007',
         'patterns': [],
         'aliases': [],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '9620000007',
+                    'group': 'нержавеющая сталь',
+                    'match': [],
+                },
+            ],
+        },
     },
     'штопор': {
         'code': '8205510090',
