@@ -141,6 +141,18 @@ class LearningWindow(Toplevel):
             pady=(6, 0),
         )
 
+        ttk.Button(
+            self.dictionary_words_frame,
+            text="Редактор match/group...",
+            command=self._open_variant_editor,
+        ).grid(
+            row=3,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=(2, 0),
+        )
+
         bottom = ttk.Frame(self)
         bottom.grid(
             row=1,
@@ -857,6 +869,16 @@ class LearningWindow(Toplevel):
 
         DictionaryEditorWindow(self)
 
+    def _open_variant_editor(self):
+        """Редактор match-слов и group конкретного dropdown-варианта
+        товара (dictionaries/products.py) - в отличие от общих
+        словарей выше (материал/пол/характеристика), это поле внутри
+        конкретного товара, и раньше почистить его можно было только
+        руками в products.py. Не привязан к текущему прогону, пишет
+        на диск сразу."""
+
+        VariantEditorWindow(self)
+
 
     def select_all(self):
 
@@ -1530,6 +1552,353 @@ class DictionaryEditorWindow(Toplevel):
 
             dictionary_editor.delete_category(key, group)
 
+        self._reload_tree()
+
+
+class VariantEditorWindow(Toplevel):
+    """
+    Редактор match-слов и group у dropdown-вариантов КОНКРЕТНОГО
+    товара (dictionaries/products.py, dropdown.variants[]) - в
+    отличие от DictionaryEditorWindow выше (общие словари материал/
+    пол/характеристика на ВСЕ товары), это поле внутри отдельного
+    товара, и до этого правилось только руками в products.py -
+    match пополнялся только автоматически через обучение, а group
+    часто оставался заглушкой "other" (см.
+    products-dict-gradation-audit.md).
+
+    Как и DictionaryEditorWindow - самостоятельный инструмент, не
+    привязан к текущему прогону, каждое действие сразу пишется на
+    диск (dictionaries/products.py) через
+    learning/dictionary_editor.py.
+    """
+
+    def __init__(self, parent):
+
+        super().__init__(parent)
+
+        self.title("Редактор match / group")
+        self.geometry("620x560")
+        self.transient(parent)
+
+        self.current_product = None
+
+        container = ttk.Frame(self, padding=10)
+        container.pack(fill=BOTH, expand=True)
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(2, weight=1)
+
+        # --------------------------------------------------
+        # Поиск товара (обычный combobox на 1500+ товаров неюзабелен)
+        # --------------------------------------------------
+        search_frame = ttk.Frame(container)
+        search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        search_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(search_frame, text="Товар:").grid(
+            row=0, column=0, sticky="w"
+        )
+
+        self.product_query_var = StringVar()
+        query_entry = ttk.Entry(
+            search_frame, textvariable=self.product_query_var
+        )
+        query_entry.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        query_entry.bind("<KeyRelease>", lambda event: self._refresh_matches())
+
+        matches_frame = ttk.Frame(container)
+        matches_frame.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        matches_frame.columnconfigure(0, weight=1)
+
+        self.matches_list = Listbox(matches_frame, height=5)
+        self.matches_list.grid(row=0, column=0, sticky="ew")
+        self.matches_list.bind(
+            "<<ListboxSelect>>", lambda event: self._load_selected_product()
+        )
+
+        # --------------------------------------------------
+        # Дерево: вариант (code — group / name) -> match-слова
+        # --------------------------------------------------
+        tree_frame = ttk.Frame(container)
+        tree_frame.grid(row=2, column=0, sticky="nsew")
+        tree_frame.columnconfigure(0, weight=1)
+        tree_frame.rowconfigure(0, weight=1)
+
+        self.tree = ttk.Treeview(tree_frame, show="tree")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+
+        vsb = ttk.Scrollbar(
+            tree_frame, orient="vertical", command=self.tree.yview
+        )
+        vsb.grid(row=0, column=1, sticky="ns")
+        self.tree.configure(yscrollcommand=vsb.set)
+
+        # --------------------------------------------------
+        # Group у выбранного варианта
+        # --------------------------------------------------
+        group_frame = ttk.LabelFrame(
+            container, text="Group у выбранного варианта", padding=8
+        )
+        group_frame.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        group_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(group_frame, text="Новое значение:").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.new_group_var = StringVar()
+        ttk.Entry(
+            group_frame, textvariable=self.new_group_var
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 6))
+        ttk.Button(
+            group_frame, text="Сохранить group",
+            command=self._save_group,
+        ).grid(row=0, column=2)
+
+        # --------------------------------------------------
+        # Match-слова
+        # --------------------------------------------------
+        match_frame = ttk.LabelFrame(
+            container, text="Match-слова выбранного варианта", padding=8
+        )
+        match_frame.grid(row=4, column=0, sticky="ew", pady=(8, 0))
+        match_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(match_frame, text="Новое слово:").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.new_match_word_var = StringVar()
+        ttk.Entry(
+            match_frame, textvariable=self.new_match_word_var
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 6))
+        ttk.Button(
+            match_frame, text="Добавить слово",
+            command=self._add_match_word,
+        ).grid(row=0, column=2)
+
+        ttk.Label(
+            match_frame,
+            text="Чтобы удалить слово - выберите его в дереве выше и "
+            "нажмите «Удалить выбранное слово».",
+            foreground="#666666",
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
+        bottom = ttk.Frame(container)
+        bottom.grid(row=5, column=0, sticky="e", pady=(8, 0))
+
+        ttk.Button(
+            bottom, text="Удалить выбранное слово",
+            command=self._delete_selected_word,
+        ).pack(side=RIGHT)
+
+    # ==========================================================
+
+    def _refresh_matches(self):
+
+        query = self.product_query_var.get()
+
+        self.matches_list.delete(0, END)
+
+        if not query.strip():
+            return
+
+        for name in dictionary_editor.find_products(query):
+            self.matches_list.insert(END, name)
+
+    def _load_selected_product(self):
+
+        selection = self.matches_list.curselection()
+
+        if not selection:
+            return
+
+        product = self.matches_list.get(selection[0])
+        self.current_product = product
+        self._reload_tree()
+
+    def _reload_tree(self):
+
+        self.tree.delete(*self.tree.get_children())
+
+        if not self.current_product:
+            return
+
+        variants = dictionary_editor.list_product_variants(
+            self.current_product
+        )
+
+        if not variants:
+            self.tree.insert(
+                "", "end",
+                text="(у этого товара нет dropdown-вариантов)",
+            )
+            return
+
+        for variant in variants:
+
+            code = str(variant.get("code", ""))
+            group = str(variant.get("group", ""))
+            name = str(variant.get("name", ""))
+
+            label = f"{code} — {group}"
+
+            if name:
+                label += f" ({name})"
+
+            # code хранится в самом узле (iid) - им и находим вариант
+            # обратно при сохранении group/добавлении слова.
+            variant_id = self.tree.insert(
+                "", "end", iid=f"variant:{code}", text=label, open=False,
+            )
+
+            for word in variant.get("match", []) or []:
+                self.tree.insert(variant_id, "end", text=str(word))
+
+    def _selected_variant_code(self):
+        """Код варианта, к которому относится текущий выбор - сам
+        узел варианта, если выбран он, либо родитель, если выбрано
+        match-слово. None, если ничего не выбрано."""
+
+        selection = self.tree.selection()
+
+        if not selection:
+            return None
+
+        iid = selection[0]
+        parent = self.tree.parent(iid)
+
+        node_id = parent if parent else iid
+
+        if not node_id.startswith("variant:"):
+            return None
+
+        return node_id[len("variant:"):]
+
+    def _require_product_and_variant(self):
+
+        if not self.current_product:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Сначала найдите и выберите товар.",
+                parent=self,
+            )
+            return None
+
+        code = self._selected_variant_code()
+
+        if not code:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Выберите вариант (или его слово) в дереве.",
+                parent=self,
+            )
+            return None
+
+        return code
+
+    def _save_group(self):
+
+        code = self._require_product_and_variant()
+
+        if not code:
+            return
+
+        group = self.new_group_var.get().strip().lower()
+
+        if not group:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Введите новое значение group.",
+                parent=self,
+            )
+            return
+
+        try:
+            dictionary_editor.set_variant_group(
+                self.current_product, code, group
+            )
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор match / group", str(error), parent=self
+            )
+            return
+
+        self.new_group_var.set("")
+        self._reload_tree()
+
+    def _add_match_word(self):
+
+        code = self._require_product_and_variant()
+
+        if not code:
+            return
+
+        word = self.new_match_word_var.get().strip().lower()
+
+        if not word:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Введите слово.",
+                parent=self,
+            )
+            return
+
+        try:
+            dictionary_editor.add_match_word(
+                self.current_product, code, word
+            )
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор match / group", str(error), parent=self
+            )
+            return
+
+        self.new_match_word_var.set("")
+        self._reload_tree()
+
+    def _delete_selected_word(self):
+
+        if not self.current_product:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Сначала найдите и выберите товар.",
+                parent=self,
+            )
+            return
+
+        selection = self.tree.selection()
+
+        if not selection:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Выберите слово для удаления.",
+                parent=self,
+            )
+            return
+
+        iid = selection[0]
+        parent = self.tree.parent(iid)
+
+        if not parent:
+            messagebox.showwarning(
+                "Редактор match / group",
+                "Это узел варианта, а не слово - выберите конкретное "
+                "match-слово в дереве.",
+                parent=self,
+            )
+            return
+
+        code = parent[len("variant:"):]
+        word = self.tree.item(iid, "text")
+
+        if not messagebox.askyesno(
+            "Удалить слово",
+            f"Удалить слово «{word}» из match?",
+            parent=self,
+        ):
+            return
+
+        dictionary_editor.delete_match_word(
+            self.current_product, code, word
+        )
         self._reload_tree()
 
 

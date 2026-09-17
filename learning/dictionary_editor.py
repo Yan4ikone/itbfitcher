@@ -11,9 +11,11 @@ LearningBuilder и применяет их одной кнопкой "Приме
 """
 
 import importlib
+from pathlib import Path
 
 from dictionaries import all_dictionaries
 from dictionaries import products as products_module
+from dictionaries.products_formatter import canonicalize_products, format_products
 from learning.dictionary_registry import DICTIONARY_REGISTRY, get_dictionary
 from learning.dictionary_writer import update_dict_constant
 from utils.material_extractor import MATERIAL_GROUP_EN
@@ -21,10 +23,21 @@ from utils.material_extractor import MATERIAL_GROUP_EN
 
 MATERIAL_GROUP_RU = {en: ru for ru, en in MATERIAL_GROUP_EN.items()}
 
+PRODUCTS_PATH = (
+    Path(__file__).parent.parent
+    / "dictionaries"
+    / "products.py"
+)
+
 
 def _reload():
     importlib.invalidate_caches()
     importlib.reload(all_dictionaries)
+
+
+def _reload_products():
+    importlib.invalidate_caches()
+    importlib.reload(products_module)
 
 
 def list_categories(dict_key: str) -> dict:
@@ -221,3 +234,143 @@ def is_trash_word(word: str) -> bool:
         return False
 
     return word in (getattr(all_dictionaries, "TRASH_MARKETING", set()) or set())
+
+
+# ==================================================================
+# РЕДАКТОР MATCH-СПИСКОВ И GROUP У DROPDOWN-ВАРИАНТОВ КОНКРЕТНОГО
+# ТОВАРА (dictionaries/products.py, dropdown.variants[].match/.group)
+#
+# В отличие от словарей выше (материал/пол/характеристика,
+# DICTIONARY_REGISTRY) - это НЕ общий словарь на все товары, а поле
+# внутри products.py каждого конкретного товара. Раньше единственным
+# способом почистить match-список или переименовать "group": "other"
+# (см. products-dict-gradation-audit.md) была ручная правка
+# products.py текстом - здесь curator не мог посмотреть, что там
+# накопилось автообучением, и тем более убрать мусор.
+#
+# Пишет на диск сразу, тем же способом, что и
+# learning/builder.py::save_products() - через
+# dictionaries.products_formatter (сортировка, единый порядок полей,
+# self-healing проверка "код не должен стоять плоско при настоящей
+# градации").
+# ==================================================================
+
+def find_products(query: str, limit: int = 30) -> list:
+    """Названия товаров, содержащих query (регистронезависимо) -
+    для поиска в редакторе: обычный выпадающий список на 1500+
+    товаров неюзабелен."""
+
+    query = str(query or "").strip().lower()
+
+    if not query:
+        return []
+
+    _reload_products()
+
+    return [
+        name
+        for name in products_module.PRODUCTS.keys()
+        if query in name.lower()
+    ][:limit]
+
+
+def list_product_variants(product: str) -> list:
+    """[{code, group, name, match}, ...] dropdown-вариантов товара -
+    свежее состояние с диска. Пустой список, если у товара нет
+    dropdown или товар не найден."""
+
+    _reload_products()
+
+    info = products_module.PRODUCTS.get(str(product or "").strip())
+
+    if not info:
+        return []
+
+    dropdown = info.get("dropdown") or {}
+
+    return [dict(variant) for variant in (dropdown.get("variants") or [])]
+
+
+def _write_products(current: dict) -> None:
+
+    canonical = canonicalize_products(current)
+
+    with open(PRODUCTS_PATH, "w", encoding="utf-8") as f:
+        f.write(format_products(canonical))
+
+
+def _find_variant(current: dict, product: str, code: str) -> dict:
+
+    info = current.get(str(product or "").strip())
+
+    if not info:
+        raise ValueError(f"Товар «{product}» не найден")
+
+    dropdown = info.get("dropdown") or {}
+    variants = dropdown.get("variants") or []
+    code = str(code or "").strip()
+
+    for variant in variants:
+
+        if str(variant.get("code", "")).strip() == code:
+            return variant
+
+    raise ValueError(f"Вариант с кодом «{code}» не найден у «{product}»")
+
+
+def add_match_word(product: str, code: str, word: str) -> None:
+
+    word = str(word or "").strip().lower()
+
+    if not word:
+        raise ValueError("Слово не должно быть пустым")
+
+    _reload_products()
+    current = products_module.PRODUCTS
+    variant = _find_variant(current, product, code)
+
+    existing = variant.setdefault("match", [])
+    known = {str(w).strip().lower() for w in existing}
+
+    if word not in known:
+        existing.append(word)
+
+    _write_products(current)
+    _reload_products()
+
+
+def delete_match_word(product: str, code: str, word: str) -> None:
+
+    word = str(word or "").strip().lower()
+
+    _reload_products()
+    current = products_module.PRODUCTS
+    variant = _find_variant(current, product, code)
+
+    variant["match"] = [
+        w for w in variant.get("match", [])
+        if str(w).strip().lower() != word
+    ]
+
+    _write_products(current)
+    _reload_products()
+
+
+def set_variant_group(product: str, code: str, group: str) -> None:
+    """Переименовывает group у конкретного варианта - в первую
+    очередь для замены заглушки "other" (см.
+    products-dict-gradation-audit.md) на осмысленную категорию."""
+
+    group = str(group or "").strip().lower()
+
+    if not group:
+        raise ValueError("Группа не должна быть пустой")
+
+    _reload_products()
+    current = products_module.PRODUCTS
+    variant = _find_variant(current, product, code)
+
+    variant["group"] = group
+
+    _write_products(current)
+    _reload_products()

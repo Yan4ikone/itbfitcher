@@ -83,13 +83,20 @@ class DecisionEngine:
         # ==========================================================
         # 3. DROPDOWN
         #
-        # Пропускаем, если material_codes уже дал код по материалу
-        # (result.material непустой значит MaterialResolver внутри
-        # product_engine.classify() уже успешно сработал через
-        # material_codes). Иначе DropdownResolver может повторно
-        # определить материал уже через dropdown.variants
+        # Пропускаем ТОЛЬКО если material_codes конкретного товара уже
+        # дал код по материалу (result.material_code_resolved - see
+        # resolver/result_builder.py). Раньше здесь стояло
+        # `result.material and result.code`, но result.material
+        # выставляется MaterialResolver'ом даже когда material_codes у
+        # товара пуст (общий fallback find_known_material_group, см.
+        # resolver/material_resolver.py) - а result.code при этом мог
+        # быть просто плоским "code" из products.py. В паре с любым
+        # словом-материалом из общего словаря это ложно считалось
+        # "материал уже определён" и полностью пропускало выбор
+        # dropdown-варианта, даже когда товар различается по полу/
+        # назначению/механизму/объёму, а не по материалу вообще.
         # ==========================================================
-        material_already_resolved = bool(result.material and result.code)
+        material_already_resolved = bool(result.material_code_resolved)
 
         if material_already_resolved:
             result.trace.add(

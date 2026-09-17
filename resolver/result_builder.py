@@ -42,6 +42,10 @@ class ResultBuilder:
         if winner.material_code:
 
             result.code = winner.material_code
+            # Только этот путь означает, что код реально подобран по
+            # material_codes конкретного товара - см.
+            # engines/decision_engine.py::material_already_resolved.
+            result.material_code_resolved = True
         result.trace.add(
             "PRODUCT",
             f"{winner.product} ({winner.score})"

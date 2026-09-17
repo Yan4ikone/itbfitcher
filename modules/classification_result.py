@@ -56,6 +56,15 @@ class ClassificationResult:
     dropdown_group: str = ""
     material_group: str = ""
 
+    # ---------- Material ----------
+    # True только если код пришёл ИМЕННО из material_codes конкретного
+    # товара (см. resolver/result_builder.py). НЕ путать с наличием
+    # result.material - тот выставляется даже когда material_codes у
+    # товара пуст (см. resolver/material_resolver.py, общий fallback
+    # find_known_material_group) и сам по себе не значит, что код уже
+    # корректно подобран под материал/признак.
+    material_code_resolved: bool = False
+
     # ---------- Новый товар --------
     new_product: bool = False
     new_dropdown: bool = False

@@ -1,10 +1,10 @@
 from pathlib import Path
-from pprint import pformat
 import importlib
 
 import dictionaries.products as products_dictionary
 from dictionaries.products import PRODUCTS
 from dictionaries import all_dictionaries
+from dictionaries.products_formatter import canonicalize_products, format_products
 from learning.dictionary_registry import DICTIONARY_REGISTRY
 from learning.dictionary_writer import update_dict_constant
 
@@ -68,6 +68,16 @@ class LearningBuilder:
         alias = str(item.alias).strip().lower()
 
         if not alias:
+            return
+
+        # Алиас, буквально совпадающий с названием товара, бесполезен -
+        # совпадение по названию уже проверяется отдельно и раньше
+        # (см. resolver/candidate_finder.py::_can_match) - и такие
+        # записи находились при чистке products.py (см.
+        # products-dict-gradation-audit.md).
+        product_normalized = str(item.product or "").strip().lower()
+
+        if alias == product_normalized:
             return
 
         self._new_aliases.setdefault(item.product, set()).add(alias)
@@ -208,21 +218,27 @@ class LearningBuilder:
 
         self._apply_delta(current)
 
+        # canonicalize_products() сортирует товары по названию, чистит
+        # схему (пустой material_codes, дубли в aliases/patterns,
+        # алиас = названию) И, важнее всего, само-восстанавливает
+        # инвариант "код не стоит плоско, если у товара настоящая
+        # градация по dropdown" - иначе baг из
+        # products-dict-gradation-audit.md тихо возвращался бы каждый
+        # раз, когда create_dropdown() заводит новый dropdown с
+        # разными кодами поверх товара со старым плоским code.
+        # format_products() пишет результат в едином, презентабельном
+        # виде - по одному элементу списка на строку - вместо голого
+        # pprint.pformat, который к тому же не умел сортировать.
+        canonical = canonicalize_products(current)
+
         with open(
             path,
             "w",
             encoding="utf-8"
         ) as f:
-            f.write("PRODUCTS = ")
-            f.write(
-                pformat(
-                    current,
-                    width=140,
-                    sort_dicts=False
-                )
-            )
+            f.write(format_products(canonical))
 
-        self.products = current
+        self.products = canonical
     # ==========================================================
     # ПРИМЕНЕНИЕ ДЕЛЬТЫ
     # ==========================================================
