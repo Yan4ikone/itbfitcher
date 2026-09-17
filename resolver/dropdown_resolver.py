@@ -116,14 +116,38 @@ class DropdownResolver:
                     )
                     return
         # --------------------------------------------------
-        # 4. Ничего не определили — берём первый вариант, ставим на проверку
+        # 4. Ничего не определили.
+        #
+        # Раньше здесь молча брался ПЕРВЫЙ вариант из списка
+        # (result.code = variants[0]["code"]), ставился
+        # source="DROPDOWN_FIRST", confidence=60 — и результат
+        # выглядел как обычное, пусть не самое уверенное, решение.
+        #
+        # Диагностика на реальной выборке (100 карточек, см.
+        # products-dict-gradation-audit.md, обновление (7)) показала:
+        # эта ветка даёт правильный код только в ~22% случаев — хуже,
+        # чем случайное угадывание среди вариантов — и при этом
+        # confidence/review НИКУДА не попадают в сам Excel (только в
+        # консольный лог, который куратор не читает построчно), то
+        # есть куратор физически не мог отличить этот угаданный код
+        # от настоящего решения.
+        #
+        # По решению Яна: товар (result.product) уже определён верно
+        # выше по цепочке — его и оставляем. А код/dropdown-название
+        # НЕ угадываем — оставляем пустыми и явно помечаем как
+        # неопределённые (source="DROPDOWN_UNRESOLVED", отдельно от
+        # "DROPDOWN_FIRST", чтобы не путать со старым, угадывающим
+        # поведением). alternatives по-прежнему собираем — это и есть
+        # список кодов, из которых нужно выбрать вручную; его
+        # использует ozon_auto_processor.apply_result(), чтобы явно
+        # показать куратору варианты прямо в Excel.
         # --------------------------------------------------
-        first = variants[0]
-        result.code = first["code"]
-        result.dropdown_group = first.get("group", "")
+        result.code = ""
+        result.dropdown_group = ""
+        result.dropdown = ""
         result.review = True
-        result.source = "DROPDOWN_FIRST"
-        result.confidence = 60
+        result.source = "DROPDOWN_UNRESOLVED"
+        result.confidence = 0
         result.alternatives = {
             item.get("code", ""): variant_display_name(item)
             for item in variants

@@ -6,6 +6,7 @@ from learning.learning_filters import (
     extract_dropdown_keywords,
     is_valid_alias,
     normalize_material,
+    transliterate_ru,
 )
 from learning.name_normalizer import normalize_dictionary_name
 from learning.product_matcher import ProductMatcher
@@ -53,6 +54,11 @@ class LearningAnalyzer:
         # _analyze_dropdown_candidates(). Не хранит "0"/пустые коды
         # и коды, уже объяснённые material_codes товара.
         self._code_observations = {}
+        # Пересобирается в начале каждого analyze() -
+        # см. _build_reserved_alias_map(). Пустой словарь здесь -
+        # просто защитное значение по умолчанию, на случай вызова
+        # _add_alias()/_analyze_aliases() до analyze().
+        self._reserved_alias_map = {}
     # ==========================================================
     # PUBLIC
     # ==========================================================
@@ -63,6 +69,11 @@ class LearningAnalyzer:
         self._code_observations = {}
         self._code_keywords = {}
         self._unknown_word_index = {}   # (dictionary, word) -> NewDictionaryWord
+        # alias-форма (прямая или транслитерированная) -> {названия
+        # товаров, которым она принадлежит как СОБСТВЕННОЕ название}.
+        # Строится один раз на прогон - см. _build_reserved_alias_map()
+        # и is_valid_alias(..., reserved_names=...) в _add_alias().
+        self._reserved_alias_map = self._build_reserved_alias_map()
 
         for card in self.runtime.all_cards():
 
@@ -552,6 +563,40 @@ class LearningAnalyzer:
             code
         )
     # ==========================================================
+    # RESERVED ALIAS NAMES (коллизия с чужим товаром)
+    #
+    # См. learning_filters.py::is_valid_alias(reserved_names=...).
+    # Раньше "держатель" мог стать алиасом "держатель для телефона"
+    # безнаказанно (is_valid_alias знал только НАЗВАНИЕ товара,
+    # которому сам алиас добавляется, а не весь остальной словарь) -
+    # а дальше ЛЮБАЯ карточка, где слово "держатель" просто
+    # упомянуто (не как сам товар, а как второстепенное слово в
+    # тексте), матчилась на "держатель для телефона" через этот
+    # алиас. products-dict-gradation-audit.md, обновление (7) -
+    # именно этот механизм стоит за 0/7 точности слова "держатель"
+    # в реальной выборке.
+    # ==========================================================
+    def _build_reserved_alias_map(self):
+
+        reserved = {}
+
+        for name, _info in self.runtime.all_products():
+
+            normalized = (
+                normalize_dictionary_name(name)
+                .lower()
+                .strip()
+            )
+
+            if not normalized:
+                continue
+
+            for form in (normalized, transliterate_ru(normalized)):
+
+                reserved.setdefault(form, set()).add(name)
+
+        return reserved
+    # ==========================================================
     # ALIAS
     # ==========================================================
     def _add_alias(
@@ -573,7 +618,12 @@ class LearningAnalyzer:
         if not alias:
             return
 
-        if not is_valid_alias(alias, product):
+        reserved_names = (
+            self._reserved_alias_map.get(alias, set())
+            - {product}
+        )
+
+        if not is_valid_alias(alias, product, reserved_names=reserved_names):
             print(
                 "ALIAS FILTER:",
                 repr(alias)
@@ -656,7 +706,14 @@ class LearningAnalyzer:
             if alias in aliases:
                 continue
 
-            if not is_valid_alias(alias, product_name):
+            reserved_names = (
+                self._reserved_alias_map.get(alias, set())
+                - {product_name}
+            )
+
+            if not is_valid_alias(
+                alias, product_name, reserved_names=reserved_names,
+            ):
                 print("ALIAS FILTER:", repr(alias))
                 continue
 

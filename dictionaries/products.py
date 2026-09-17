@@ -360,8 +360,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [
             'диффузор',
-            'aromadiffuzor',
-            'аромадиффузор',
         ],
         'dropdown': {
             'variants': [
@@ -500,9 +498,7 @@ PRODUCTS = {
             'контейнер пищевой',
             'banka dlya sypuchih produktov nerzhaveyushchaya stal',
             'banka',
-            'контейнер',
             'konteyner pishchevoy nerzhaveyushchaya stal mozhno myt v posudomoyke s tolstym dnom',
-            'konteyner',
             'банка для сыпучих продуктов нержавеющая сталь',
             'контейнер пищевой нержавеющая сталь можно мыть в посудомойке с толстым дном',
             'контейнер пищевой пластик',
@@ -682,7 +678,6 @@ PRODUCTS = {
         'code': '9507900000',
         'patterns': [],
         'aliases': [
-            'воблер',
             'blesna',
         ],
     },
@@ -778,9 +773,7 @@ PRODUCTS = {
     'бокорезы': {
         'code': '8203200009',
         'patterns': [],
-        'aliases': [
-            'кусачки',
-        ],
+        'aliases': [],
     },
     'бокс для батареек': {
         'code': '8536900100',
@@ -807,13 +800,8 @@ PRODUCTS = {
         ],
         'aliases': [
             'балетки',
-            'мокасины',
-            'сандали',
-            'сандалии',
             'слипоны',
-            'шлепанцы',
             'мюли',
-            'sandalii',
             'baletki',
             'bosonozhki',
         ],
@@ -865,9 +853,7 @@ PRODUCTS = {
         'code': '6401921000',
         'patterns': [],
         'aliases': [
-            'галоши',
             'гамаши',
-            'galoshi',
         ],
         'dropdown': {
             'variants': [
@@ -1025,7 +1011,6 @@ PRODUCTS = {
             'легинсы',
             'лосины',
             'штаны',
-            'джинсы',
             'джинсы багги',
             'леггинсы',
             'брюки карго',
@@ -1036,7 +1021,6 @@ PRODUCTS = {
             'bryuki klassicheskie zakrytie sezona bryuki sportivnye muzhskie letnie',
             'леггинсы эластичные с цветочным узором',
             'брюки syjwy',
-            'dzhinsy',
             'брюки розовые штаны из хлопка zhizou',
             'брюки кюлоты moocie',
             'bryuki kargo',
@@ -1184,7 +1168,6 @@ PRODUCTS = {
         'code': '',
         'patterns': [],
         'aliases': [
-            'sportivnaya butylka',
             'butylka',
         ],
         'dropdown': {
@@ -1277,13 +1260,6 @@ PRODUCTS = {
             ],
         },
     },
-    'бюстгалтер': {
-        'code': '6212109000',
-        'patterns': [],
-        'aliases': [
-            'бюстгальтер',
-        ],
-    },
     'бюстгальтер': {
         'code': '6212109000',
         'patterns': [
@@ -1292,9 +1268,9 @@ PRODUCTS = {
         'aliases': [
             'бюстгальтер yedhsi бюстгальтер',
             'бюстгальтер вентал классик',
-            'byustgalter',
             'бюстгальтер бандо бесшовный',
             'бюстгальтер комплект',
+            'бюстгалтер',
             'byustgalter koyeta',
             'byustgalter yedhsi byustgalter',
             'бюстгальтер кружевной',
@@ -2020,7 +1996,6 @@ PRODUCTS = {
         ],
         'aliases': [
             'усиленный классический набор для дип-системы.',
-            'гель лак',
         ],
     },
     'гель для стирки': {
@@ -2687,15 +2662,12 @@ PRODUCTS = {
         'patterns': [
             'диван.*раскл',
         ],
-        'aliases': [
-            'divan',
-        ],
+        'aliases': [],
     },
     'дивандек': {
         'code': '6304990000',
         'patterns': [],
         'aliases': [
-            'чехол на мебель',
             'Чехлы для мебели',
             'чехол на диван',
         ],
@@ -3147,7 +3119,6 @@ PRODUCTS = {
             'зажигал.*',
         ],
         'aliases': [
-            'аксессуар для зажигалок',
             'аксессуары для зажигалки',
             'аксессуары для зажигалок',
         ],
@@ -3239,7 +3210,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [
             'замок врезной . .сб с двери torex blockido',
-            'замок',
         ],
     },
     'занавеска': {
@@ -3344,11 +3314,8 @@ PRODUCTS = {
         'aliases': [
             'каска',
             'маска защитная',
-            'мотошлем',
-            'шлем',
             'мотошлем цвет: бежевый красный размер:',
             'motoshlem tsvet bezhevyy krasnyy razmer',
-            'motoshlem',
         ],
     },
     'защитный тейп': {
@@ -4206,13 +4173,11 @@ PRODUCTS = {
         'code': '6505003000',
         'patterns': [],
         'aliases': [
-            'бейсболка',
             'докер',
             'панама',
             'panama huwaiyufumao',
             'panama',
             'панама huwaiyufumao',
-            'beysbolka',
         ],
     },
     'кимоно': {
@@ -4250,9 +4215,7 @@ PRODUCTS = {
         'patterns': [
             'кисто.*для.*масла',
         ],
-        'aliases': [
-            'набор для выпечки',
-        ],
+        'aliases': [],
     },
     'кисть косметическая': {
         'code': '9603309000',
@@ -4476,12 +4439,8 @@ PRODUCTS = {
                     'group': 'textile',
                 },
                 {
-                    'code': '5705008000',
-                    'group': 'textile',
-                },
-                {
                     'code': '8516299100',
-                    'group': 'пвх',
+                    'group': 'electric',
                     'match': [],
                 },
             ],
@@ -4641,9 +4600,7 @@ PRODUCTS = {
         'patterns': [
             'колпа.*на.*венти',
         ],
-        'aliases': [
-            'колпачок на вентиль автомобильный',
-        ],
+        'aliases': [],
     },
     'колпачок на вентиль автомобильный': {
         'code': '3926909709',
@@ -4764,11 +4721,8 @@ PRODUCTS = {
             'костюм брючный',
             'костюм тройка',
             'костюм шортами',
-            'костюм классический',
             'брючный костюм с жилетом',
-            'kostyum sportivnyy',
             'комплект белья для малышей',
-            'костюм спортивный',
             'komplekt verhney odezhdy smilren',
             'комплект ажурный на выписку новорожденного малыша',
             'komplekt odezhdy',
@@ -4946,7 +4900,6 @@ PRODUCTS = {
         'code': '3923301090',
         'patterns': [],
         'aliases': [
-            'контейнер',
             'контейнер для молочной смеси для детского питания',
         ],
         'dropdown': {
@@ -5433,7 +5386,6 @@ PRODUCTS = {
         'code': '3926909709',
         'patterns': [],
         'aliases': [
-            'аксессуары для палатки',
             'крепление для стеклянной перегородки к стене нержавеющая сталь l образный чёрный матовый',
             'kreplenie dlya steklyannoy peregorodki k stene nerzhaveyushchaya stal l obraznyy chernyy matovyy',
         ],
@@ -5516,7 +5468,6 @@ PRODUCTS = {
             'кеды',
             'бутсы',
             'шиповки',
-            'сандалии',
             'krossovki',
             'kedy',
             'butsy',
@@ -5893,9 +5844,7 @@ PRODUCTS = {
     'лампа автомобильная': {
         'code': '8539520009',
         'patterns': [],
-        'aliases': [
-            'лампочка',
-        ],
+        'aliases': [],
     },
     'лампочка': {
         'code': '8539520009',
@@ -5917,10 +5866,7 @@ PRODUCTS = {
     'лежак для животных': {
         'code': '6307909800',
         'patterns': [],
-        'aliases': [
-            'lezhanka',
-            'лежанка',
-        ],
+        'aliases': [],
         'dropdown': {
             'variants': [
                 {
@@ -6131,9 +6077,7 @@ PRODUCTS = {
     'лубрикант': {
         'code': '3304990000',
         'patterns': [],
-        'aliases': [
-            'смазка',
-        ],
+        'aliases': [],
     },
     'лупа': {
         'code': '9013800000',
@@ -6399,8 +6343,6 @@ PRODUCTS = {
         'aliases': [
             'nabor sadovoy mebeli',
             'набор садовой мебели',
-            'polka',
-            'тумба',
         ],
         'dropdown': {
             'title': 'Выберите вариант',
@@ -6475,9 +6417,7 @@ PRODUCTS = {
     'мешок бумажный': {
         'code': '4819400000',
         'patterns': [],
-        'aliases': [
-            'пакет',
-        ],
+        'aliases': [],
     },
     'мешок для подарков': {
         'code': '4202929800',
@@ -6846,9 +6786,7 @@ PRODUCTS = {
     'мыло': {
         'code': '3401110009',
         'patterns': [],
-        'aliases': [
-            'tverdoe mylo',
-        ],
+        'aliases': [],
     },
     'мыльные пузыри': {
         'code': '9505900000',
@@ -7251,9 +7189,7 @@ PRODUCTS = {
     'наклейка интерьерная': {
         'code': '3919900000',
         'patterns': [],
-        'aliases': [
-            'nakleyka',
-        ],
+        'aliases': [],
     },
     'наклейка коллекционная': {
         'code': '3919900000',
@@ -7279,9 +7215,7 @@ PRODUCTS = {
     'наколенник': {
         'code': '9506919000',
         'patterns': [],
-        'aliases': [
-            'защита колена',
-        ],
+        'aliases': [],
     },
     'наколенники': {
         'code': '3926200000',
@@ -7601,9 +7535,7 @@ PRODUCTS = {
         'patterns': [
             'нижне.*бель',
         ],
-        'aliases': [
-            'комплект нижнего белья',
-        ],
+        'aliases': [],
     },
     'нитевдеватель': {
         'code': '7319909000',
@@ -7750,7 +7682,6 @@ PRODUCTS = {
         'code': '6405909000',
         'patterns': [],
         'aliases': [
-            'рабочая обувь',
             'гамаши',
         ],
         'dropdown': {
@@ -7965,12 +7896,10 @@ PRODUCTS = {
         'code': '3923100000',
         'patterns': [],
         'aliases': [
-            'органайзер',
             'mariee organayzer dlya melochey i kosmetiki abs plastik haki',
             'mariee',
             'mariee органайзер для мелочей и косметики см abs пластик хаки',
             'органайзер для хранения см.',
-            'organayzer',
             'organayzer dlya hraneniya',
         ],
     },
@@ -7978,9 +7907,7 @@ PRODUCTS = {
         'code': '3923100000',
         'patterns': [],
         'aliases': [
-            'органайзер',
             'organayzer dorozhnyy',
-            'organayzer',
         ],
     },
     'орден мира дружбы российской федерации': {
@@ -8101,8 +8028,6 @@ PRODUCTS = {
         'aliases': [
             'очки',
             'ochki',
-            'motoochki',
-            'мотоочки',
             'ochki solntsezashchitnye',
         ],
         'dropdown': {
@@ -8152,7 +8077,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [
             'мешки мусора',
-            'paket',
         ],
     },
     'палантин': {
@@ -9271,11 +9195,9 @@ PRODUCTS = {
         'code': '',
         'patterns': [],
         'aliases': [
-            'подставка декоративная',
             'polka nastennaya pryamaya',
             'полка настенная прямая',
             'yoush polka dlya vannoy nastennaya uglovaya',
-            'podstavka dekorativnaya',
             'yoush полка настенная угловая',
             'polka',
         ],
@@ -9522,7 +9444,6 @@ PRODUCTS = {
         'code': '6307200000',
         'patterns': [],
         'aliases': [
-            'жилет спасательный',
             'спасательный жилет',
             'пояс страховочный',
         ],
@@ -10234,7 +10155,6 @@ PRODUCTS = {
         'code': '',
         'patterns': [],
         'aliases': [
-            'ремешок',
             'ремешок для часов watch mm тканевый',
             'ремешок браслет часов',
         ],
@@ -10757,7 +10677,6 @@ PRODUCTS = {
             'потолочный светильник led',
             'потолочный',
             'potolochnyy svetilnik led',
-            'ночник',
         ],
         'dropdown': {
             'variants': [
@@ -11140,9 +11059,7 @@ PRODUCTS = {
         'code': '3304990000',
         'patterns': [],
         'aliases': [
-            'крем',
             'krem skrab dlya litsa s maslom vinogradnoy kostochki',
-            'krem',
             'крем скраб для лица с маслом виноградной косточки',
         ],
         'dropdown': {
@@ -11732,7 +11649,6 @@ PRODUCTS = {
         'code': '9403208009',
         'patterns': [],
         'aliases': [
-            'stol',
             'стол книжка',
             'журнальный стол',
         ],
@@ -11805,9 +11721,7 @@ PRODUCTS = {
     'струна': {
         'code': '9209300000',
         'patterns': [],
-        'aliases': [
-            'аксессуар для струнных инструментов',
-        ],
+        'aliases': [],
         'dropdown': {
             'variants': [
                 {
@@ -11947,9 +11861,7 @@ PRODUCTS = {
     'сумка для сменной обуви': {
         'code': '4202990000',
         'patterns': [],
-        'aliases': [
-            'sumka',
-        ],
+        'aliases': [],
     },
     'сургуч': {
         'code': '3404900001',
@@ -11987,9 +11899,7 @@ PRODUCTS = {
     'сушилка для белья': {
         'code': '7323990000',
         'patterns': [],
-        'aliases': [
-            'sushilka',
-        ],
+        'aliases': [],
     },
     'сушилка для обуви': {
         'code': '8516299100',
@@ -12108,7 +12018,6 @@ PRODUCTS = {
         'code': '6405209100',
         'patterns': [],
         'aliases': [
-            'шлепанцы',
             'tapochki',
         ],
         'material_codes': {
@@ -12423,9 +12332,7 @@ PRODUCTS = {
     'точилка для карандашей': {
         'code': '8214100000',
         'patterns': [],
-        'aliases': [
-            'tochilka',
-        ],
+        'aliases': [],
     },
     'точильный камень': {
         'code': '6804229000',
@@ -12877,9 +12784,7 @@ PRODUCTS = {
         'patterns': [
             'укрыв.*сеточ',
         ],
-        'aliases': [
-            'укрывной материал',
-        ],
+        'aliases': [],
     },
     'укрывной материал': {
         'code': '6306120000',
@@ -12894,9 +12799,7 @@ PRODUCTS = {
         'patterns': [
             'укрыв.*колпа',
         ],
-        'aliases': [
-            'укрывной материал',
-        ],
+        'aliases': [],
     },
     'уличный светильник': {
         'code': '9405490039',
@@ -13007,9 +12910,7 @@ PRODUCTS = {
     'фара автомобильная': {
         'code': '8512200009',
         'patterns': [],
-        'aliases': [
-            'фара',
-        ],
+        'aliases': [],
     },
     'фаркоп': {
         'code': '8302300009',
@@ -13509,9 +13410,7 @@ PRODUCTS = {
     'ходунки': {
         'code': '9021101000',
         'patterns': [],
-        'aliases': [
-            'параподиум',
-        ],
+        'aliases': [],
     },
     'ходунки для собак': {
         'code': '4201000000',
@@ -13780,6 +13679,7 @@ PRODUCTS = {
         ],
         'aliases': [
             'чехол для планшета',
+            'чехол для телефона',
             'чехол на iphone pro max',
             'чехол для iphone pro max с кожаной текстурой в простом стиле и однотонном цвете тёмно синий',
         ],
@@ -13798,11 +13698,6 @@ PRODUCTS = {
             ],
         },
     },
-    'чехол для телефона': {
-        'code': '4202321000',
-        'patterns': [],
-        'aliases': [],
-    },
     'чехол для фото видеотехники': {
         'code': '4202921900',
         'patterns': [],
@@ -13811,7 +13706,6 @@ PRODUCTS = {
             'чехол сумка для фотоаппарата eos и других моделей качественной износостойкой влагозащитной ',
             'чехол сумка',
             'чехол сумка для фотоаппарата eos и других моделей качественной износостойкой влагозащитной ткани черный',
-            'чехол для планшета',
             'chehol',
         ],
     },
@@ -13851,7 +13745,6 @@ PRODUCTS = {
         'aliases': [
             'противоударный чехол',
             'чехол на смартфон',
-            'чехол для телефона',
         ],
         'dropdown': {
             'title': 'Выберите вариант',
@@ -13876,7 +13769,6 @@ PRODUCTS = {
             'komplekt sredstvo dlya remonta tsarapin na stoleshnitse iz keramicheskoy plitki',
             'средство для ремонта царапин на столешнице из керамической плитки',
             'моющее средство',
-            'пятновыводитель',
             'стирки',
             'против',
             'окрашивания',
@@ -13928,9 +13820,7 @@ PRODUCTS = {
             'шампун.*волос',
         ],
         'aliases': [
-            'шампунь',
             'shampun dlya volos',
-            'shampun',
         ],
         'dropdown': {
             'variants': [
@@ -14025,7 +13915,6 @@ PRODUCTS = {
             'бафф',
             'косынка',
             'sharf',
-            'платок',
             'sharf kosynka',
         ],
         'dropdown': {
@@ -14450,9 +14339,7 @@ PRODUCTS = {
     'шторы': {
         'code': '6303929000',
         'patterns': [],
-        'aliases': [
-            'рулонные шторы',
-        ],
+        'aliases': [],
     },
     'шуба искусственная': {
         'code': '4304000000',
@@ -14522,9 +14409,7 @@ PRODUCTS = {
         'code': '9603909900',
         'patterns': [],
         'aliases': [
-            'щетка',
             'shchetka dlya uborki',
-            'shchetka',
             'веник',
             'venik',
             'метла',
@@ -14879,8 +14764,6 @@ PRODUCTS = {
             'yubka ruijiaoji',
             'yubka',
             'yubka aueoeo',
-            'podyubnik',
-            'подъюбник',
         ],
         'dropdown': {
             'variants': [
@@ -14942,7 +14825,6 @@ PRODUCTS = {
         'aliases': [
             'dewalt dwst833951 ящик для инструментов',
             'milwaukee 48736110 коленный коврик packout профессиональный для работы в мастерской',
-            'yashchik',
         ],
     },
     'ящик для хранения': {

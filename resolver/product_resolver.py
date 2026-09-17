@@ -138,6 +138,11 @@ class ProductResolver:
                     "LOW_CONFIDENCE" if low_confidence else "AMBIGUOUS"
                 )
 
+                if winner.reason == "AMBIGUOUS":
+                    self._clear_ambiguous_multi_product_code(
+                        winner, candidates,
+                    )
+
                 self._record_timing(
                     t_start, t_parse, t_after_candidates,
                     len(candidates),
@@ -159,6 +164,60 @@ class ProductResolver:
         )
 
         return winner, candidates
+
+    # ==========================================================
+    # МУЛЬТИ-ТОВАРНЫЕ ЛИСТИНГИ (несколько РАЗНЫХ реальных товаров
+    # с одинаковым топ-score - см. products-dict-gradation-audit.md,
+    # обновление (7), пример: карточка с ремкомплектом зажигания
+    # одновременно называет "свеча зажигания", "реле", "катушка" -
+    # все получают score=800, и раньше система молча брала первого
+    # по порядку как единственно верный ответ, выглядящий как
+    # обычное уверенное решение (Источник: PRODUCTS,
+    # Уверенность: 100% - см. ниже: confidence на самом деле не
+    # процент, а сырой score, обрезанный до 100).
+    #
+    # По решению Яна: если среди кандидатов с максимальным score
+    # есть хотя бы два РАЗНЫХ кода - не выбираем один произвольно.
+    # Название товара становится списком всех таких кандидатов
+    # ("свеча зажигания / реле / катушка"), а код остаётся пустым -
+    # ResultBuilder соберёт из этих же кандидатов alternatives, и
+    # дальше по цепочке (ozon_auto_processor.apply_result) это
+    # уедет в Excel как явно требующая ручного выбора строка (пустой
+    # код -> красная строка постобработки, комментарий к ячейке со
+    # списком кодов на выбор) - тот же принцип, что уже применён к
+    # DROPDOWN_UNRESOLVED.
+    #
+    # Если же тай — это просто синонимы/дубли одного и того же кода
+    # (реальной неоднозначности НЕТ, разница только в отображаемом
+    # названии), код НЕ трогаем - незачем гнать на ручную проверку
+    # то, что и так однозначно по результату классификации.
+    # ==========================================================
+    def _clear_ambiguous_multi_product_code(self, winner, candidates):
+
+        tied = [
+            c for c in candidates
+            if c.score == winner.score
+        ]
+
+        distinct_codes = {
+            c.code for c in tied
+            if c.code
+        }
+
+        if len(distinct_codes) <= 1:
+            return
+
+        # Снимаем коды ДО очистки - winner это тот же объект, что и
+        # tied[0]/candidates[0], поэтому winner.code = "" ниже иначе
+        # стёрла бы код и отсюда тоже.
+        winner.tied_alternatives = {
+            c.product: c.code
+            for c in tied
+            if c.code
+        }
+
+        winner.code = ""
+        winner.material_code = ""
 
     # ==========================================================
     # DISAMBIGUATION

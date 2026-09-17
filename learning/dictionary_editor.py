@@ -370,6 +370,33 @@ def delete_match_word(product: str, code: str, word: str) -> None:
     _reload_products()
 
 
+def delete_alias(product: str, alias: str) -> None:
+    """Удаляет ОДИН алиас верхнего уровня у товара (не match-слово
+    dropdown-варианта - для этого delete_match_word). Нужна в первую
+    очередь для ручной чистки коллизий "алиас совпадает с названием
+    ДРУГОГО товара" (см. learning_filters.py::is_valid_alias,
+    reserved_names) - вроде "держатель"/"derzhatel", которые могли
+    попасть в aliases другого товара ДО того, как эта проверка была
+    добавлена."""
+
+    alias = str(alias or "").strip().lower()
+
+    _reload_products()
+    current = products_module.PRODUCTS
+    info = current.get(str(product or "").strip())
+
+    if not info:
+        raise ValueError(f"Товар «{product}» не найден")
+
+    info["aliases"] = [
+        a for a in (info.get("aliases") or [])
+        if str(a).strip().lower() != alias
+    ]
+
+    _write_products(current)
+    _reload_products()
+
+
 def set_variant_group(product: str, code: str, group: str) -> None:
     """Переименовывает group у конкретного варианта - в первую
     очередь для замены заглушки "other" (см.

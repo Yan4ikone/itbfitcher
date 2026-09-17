@@ -4,6 +4,7 @@ import time
 import random
 import asyncio
 import openpyxl
+from openpyxl.comments import Comment
 
 from learning.importer import load_learning_history
 from parser.cdp_product_parser import CDPProductParser, BLOCKED_RESOURCE_TYPES, log
@@ -675,6 +676,36 @@ class OzonAutoProcessor:
                 ws[f"C{row}"] = int(result.code)
             except ValueError:
                 ws[f"C{row}"] = (result.code)
+        elif result.source == "DROPDOWN_UNRESOLVED":
+            # Явно очищаем ячейку (а не оставляем как есть), иначе
+            # при повторной обработке той же книги старый код от
+            # прошлого запуска (в т.ч. неверный, ранее угаданный
+            # через DROPDOWN_FIRST) мог бы молча остаться в ячейке,
+            # не будучи ни правильным, ни явно помеченным как спорный.
+            ws[f"C{row}"] = None
+        # ------------------------------------------------------
+        # Комментарий к ячейке кода со списком вариантов, среди
+        # которых не удалось однозначно выбрать (result.alternatives,
+        # см. resolver/dropdown_resolver.py, случай "4. Ничего не
+        # определили"). Раньше эта информация писалась ТОЛЬКО в
+        # консольный лог и терялась после закрытия программы - в
+        # самом Excel куратор её не видел вообще (в отличие от
+        # старого пути engines/result_engine.py::set_comment, который
+        # для обычного - не Ozon-авто - режима уже так делает; здесь
+        # того же не было). Комментарий вешаем даже когда C{row}
+        # пустая (result.code == "") - именно в этом и есть смысл:
+        # ячейка пустая и явно требует ручного выбора одного из
+        # перечисленных кодов, вместо того чтобы куратор видел
+        # неверный, но правдоподобный код без пояснений.
+        # ------------------------------------------------------
+        alternatives = getattr(result, "alternatives", None) or {}
+
+        if result.review and alternatives:
+            comment_text = "Выбрать код вручную:\n" + "\n".join(
+                f"{code} — {name}"
+                for code, name in alternatives.items()
+            )
+            ws[f"C{row}"].comment = Comment(comment_text, "Classifier")
         # ------------------------------------------------------
         # Statistics
         # ------------------------------------------------------
@@ -692,6 +723,23 @@ class OzonAutoProcessor:
             )
             if result.review:
                 self.log("⚠ Требуется проверка")
+        elif result.source == "DROPDOWN_UNRESOLVED" and alternatives:
+            # Товар определён верно, но не удалось однозначно выбрать
+            # вариант/код (материал, пол, назначение и т.п. не
+            # распознаны в тексте карточки) - раньше эта ветка молча
+            # получала случайный код первого варианта из списка
+            # (source="DROPDOWN_FIRST"), теперь честно помечается как
+            # неопределённая. См. products-dict-gradation-audit.md,
+            # обновление (7).
+            self.not_found_count += 1
+            self.log(f"Описание: {result.product}")
+            self.log(
+                "Код не определён однозначно среди "
+                f"{len(alternatives)} вариантов - требуется ручной "
+                "выбор (см. комментарий к ячейке кода)"
+            )
+            for alt_code, alt_name in alternatives.items():
+                self.log(f"    {alt_code} — {alt_name}")
         else:
 
             self.not_found_count += 1

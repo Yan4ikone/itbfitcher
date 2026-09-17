@@ -16,6 +16,15 @@ class Candidate:
     review: bool = False
     reason: str = ""
 
+    # Заполняется в product_resolver.py::_clear_ambiguous_multi_product_code
+    # для мульти-товарных листингов (несколько РАЗНЫХ товаров с одинаковым
+    # топ-score) - {название: код} всех тай-кандидатов, снятое ДО того, как
+    # у winner (он же candidates[0] - тот же объект) обнуляется code. Нужно
+    # отдельным полем, а не пересчётом из candidates в result_builder.py,
+    # потому что winner - тот же объект, что и первый элемент candidates,
+    # и обнуление winner.code иначе стирало бы код и оттуда тоже.
+    tied_alternatives: dict = field(default_factory=dict)
+
     def add(self, reason: str, points: int, text: str = ""):
 
         self.score += points
@@ -45,4 +54,5 @@ class Candidate:
             info=dict(self.info),
             review=self.review,
             reason=self.reason,
+            tied_alternatives=dict(self.tied_alternatives),
         )
