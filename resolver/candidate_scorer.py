@@ -91,34 +91,32 @@ class CandidateScorer:
         )
         type_keys = ("тип", "тип товара")
 
-        for key, value in parsed["specs_dict"].items():
-
-            if str(key).strip().lower() in type_keys:
-                self._field_score(
-                    candidate,
-                    value,
-                    product,
-                    300,
-                    "SPEC_TYPE",
-                )
-        for value in parsed["specs_dict"].values():
-
-            # specs_weight усиливается при повторном скоринге
-            self._field_score(
-                candidate,
-                value,
-                product,
-                specs_weight,
-                "SPECS",
-            )
-        for crumb in parsed.get("breadcrumbs", []):
-            self._field_score(
-                candidate,
-                crumb,
-                product,
-                180,
-                "BREADCRUMB",
-            )
+        self._best_field_score(
+            candidate,
+            (
+                value
+                for key, value in parsed["specs_dict"].items()
+                if str(key).strip().lower() in type_keys
+            ),
+            product,
+            300,
+            "SPEC_TYPE",
+        )
+        # specs_weight усиливается при повторном скоринге (доразбор)
+        self._best_field_score(
+            candidate,
+            parsed["specs_dict"].values(),
+            product,
+            specs_weight,
+            "SPECS",
+        )
+        self._best_field_score(
+            candidate,
+            parsed.get("breadcrumbs", []),
+            product,
+            180,
+            "BREADCRUMB",
+        )
     # ==============================================================
     # ALIAS
     # ==============================================================
@@ -259,6 +257,51 @@ class CandidateScorer:
             return
 
         matched_weight, is_similar = result
+
+        candidate.add(
+            source + ("_SIMILAR" if is_similar else ""),
+            matched_weight,
+            phrase,
+        )
+
+    def _best_field_score(self, candidate, texts, phrase, weight, source):
+        """Как _score_aliases - несколько текстов одной и той же
+        природы (несколько значений specs_dict, несколько уровней
+        breadcrumb), совпавших с ОДНИМ и тем же названием товара, всё
+        ещё описывают ОДИН факт "где-то на странице упомянут этот
+        товар", а не независимые улики. Раньше _field_score вызывался
+        в цикле для КАЖДОГО значения отдельно, и Candidate.add
+        суммировал очки без ограничения - на реальном прогоне
+        (Test_machine_2, 2026-09-18) это дало SPECS=450 (150x3) для
+        карточки, где совпадение было по сути одно и то же значение
+        характеристики, повторённое/задублированное на странице
+        Ozon в нескольких полях (см. products-dict-gradation-audit.md,
+        разбор "эмблема автомобильная") - кандидат с нулевым
+        совпадением в TITLE/SLUG набирал достаточно очков, чтобы
+        пройти как уверенное решение (SOURCE=PRODUCTS,
+        Уверенность=100%) вместо ухода на ручную проверку.
+
+        Берём ЛУЧШЕЕ совпадение среди всех текстов и начисляем очки
+        только один раз - так же, как уже сделано для алиасов."""
+
+        best = None  # (matched_weight, is_similar)
+
+        for text in texts:
+
+            result = self._match_weight(text, phrase, weight)
+
+            if result is None:
+                continue
+
+            matched_weight, is_similar = result
+
+            if best is None or matched_weight > best[0]:
+                best = (matched_weight, is_similar)
+
+        if best is None:
+            return
+
+        matched_weight, is_similar = best
 
         candidate.add(
             source + ("_SIMILAR" if is_similar else ""),

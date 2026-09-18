@@ -60,6 +60,18 @@ class ResultBuilder:
                 code: name
                 for name, code in winner.tied_alternatives.items()
             }
+            # winner.score всё ещё содержит "сырой" счёт (score
+            # кандидата НЕ обнуляется в _clear_ambiguous_multi_product_
+            # code, только code/material_code) - если оставить строку
+            # 24 (result.confidence = min(winner.score, 100)) как
+            # единственный источник, куратор в Excel/логе увидит
+            # "Уверенность: 100%" одновременно с ПУСТЫМ кодом, что
+            # выглядит как противоречие (зафиксировано на реальном
+            # прогоне Test_machine_2: "выключатель поворотный /
+            # выключатель кнопочный" и "решетка радиатора / решетка" -
+            # оба показали CONFIDENCE 100 при пустом коде). Здесь явно
+            # обнуляем, как и для DROPDOWN_UNRESOLVED.
+            result.confidence = 0
 
         if winner.material:
 
