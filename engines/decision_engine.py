@@ -1,3 +1,5 @@
+import os
+
 from engines.knowledge_engine import KnowledgeEngine
 from resolver.dropdown_resolver import DropdownResolver
 from classifier.history_classifier import HistoryClassifier
@@ -9,9 +11,29 @@ from engines.engine import ResolverEngine
 from resolver.excel_name_builder import ExcelNameBuilder
 from resolver.special_product_resolver import SpecialProductResolver
 
-from engines.image_description_engine import ImageDescriptionEngine
 from services.image_description_service import ImageDescriptionService
 from processors.card_image_processor import CardImageProcessor
+
+
+def _create_image_engine():
+    # Выбор движка ИИ-распознавания по картинке через переменную
+    # окружения IMAGE_ENGINE - позволяет сравнить варианты (Anthropic
+    # / Yandex AI Studio) на одних и тех же карточках, не трогая код.
+    # По умолчанию (переменная не задана) - Anthropic, как и раньше.
+    # Импорт конкретного класса - ЛЕНИВЫЙ (внутри if/else), а не на
+    # уровне модуля: если для выбранного варианта не задан свой ключ
+    # или не установлена своя зависимость, падает только он, а не
+    # оба сразу при обычном импорте decision_engine.py.
+    engine_choice = os.getenv("IMAGE_ENGINE", "anthropic").strip().lower()
+
+    if engine_choice == "yandex":
+        from engines.yandex_image_description_engine import (
+            YandexImageDescriptionEngine,
+        )
+        return YandexImageDescriptionEngine()
+
+    from engines.image_description_engine import ImageDescriptionEngine
+    return ImageDescriptionEngine()
 
 
 class DecisionEngine:
@@ -31,11 +53,13 @@ class DecisionEngine:
 
         # Распознавание по картинке - ТОЛЬКО для карточек, которые
         # обычная классификация не смогла определить (см. decide()
-        # ниже). Инициализация может упасть (нет ANTHROPIC_API_KEY,
-        # библиотека не установлена и т.п.) - это не должно ронять
-        # весь движок, просто отключает эту конкретную подстраховку.
+        # ниже). Инициализация может упасть (нет ключа нужного
+        # сервиса, библиотека не установлена и т.п.) - это не должно
+        # ронять весь движок, просто отключает эту подстраховку.
+        # Какой именно сервис используется - см. _create_image_engine()
+        # выше (переменная окружения IMAGE_ENGINE).
         try:
-            image_engine = ImageDescriptionEngine()
+            image_engine = _create_image_engine()
             image_service = ImageDescriptionService(image_engine)
             self.image_processor = CardImageProcessor(image_service)
         except Exception as e:
@@ -202,31 +226,8 @@ class DecisionEngine:
         # ==========================================================
         # 9. SAVE CARD
         # ==========================================================
-        if remember and not result.review:
-
-            self.knowledge.card_repository.remember(card, result)
-            self._decide_count += 1
-            print(
-                "[CARD SAVE]",
-                card.url,
-                "code=",
-                result.code,
-                "product=",
-                result.product,
-            )
-            print(
-                "[CARD COUNT]",
-                self._decide_count,
-                "/",
-                self._flush_every,
-            )
-            if self._decide_count % self._flush_every == 0:
-                print(
-                    "[CARD FLUSH]",
-                    "count=",
-                    self._decide_count,
-                )
-                self.knowledge.card_repository.flush()
+        if remember:
+            self.remember(card, result)
         # ==========================================================
         # 10. FINAL
         # ==========================================================
@@ -238,3 +239,48 @@ class DecisionEngine:
             f"проверка={result.review}"
         )
         return result
+
+    # ==========================================================
+    # REMEMBER (вынесено из decide() шага 9 отдельным методом)
+    #
+    # Нужен отдельно от decide(), потому что классификация теперь
+    # может выполняться в ОТДЕЛЬНОМ процессе (см.
+    # processors/ozon_auto_processor.py::CLASSIFIER_WORKERS -
+    # ProcessPoolExecutor с собственным DecisionEngine на каждый
+    # процесс, decide(card, remember=False) там). card_repository
+    # каждого worker-процесса - это ЕГО СОБСТВЕННАЯ копия в памяти
+    # процесса, и "запоминание" туда бесполезно (никогда не попадёт
+    # обратно в главный процесс и не будет сохранено в
+    # storage/runtime_cards.json). Поэтому "запоминание" перенесено
+    # в ГЛАВНЫЙ процесс - он получает готовые (card, result) обратно
+    # от воркера и вызывает remember() на СВОЁМ, единственном,
+    # реально сохраняемом на диск DecisionEngine.
+    # ==========================================================
+    def remember(self, card, result):
+
+        if result.review:
+            return
+
+        self.knowledge.card_repository.remember(card, result)
+        self._decide_count += 1
+        print(
+            "[CARD SAVE]",
+            card.url,
+            "code=",
+            result.code,
+            "product=",
+            result.product,
+        )
+        print(
+            "[CARD COUNT]",
+            self._decide_count,
+            "/",
+            self._flush_every,
+        )
+        if self._decide_count % self._flush_every == 0:
+            print(
+                "[CARD FLUSH]",
+                "count=",
+                self._decide_count,
+            )
+            self.knowledge.card_repository.flush()

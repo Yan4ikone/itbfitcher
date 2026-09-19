@@ -7,14 +7,11 @@ import requests
 from playwright.async_api import async_playwright
 
 import config
-from engines.image_description_engine import ImageDescriptionEngine
 from models.card_builder import build_product_card
 from parser.ozon_html_parser import (
     parse_ozon_page_async,
 )
 from parser.wb_parser import WBParser
-from processors.card_image_processor import CardImageProcessor
-from services.image_description_service import ImageDescriptionService
 
 log = logging.getLogger(__name__)
 
@@ -30,9 +27,12 @@ class CDPProductParser:
 
     def __init__(self, cdp_url=config.CDP_URL):
         self.cdp_url = cdp_url
-        image_engine = ImageDescriptionEngine()
-        image_service = ImageDescriptionService(image_engine)
-        self.image_processor = CardImageProcessor(image_service)
+        # ПРИМЕЧАНИЕ: раньше здесь ещё создавался self.image_processor
+        # (свой собственный ImageDescriptionEngine/CardImageProcessor)
+        # - убран, найден полностью неиспользуемым нигде в проекте
+        # (ни одного обращения к self.image_processor вне этой строки
+        # создания). Реальный, действительно используемый ИИ-фоллбек
+        # по картинке - в engines/decision_engine.py.
         self.wb_parser = WBParser()
         self._wb_responses = {}
         self.async_playwright = None

@@ -33,6 +33,7 @@ class ProductMatcher:
         )
 
         best_product = None
+        best_info = None
         best_score = 0
 
         for product, info in all_products:
@@ -42,14 +43,75 @@ class ProductMatcher:
             if score > best_score:
                 best_score = score
                 best_product = product
+                best_info = info
 
         if best_score < 60:
+            return None
+
+        # --------------------------------------------------
+        # КОД ДОЛЖЕН ПОДТВЕРЖДАТЬ СОВПАДЕНИЕ
+        #
+        # _word_score (до 50) + _similarity_score (до 20) дают до 70
+        # очков ТОЛЬКО за текстовое сходство описаний - этого одного
+        # достаточно, чтобы перескочить порог 60 даже когда код,
+        # который куратор явно подтвердил, вообще не связан с
+        # найденным товаром. Реальный случай: куратор завёл "датчик
+        # холла" с НОВЫМ кодом - текст совпал по слову "датчик" с
+        # каким-то другим товаром "датчик ..." в словаре, и вместо
+        # нового товара со своим кодом система тихо добавила
+        # "датчик холла" алиасом к чужому товару, а сам новый код
+        # потерялся (see products-dict-gradation-audit.md, обновление
+        # (11)). Код, который ввёл куратор - подтверждённый человеком
+        # факт (тот же принцип, что и в analyzer.py::_observe_code),
+        # поэтому одного текстового сходства недостаточно: совпадение
+        # принимаем, только если код реально принадлежит найденному
+        # товару - его плоский code, один из material_codes, или один
+        # из кодов его dropdown-вариантов. Если нет - лучше ложно
+        # создать новый товар (куратор легко объединит вручную), чем
+        # ложно спрятать новый код в алиасах чужого товара (куратор
+        # может вообще не заметить пропажи кода).
+        # --------------------------------------------------
+        if not self._code_matches_product(code, best_info):
             return None
 
         return {
             "product": best_product,
             "score": best_score,
         }
+
+    # ==========================================================
+    # КОД ТОВАРА: ПРИНАДЛЕЖИТ ЛИ ЕМУ ЭТОТ КОД ВООБЩЕ
+    # ==========================================================
+
+    def _code_matches_product(self, code, info):
+
+        code = str(code or "").strip()
+
+        if not code or code == "0":
+            return False
+
+        if str(info.get("code", "")).strip() == code:
+            return True
+
+        material_codes = {
+            str(value).strip()
+            for value in (info.get("material_codes", {}) or {}).values()
+        }
+
+        if code in material_codes:
+            return True
+
+        dropdown = info.get("dropdown") or {}
+
+        variant_codes = {
+            str(variant.get("code", "")).strip()
+            for variant in (dropdown.get("variants", []) or [])
+        }
+
+        if code in variant_codes:
+            return True
+
+        return False
 
     # ==========================================================
     # КОД: МАСШТАБИРОВАННЫЙ БОНУС

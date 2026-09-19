@@ -33,3 +33,22 @@ def lemmatized_tokens(text) -> set:
     words = [word for word in words if len(word) > 2]
 
     return {_morphology.normal(word) for word in words}
+
+
+def word_case(word) -> str:
+    """Падеж отдельного слова ('nomn', 'gent', ...) - обёртка над
+    общим экземпляром Morphology, см. cleaner/morphology.py::case().
+    Используется resolver/candidate_scorer.py, чтобы отличить "само
+    название товара" (именительный падеж) от слова, упомянутого лишь
+    как принадлежность/деталь чего-то другого (родительный падеж и
+    т.п.)."""
+
+    if not word:
+        return ""
+
+    word = str(word).strip(_PUNCTUATION)
+
+    if not word:
+        return ""
+
+    return _morphology.case(word)

@@ -12,11 +12,6 @@ class ResultBuilder:
             return result
 
         result.product = winner.product
-        print(
-            "DEBUG PRODUCT TYPE:",
-            type(winner.product),
-            winner.product
-        )
         result.product_scores = candidates
         result.code = winner.code
         result.default_code = winner.code
@@ -38,12 +33,21 @@ class ResultBuilder:
         # Мульти-товарный листинг (см. product_resolver.py::
         # _clear_ambiguous_multi_product_code) - winner.code уже
         # очищен там, если среди кандидатов с максимальным score
-        # было несколько РАЗНЫХ кодов. Здесь вместо одного
-        # произвольно выбранного названия отдаём куратору названия
-        # ВСЕХ настоящих тай-кандидатов сразу ("свеча зажигания /
-        # реле / катушка"), и alternatives строим по ним всем (а не
-        # только по первым трём после победителя, как в общем
-        # случае выше) - победителя как такового здесь нет.
+        # было несколько РАЗНЫХ кодов. alternatives строим по ВСЕМ
+        # настоящим тай-кандидатам сразу (а не только по первым трём
+        # после победителя, как в общем случае выше) - победителя как
+        # такового здесь нет, и куратор выбирает вручную (см.
+        # комментарий к ячейке кода, ozon_auto_processor.py::
+        # apply_result).
+        #
+        # result.product НЕ переписываем на склейку через " / "
+        # ("переключатель кнопочный / переключатель поворотный") - по
+        # прямому указанию Яна такие двойные наименования ставить не
+        # нужно (products-dict-gradation-audit.md, обновление (11), п.6).
+        # Остаётся одно название (winner.product, уже выставлено выше) -
+        # весь список реальных вариантов куратор видит в комментарии к
+        # ячейке кода через alternatives, без задваивания в самом
+        # наименовании.
         # ------------------------------------------------------
         if (
             winner.reason == "AMBIGUOUS"
@@ -55,7 +59,6 @@ class ResultBuilder:
             # winner это тот же объект, что и первый элемент
             # candidates, поэтому пересчитывать коды из candidates
             # здесь уже нельзя (код победителя там тоже пуст).
-            result.product = " / ".join(winner.tied_alternatives)
             result.alternatives = {
                 code: name
                 for name, code in winner.tied_alternatives.items()

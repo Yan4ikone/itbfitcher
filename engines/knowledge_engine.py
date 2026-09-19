@@ -1,9 +1,7 @@
-from engines.image_description_engine import ImageDescriptionEngine
 from learning.runtime import LearningRuntime
 from repositories.card_repository import CardRepository
 from repositories.knowledge_base_repository import KnowledgeBaseRepository
 from repositories.product_repository import ProductRepository
-from services.image_description_service import ImageDescriptionService
 from services.image_loader import ImageLoader
 
 
@@ -16,8 +14,19 @@ class KnowledgeEngine:
         self.card_repository = CardRepository()
         self.knowledge_base = KnowledgeBaseRepository()
         self.image_loader = ImageLoader()
-        self.image_engine = ImageDescriptionEngine()
-        self.image_service = ImageDescriptionService(self.image_engine)
+        # ПРИМЕЧАНИЕ: раньше здесь ещё создавались self.image_engine/
+        # self.image_service (свой собственный ImageDescriptionEngine)
+        # - убраны, найдены полностью неиспользуемыми нигде в проекте
+        # (grep по всему репо не нашёл ни одного обращения к ним вне
+        # этой же строки создания). Реальный, действительно
+        # используемый ИИ-фоллбек по картинке - в
+        # engines/decision_engine.py (self.image_processor,
+        # _create_image_engine()). Эта неиспользуемая копия просто
+        # лишний раз создавала клиента Anthropic (в т.ч. по разу на
+        # каждый дочерний процесс CLASSIFIER_WORKERS) без всякой
+        # пользы - и попутно печатала "IMAGE ENGINE INIT (Anthropic
+        # API)" в лог, даже когда через IMAGE_ENGINE=yandex выбран
+        # другой сервис, что вводило в заблуждение при проверке.
 
     def refresh_products(self):
         self.product_repository = ProductRepository()
