@@ -56,6 +56,27 @@ class ProductParser:
 
         raw_text = " ".join(texts)
         cleaned, _, _ = clean_text(raw_text)
+        # Отдельно чистим ТОЛЬКО текст описания продавца (card.description) -
+        # раньше здесь ошибочно стояло то же самое `cleaned`, что и в
+        # cleaned_text ниже (полная склейка title+slug+description+specs+
+        # sections+features). Из-за этого в candidate_scorer.py поля
+        # DESCRIPTION(200)/DESC_ALIAS(300) были БУКВАЛЬНО тем же текстом,
+        # что и CLEANED(350)/CLEANED_ALIAS(250) - одно и то же совпадение
+        # засчитывалось дважды под разными именами, и оба поля были
+        # одинаково загрязнены ЛЮБЫМ значением характеристики (specs), а
+        # не только тем, что продавец реально написал в текстовом описании
+        # товара. Разбор: карточка "Ручка и кронштейн для открывания
+        # защелки капота" ушла в код "наклейка" ИСКЛЮЧИТЕЛЬНО из-за
+        # характеристики Тип="Наклейка автомобильная" (продавец ошибся с
+        # полем) - в описании товара слова "наклейка" вообще нет, но оно
+        # всё равно засчиталось и как SPECS, и как CLEANED, и (по этой
+        # самой причине) как "DESCRIPTION" - из-за чего решение ошибочно
+        # считалось "подтверждённым текстом продавца про этот товар"
+        # (has_direct_text_support=True, resolver/result_builder.py) и НЕ
+        # уходило на ИИ-подтверждение по картинке, хотя должно было (по
+        # прямому указанию Яна - см. engines/decision_engine.py, шаг 7.5).
+        # products-dict-gradation-audit.md.
+        description_cleaned, _, _ = clean_text(card.description or "")
         product = self.extractor.extract(cleaned)
         quantity = extract_quantity(raw_text)
 
@@ -72,7 +93,7 @@ class ProductParser:
         return {
             "title": card.title.lower(),
             "slug": card.slug.lower(),
-            "description": cleaned.lower(),
+            "description": description_cleaned.lower(),
             "cleaned_text": cleaned.lower(),
             "search_text": raw_text.lower(),
             "specs": spec_values,

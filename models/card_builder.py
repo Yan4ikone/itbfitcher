@@ -7,7 +7,7 @@ from utils.quantity_extractor import (
     is_heterogeneous_kit,
     strip_heterogeneous_kit_segments,
 )
-from utils.material_extractor import extract_material
+from utils.material_extractor import extract_material, is_excluded_material_key
 
 
 FIELDS = [
@@ -85,6 +85,16 @@ def build_product_card(url, parsed, raw_text):
     if not card.description or card.description == "Распродажа":
         card.description = card.slug
 
+    # Материал ВЕРХА/основной части (напр. "Материал", "Материал
+    # верха", "Состав") - в приоритете над обычным первым найденным
+    # спеком, см. пояснение в блоке MATERIAL ниже. material_excluded_
+    # value - слабый сигнал "последней надежды" (материал подошвы/
+    # подкладки/т.п.) - используется, ТОЛЬКО если вообще ничего
+    # больше не нашлось (лучше слабый сигнал, чем никакого).
+    material_value = ""
+    material_primary_value = ""
+    material_excluded_value = ""
+
     for key, value in card.specs.items():
 
         key_l = str(key or "").strip().lower()
@@ -94,13 +104,48 @@ def build_product_card(url, parsed, raw_text):
             continue
         # ======================================================
         # MATERIAL
+        #
+        # У обуви/сумок и т.п. в характеристиках Ozon часто ЕСТЬ
+        # несколько разных полей "Материал ..." одновременно -
+        # материал ОСНОВНОЙ части (просто "Материал", "Материал
+        # верха") и материал ВСПОМОГАТЕЛЬНОЙ части (подошва,
+        # подкладка, стелька, утеплитель, фурнитура, молния, шнурки).
+        # Раньше здесь брался ПЕРВЫЙ попавшийся ключ, содержащий
+        # "материал"/"состав", в порядке, в котором Ozon отдаёт
+        # характеристики - а этот порядок никак не гарантирует, что
+        # основной материал идёт раньше вспомогательного. На практике
+        # ловилось "Материал подошвы обуви: Каучук" (сама подошва) как
+        # card.material ДО того, как встречался настоящий "Материал:
+        # Натуральная кожа" - товар с реальной кожаной верхней частью
+        # уходил в DROPDOWN_UNRESOLVED, потому что резина не совпадает
+        # ни с одним dropdown-вариантом ("кожа"/"текстиль").
+        #
+        # Используем тот же фильтр is_excluded_material_key(), что уже
+        # применяется в resolver/material_resolver.py для той же цели -
+        # единый источник, не дублируем список слов-исключений. Внутри
+        # оставшихся (не вспомогательных) ключей отдельно запоминаем
+        # "первичное" совпадение (сам "материал" без уточнения, или
+        # явно "материал верха") - оно приоритетнее любого другого
+        # немаркированного as-is совпадения ("материал", "состав").
+        # Вспомогательный ключ (подошва/подкладка/...) тоже
+        # запоминаем отдельно (material_excluded_value) - НЕ как
+        # обычный кандидат, а как самый слабый fallback на случай,
+        # если у товара вообще нет никакого другого материала нигде.
         # ======================================================
-        if (
-                "материал" in key_l
-                or "состав" in key_l
-        ):
-            if not card.material:
-                card.material = value_str
+        if "материал" in key_l or "состав" in key_l:
+
+            if is_excluded_material_key(key_l):
+                if not material_excluded_value:
+                    material_excluded_value = value_str
+                continue
+
+            if not material_value:
+                material_value = value_str
+
+            is_primary = "верх" in key_l or key_l in ("материал", "состав")
+
+            if is_primary and not material_primary_value:
+                material_primary_value = value_str
         # ======================================================
         # QUANTITY
         # ======================================================
@@ -175,6 +220,20 @@ def build_product_card(url, parsed, raw_text):
         if "бренд" in key_l:
             if not card.brand:
                 card.brand = value_str
+
+    # "Первичный" материал (просто "Материал"/"Состав", или явно
+    # "Материал верха") - в приоритете; если такого ключа не было
+    # вообще, берём любой другой не-вспомогательный "материал"-ключ
+    # (material_value); и только если ВООБЩЕ ничего, кроме материала
+    # вспомогательной части (подошва/подкладка/...), не нашлось -
+    # используем его как самый слабый сигнал (material_excluded_value),
+    # лучше приблизительный материал, чем никакого вовсе.
+    if not card.material:
+        card.material = (
+            material_primary_value
+            or material_value
+            or material_excluded_value
+        )
 
     # ------------------------------------------------------------
     # FALLBACK: если ни один спек не дал количество (его вообще нет

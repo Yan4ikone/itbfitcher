@@ -1,5 +1,52 @@
 from modules.classification_result import ClassificationResult
 
+# ----------------------------------------------------------------------
+# Типы совпадений (см. resolver/candidate_scorer.py::candidate.add) в
+# полях, которые продавец заполнил ИМЕННО про этот конкретный товар -
+# заголовок/URL/текстовое описание товара/описание с картинки (и их
+# алиас-варианты, включая "_SIMILAR"). В отличие от них, BREADCRUMB/
+# SPEC_TYPE/SPECS - это категория/характеристики Ozon (структурные
+# метаданные, которые продавец мог заполнить в общем шаблоне неверно -
+# см. кейс "ручка переключения передач", ошибочно classified как
+# "ручной инструмент" по чужой категории продавца), а PATTERN/
+# SCORE_WORD ищут по всему объединённому тексту сразу и не позволяют
+# отличить попадание в заголовок от попадания в общую характеристику -
+# поэтому оба сознательно НЕ считаются "прямым" подтверждением.
+#
+# CLEANED сюда сознательно НЕ входит (убран после разбора кейса "Ручка
+# и кронштейн..."): это очищенный текст ВСЕЙ склейки (title+slug+
+# description+specs+sections+features - см. parser/product_parser.py),
+# а не только текста про сам товар - совпадение в нём может быть точно
+# такой же generic-характеристикой, как и в SPECS/SPEC_TYPE (тот самый
+# кейс: Тип="Наклейка автомобильная" совпал и как SPECS, и как CLEANED,
+# хотя ни в заголовке, ни в реальном описании товара слова "наклейка"
+# нет). DESCRIPTION/DESC_ALIAS теперь считаются ТОЛЬКО по очищенному
+# card.description (текст, который продавец реально написал о товаре) -
+# раньше он ошибочно совпадал с CLEANED буквально один в один (см.
+# parser/product_parser.py), из-за чего одно и то же generic-совпадение
+# засчитывалось дважды и вдобавок ошибочно считалось "прямым текстом
+# продавца про этот товар".
+# ----------------------------------------------------------------------
+_DIRECT_TEXT_PREFIXES = (
+    "TITLE",
+    "SLUG",
+    "DESCRIPTION",
+    "DESC_ALIAS",
+    "IMAGE_DESC",
+)
+
+
+def _has_direct_text_support(matches):
+
+    for match in matches:
+
+        match_type = match.get("type", "")
+
+        if any(match_type.startswith(prefix) for prefix in _DIRECT_TEXT_PREFIXES):
+            return True
+
+    return False
+
 
 class ResultBuilder:
 
@@ -17,6 +64,7 @@ class ResultBuilder:
         result.default_code = winner.code
         result.source = "PRODUCTS"
         result.confidence = min(winner.score, 100)
+        result.has_direct_text_support = _has_direct_text_support(winner.matches)
 
         # Флаг ручной проверки и причина (NO_CANDIDATES / LOW_CONFIDENCE /
         # AMBIGUOUS / RESOLVED_VIA_EXTRA_DESCRIPTION) должны дойти до
