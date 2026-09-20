@@ -463,6 +463,25 @@ class CandidateScorer:
     # "сам товар назван в тексте".
     _MODIFIER_CASES = ("gent", "datv", "ablt", "loct")
 
+    # ДОБАВЛЕНО: слова, после которых родительный падеж означает "вот
+    # этот самый товар" ("комплект ПРУЖИНЫ сцепления", "ремонт(а)
+    # ПРУЖИНЫ сцепления", "набор ЩЁТОК"), а НЕ "деталь/принадлежность
+    # чего-то другого" - в отличие от "спинкА СИДЕНЬЯ", где родительный
+    # падеж стоит после другого ТОВАРА (сиденье) и правда означает
+    # принадлежность. Разбор кейса "Комплект для ремонта педали
+    # сцепления/муфты" - в описании ДВАЖДЫ "...пружины сцепления" не
+    # ослаблялось бы штрафом за падеж вообще, если бы не стояло сразу
+    # после "ремонта" - без этого исключения совпадение с алиасом
+    # "пружина сцепления" искусственно ослаблялось в 4 раза и
+    # проигрывало любому шуму, products-dict-gradation-audit.md.
+    _KIT_CONTEXT_LEMMAS = {
+        "ремонт",
+        "ремкомплект",
+        "комплект",
+        "набор",
+        "замена",
+    }
+
     def _weaken_if_modifier_context_lemma(self, text, phrase_lemmas, weight):
         """Как _weaken_if_modifier_context, но для лемматизированного
         совпадения - в тексте стоит другая словоформа ("газонокосилки"
@@ -502,14 +521,22 @@ class CandidateScorer:
 
             if word_lemma and word_lemma in phrase_lemmas:
 
-                if word_case(word_clean) in self._MODIFIER_CASES:
+                preceding_raw = words[i - 1] if i > 0 else ""
+                preceding = preceding_raw.strip(".,!?;:()\"'«»-").lower()
+                preceding_lemma = (
+                    next(iter(lemmatized_tokens(preceding)), None)
+                    if preceding else None
+                )
+                in_kit_context = preceding_lemma in self._KIT_CONTEXT_LEMMAS
+
+                if (
+                        word_case(word_clean) in self._MODIFIER_CASES
+                        and not in_kit_context
+                ):
                     return int(weight * 0.25)
 
                 if i == 0:
                     return weight
-
-                preceding_raw = words[i - 1]
-                preceding = preceding_raw.strip(".,!?;:()\"'«»-").lower()
 
                 if preceding in self._CONTEXT_PREPOSITIONS:
                     return int(weight * 0.25)

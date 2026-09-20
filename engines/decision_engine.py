@@ -18,12 +18,19 @@ from processors.card_image_processor import CardImageProcessor
 def _create_image_engine():
     # Выбор движка ИИ-распознавания по картинке через переменную
     # окружения IMAGE_ENGINE - позволяет сравнить варианты (Anthropic
-    # / Yandex AI Studio) на одних и тех же карточках, не трогая код.
-    # По умолчанию (переменная не задана) - Anthropic, как и раньше.
+    # напрямую / Anthropic через AI Gateway Timeweb Cloud / Yandex AI
+    # Studio / Qwen-VL через Alibaba Cloud DashScope) на одних и тех
+    # же карточках, не трогая код.
+    # По умолчанию (переменная не задана) - Anthropic напрямую, как и
+    # раньше. Прямой запрос к api.anthropic.com из РФ обычно блокируется
+    # по IP/картам - для рабочего варианта явно ставьте
+    # IMAGE_ENGINE=timeweb (см. TimewebImageDescriptionEngine) - это
+    # тот же Claude, но через AI Gateway Timeweb Cloud с оплатой в
+    # рублях и без блокировок.
     # Импорт конкретного класса - ЛЕНИВЫЙ (внутри if/else), а не на
     # уровне модуля: если для выбранного варианта не задан свой ключ
     # или не установлена своя зависимость, падает только он, а не
-    # оба сразу при обычном импорте decision_engine.py.
+    # все сразу при обычном импорте decision_engine.py.
     engine_choice = os.getenv("IMAGE_ENGINE", "anthropic").strip().lower()
 
     if engine_choice == "yandex":
@@ -31,6 +38,18 @@ def _create_image_engine():
             YandexImageDescriptionEngine,
         )
         return YandexImageDescriptionEngine()
+
+    if engine_choice == "qwen":
+        from engines.qwen_image_description_engine import (
+            QwenImageDescriptionEngine,
+        )
+        return QwenImageDescriptionEngine()
+
+    if engine_choice == "timeweb":
+        from engines.timeweb_image_description_engine import (
+            TimewebImageDescriptionEngine,
+        )
+        return TimewebImageDescriptionEngine()
 
     from engines.image_description_engine import ImageDescriptionEngine
     return ImageDescriptionEngine()
