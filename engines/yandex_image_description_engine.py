@@ -45,7 +45,7 @@ class YandexImageDescriptionEngine:
 
         # Мультимодальная модель Qwen с поддержкой изображений
         # (Base64) - см. документацию Yandex AI Studio.
-        self.model = "qwen3.6-35b-a3b"
+        self.model = "qwen3-235b-a22b-fp8"
         self.timeout = 30
 
         self.prompt = (

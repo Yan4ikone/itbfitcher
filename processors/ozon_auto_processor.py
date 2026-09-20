@@ -1,9 +1,11 @@
+import os
 import threading
 import traceback
 import time
 import random
 import asyncio
 import openpyxl
+from concurrent.futures import ProcessPoolExecutor
 from openpyxl.comments import Comment
 
 from learning.importer import load_learning_history
@@ -12,7 +14,70 @@ from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
 from pathlib import Path
 from repositories.card_repository import CardRepository
-from excel.postprocessing import apply_visual_postprocessing, apply_group_colors
+from excel.postprocessing import (
+    apply_visual_postprocessing,
+    apply_group_colors,
+    REVIEW_FILL,
+    REVIEW_FONT,
+)
+
+
+# ==================================================================
+# CLASSIFIER PROCESS POOL - модуль-уровневые функции
+#
+# ОБЯЗАТЕЛЬНО модуль-уровневые (не методы класса) - ProcessPoolExecutor
+# должен уметь ИМПОРТИРОВАТЬ их в дочернем процессе по имени (pickle
+# хранит только "module.func", не сам код), связанный метод объекта
+# OzonAutoProcessor для этого не годится.
+#
+# Архитектура (см. products-dict-gradation-audit.md, обновление (11),
+# п.6) - две РАЗНЫЕ, независимые друг от друга группы воркеров:
+#
+# - MAX_WORKERS (браузерные вкладки, класс OzonAutoProcessor выше) -
+#   ждут ответ от Ozon (сетевой I/O) + намеренная антибот-пауза.
+#   Проверено Яном вручную - больше 2 вкладок не имеет смысла и
+#   ухудшает результат (антибот реагирует на суммарную частоту
+#   запросов с одного браузера).
+# - CLASSIFIER_WORKERS (эта группа) - ЧИСТЫЙ CPU: очистка текста,
+#   лемматизация (pymorphy3), скоринг кандидата против ~1500+ товаров
+#   словаря. Никакого сетевого ожидания - только счёт. Именно эта
+#   группа реально выигрывает от нескольких ядер процессора, и её
+#   размер имеет смысл увеличивать независимо от MAX_WORKERS.
+#
+# Дизайн (создание DecisionEngine ОДИН РАЗ НА ПРОЦЕСС через
+# initializer, а не на каждую карточку - иначе каждая карточка заново
+# грузила бы весь словарь на 1500+ товаров) взят из уже
+# протестированного Яном прототипа `processors/ozon_pipeline_test.py`
+# (BROWSER_WORKERS=2, CLASSIFIER_WORKERS=4) - здесь он впервые подключён
+# к реальному, боевому пайплайну вместо отдельного тестового скрипта.
+# ==================================================================
+
+_classifier_engine = None
+
+
+def _init_classifier_worker(learning_history):
+    """Выполняется РОВНО ОДИН РАЗ на каждый дочерний процесс пула -
+    поднимает свой собственный DecisionEngine (свой словарь/индексы в
+    памяти ЭТОГО процесса)."""
+
+    global _classifier_engine
+
+    _classifier_engine = DecisionEngine(learning_history)
+
+
+def _classify_card(card):
+    """Выполняется внутри дочернего процесса. remember=False -
+    дочерний процесс НЕ пишет card_repository/runtime_cards.json (это
+    его СОБСТВЕННАЯ копия в памяти процесса, обратно в главный процесс
+    и на диск она не попадёт) - "запоминание" по результату делает
+    ГЛАВНЫЙ процесс через DecisionEngine.remember(), получив (card,
+    result) обратно (см. OzonAutoProcessor._classify_and_apply)."""
+
+    global _classifier_engine
+
+    result = _classifier_engine.decide(card, remember=False)
+
+    return card, result
 
 
 class OzonAutoProcessor:
@@ -48,6 +113,23 @@ class OzonAutoProcessor:
     # товарах.
     WORKER_DELAY_MIN = 1.5
     WORKER_DELAY_MAX = 3.0
+    # ==========================================================
+    # CLASSIFIER WORKERS - ОТДЕЛЬНАЯ группа воркеров, НЕ связана с
+    # MAX_WORKERS выше. MAX_WORKERS - это браузерные вкладки (сетевой
+    # I/O, упирается в антибот Ozon, больше 2 не имеет смысла - Ян
+    # проверял вручную). Эта константа - количество ПАРАЛЛЕЛЬНЫХ
+    # процессов, которые чистят название/ищут код в словаре
+    # (CandidateScorer против ~1500+ товаров, лемматизация pymorphy3) -
+    # чистая работа процессора, никакого сетевого ожидания. Именно она
+    # реально зависит от количества ядер и её имеет смысл увеличивать
+    # отдельно от MAX_WORKERS. Значение 4 - по результату уже
+    # проведённого Яном теста (`processors/ozon_pipeline_test.py`,
+    # CLASSIFIER_WORKERS=4 "показали лучший результат" на той же
+    # машине). При необходимости можно завязать на реальное число ядер
+    # (например `max(1, (os.cpu_count() or 4) - 1)`), но фиксированное
+    # 4 сознательно оставлено как уже проверенное на практике значение,
+    # а не непроверенная формула.
+    CLASSIFIER_WORKERS = 4
 
     def __init__(
             self,
@@ -87,6 +169,17 @@ class OzonAutoProcessor:
         # Поэтому decide() будет защищён этим lock.
         # ------------------------------------------------------
         self.engine_lock = threading.Lock()
+        # ------------------------------------------------------
+        # CLASSIFIER POOL (см. модуль-уровневые _init_classifier_worker/
+        # _classify_card выше) - создаётся в _run_async, когда уже
+        # известна learning_history. classify_tasks - список активных
+        # asyncio-задач классификации, которые нужно дождаться (await
+        # asyncio.gather(...)) ПЕРЕД завершением _run_async, иначе
+        # финальное сохранение книги/подсчёт статистики могли бы
+        # произойти раньше, чем часть карточек реально доклассифицирована.
+        # ------------------------------------------------------
+        self.classifier_pool = None
+        self.classify_tasks = []
     # ==========================================================
     # LOG
     # ==========================================================
@@ -300,6 +393,21 @@ class OzonAutoProcessor:
         # ONE CDP CONNECTION
         # ======================================================
         await self.async_parser.connect_async()
+        # ======================================================
+        # CLASSIFIER POOL (CPU, отдельно от браузерных вкладок ниже -
+        # см. module-level _init_classifier_worker/_classify_card и
+        # комментарий у CLASSIFIER_WORKERS выше)
+        # ======================================================
+        self.classify_tasks = []
+        self.classifier_pool = ProcessPoolExecutor(
+            max_workers=self.CLASSIFIER_WORKERS,
+            initializer=_init_classifier_worker,
+            initargs=(engine.learning_history,),
+        )
+        self.log(
+            f"Пул классификации запущен: "
+            f"{self.CLASSIFIER_WORKERS} процесс(ов)"
+        )
 
         context = (self.async_parser.async_context)
         self.log(
@@ -484,24 +592,42 @@ class OzonAutoProcessor:
                         self.cached_count += 1
                     # ==============================================
                     # NORMAL CARD
+                    #
+                    # Классификация (CPU-работа: очистка/скоринг по
+                    # словарю) теперь уходит в отдельный процесс из
+                    # self.classifier_pool, а не выполняется здесь же
+                    # синхронно - это позволяет браузерным вкладкам
+                    # продолжать забирать СЛЕДУЮЩИЕ карточки, пока
+                    # предыдущие ещё классифицируются на других ядрах.
+                    # Задача отслеживается в self.classify_tasks и
+                    # дожидается ниже, ПОСЛЕ основного цикла, чтобы
+                    # финальное сохранение/статистика не ушли вперёд
+                    # ещё не доклассифицированных карточек.
                     # ==============================================
                     else:
 
                         card = result_data["card"]
-                        # ------------------------------------------
-                        # DecisionEngine теперь выполняется здесь
-                        # ------------------------------------------
-                        with self.engine_lock:
 
-                            result = engine.decide(card)
-                        self.apply_result(
-                            ws,
-                            row,
-                            card,
-                            result,
+                        self.classify_tasks.append(
+                            asyncio.create_task(
+                                self._classify_and_apply(
+                                    row,
+                                    card,
+                                    ws,
+                                    engine,
+                                    wb,
+                                )
+                            )
                         )
+                        # processed_rows/print_progress/save для этой
+                        # карточки выполнит сама _classify_and_apply,
+                        # когда классификация реально завершится - не
+                        # здесь (здесь карточка ещё не классифицирована).
+                        continue
+
                     # ==============================================
-                    # PROGRESS
+                    # PROGRESS (только для CACHE/ERROR/STOP - для
+                    # обычной карточки см. _classify_and_apply)
                     # ==============================================
                     self.processed_rows += 1
                     self.print_progress()
@@ -518,6 +644,25 @@ class OzonAutoProcessor:
 
                 finally:
                     result_queue.task_done()
+
+            # ==================================================
+            # ЖДЁМ ВСЕ ЕЩЁ НЕЗАВЕРШЁННЫЕ КЛАССИФИКАЦИИ
+            #
+            # completed выше считает СКАЧАННЫЕ карточки (fetch), а не
+            # доклассифицированные - без этого ожидания цикл мог бы
+            # выйти, пока часть карточек ещё считается в
+            # classifier_pool, и постобработка/финальное сохранение
+            # книги ниже (см. run()) не увидели бы их результат.
+            # ==================================================
+            if self.classify_tasks:
+                self.log(
+                    f"Ожидание завершения классификации "
+                    f"({len(self.classify_tasks)})..."
+                )
+                await asyncio.gather(
+                    *self.classify_tasks,
+                    return_exceptions=True,
+                )
         finally:
             # ==================================================
             # WAIT WORKERS
@@ -542,6 +687,63 @@ class OzonAutoProcessor:
             # CLOSE PLAYWRIGHT
             # ==================================================
             await self.async_parser.disconnect_async(close_browser=False)
+            # ==================================================
+            # CLOSE CLASSIFIER POOL
+            # ==================================================
+            if self.classifier_pool is not None:
+                self.classifier_pool.shutdown(wait=True)
+                self.classifier_pool = None
+    # ==========================================================
+    # CLASSIFY (в отдельном процессе) + ПРИМЕНИТЬ РЕЗУЛЬТАТ
+    # ==========================================================
+    async def _classify_and_apply(self, row, card, ws, engine, wb):
+        """Отправляет уже спарсенную card в self.classifier_pool
+        (отдельный процесс, чистый CPU - см. module-level
+        _classify_card выше), дожидается результата БЕЗ блокировки
+        event loop (run_in_executor), и применяет его так же, как
+        раньше делал синхронный путь: remember() на ГЛАВНОМ
+        DecisionEngine (единственном, который реально сохраняется на
+        диск - воркер-процесс звал decide(remember=False) и ничего не
+        сохранял), затем apply_result() как обычно."""
+
+        try:
+            loop = asyncio.get_running_loop()
+
+            card, result = await loop.run_in_executor(
+                self.classifier_pool,
+                _classify_card,
+                card,
+            )
+
+            engine.remember(card, result)
+
+            self.apply_result(
+                ws,
+                row,
+                card,
+                result,
+            )
+
+        except Exception:
+
+            self.log(
+                "Ошибка классификации "
+                f"(строка {row}):\n"
+                f"{traceback.format_exc()}"
+            )
+
+        finally:
+
+            self.processed_rows += 1
+            self.print_progress()
+
+            if (
+                    self.processed_rows
+                    % 20
+                    == 0
+            ):
+                wb.save(self.result_path)
+                self.log("Файл сохранён")
     # ==========================================================
     # URL
     # ==========================================================
@@ -734,6 +936,21 @@ class OzonAutoProcessor:
                 for code, name in alternatives.items()
             )
             ws[f"C{row}"].comment = Comment(comment_text, "Classifier")
+        # ------------------------------------------------------
+        # ДОБАВЛЕНО: result.review видимо ТОЛЬКО через комментарий
+        # (см. выше) - легко пропустить при просмотре сотен строк,
+        # особенно когда result.code при этом всё же проставлен (код
+        # выглядит как обычное уверенное значение - разбор реального
+        # кейса SPDIF-разветвителя, Уверенность: 50%, куратор узнал о
+        # спорности только из консольного лога). Подсвечиваем строку
+        # заливкой + курсивом сразу в самой таблице - не только когда
+        # C{row} пустая, но и когда код проставлен, просто неуверенно.
+        # ------------------------------------------------------
+        if result.review:
+            for col in ("B", "C"):
+                cell = ws[f"{col}{row}"]
+                cell.fill = REVIEW_FILL
+                cell.font = REVIEW_FONT
         # ------------------------------------------------------
         # Statistics
         # ------------------------------------------------------

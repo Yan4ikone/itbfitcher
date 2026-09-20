@@ -15,6 +15,30 @@ class CandidateScorer:
     # ==============================================================
     def score(self, candidate, parsed, specs_weight=150):
 
+        info = candidate.info
+        # ------------------------------------------------------------
+        # ДОБАВЛЕНО: "requires_context" - для словарных слов с двумя
+        # никак не связанными бытовыми значениями (пример: "прокладки"
+        # без уточнения - раньше ВСЕГДА уходило в код женских
+        # гигиенических прокладок, даже когда слово встречалось в
+        # чисто техническом контексте - "Прокладка" в наборе резиновых
+        # кабельных втулок для электрощита; разбор - products-dict-
+        # gradation-audit.md). Если у товара задан этот список слов -
+        # кандидат вообще НЕ участвует в подборе кода, пока рядом в
+        # тексте карточки нет ни одного из этих слов (женские/
+        # гигиенические/ежедневные и т.п.) - тогда это, скорее всего,
+        # другой, технический смысл того же слова, и нужно смотреть
+        # другие кандидаты, а не угадывать этот код по умолчанию.
+        # ------------------------------------------------------------
+        required_context = info.get("requires_context")
+
+        if required_context:
+
+            haystack = parsed.get("search_text", "") or ""
+
+            if not any(word in haystack for word in required_context):
+                return candidate
+
         normalized = {
             "title": normalize_dictionary_name(parsed["title"]).lower().strip(),
             "slug": normalize_dictionary_name(parsed["slug"]).lower().strip(),
@@ -25,7 +49,6 @@ class CandidateScorer:
             ).lower().strip(),
         }
         prepared = {**parsed, **normalized}
-        info = candidate.info
         self._score_product(
             candidate,
             prepared,
@@ -508,17 +531,51 @@ class CandidateScorer:
     # ==============================================================
     # PENALTIES
     # ==============================================================
+    @staticmethod
+    def _sum_by_prefix(breakdown, prefix):
+        """Сумма всех breakdown-ключей, начинающихся с prefix - то
+        есть базовый тип совпадения ВМЕСТЕ с его "_SIMILAR"/"_ALIAS"/
+        "_ALIAS_SIMILAR" вариантами (см. Candidate.add в
+        resolver/candidate.py и source + ("_SIMILAR" if ... else "")
+        в _field_score/_score_aliases выше)."""
+
+        return sum(
+            points
+            for key, points in breakdown.items()
+            if key.startswith(prefix)
+        )
+
     def _apply_penalties(self, candidate, relaxed=False):
 
         breakdown = candidate.breakdown
-        title = breakdown.get("TITLE", 0)
-        slug = breakdown.get("SLUG", 0)
-        desc = breakdown.get("DESCRIPTION", 0)
-        specs = breakdown.get("SPECS", 0)
-        breadcrumb = breakdown.get("BREADCRUMB", 0)
-        image_desc = breakdown.get("IMAGE_DESC", 0) + breakdown.get(
-            "IMAGE_DESC_ALIAS", 0
+        # ДОБАВЛЕНО: раньше здесь стояло breakdown.get("TITLE", 0) -
+        # буквальное совпадение с именем товара, БЕЗ учёта TITLE_ALIAS
+        # (совпадение по алиасу товара - например, "проходное кольцо"
+        # как алиас "кольцо уплотнительное"). Из-за этого кандидат с
+        # РЕАЛЬНЫМ, буквальным совпадением алиаса прямо в заголовке
+        # карточки (TITLE_ALIAS=300) считался как будто вообще без
+        # заголовка (title==0) и получал полный штраф -500 - разбор
+        # кейса "Проходное кольцо" (products-dict-gradation-audit.md):
+        # даже после добавления алиаса и material_codes кандидат
+        # 'кольцо уплотнительное' с TITLE_ALIAS=300+CLEANED_ALIAS=250
+        # всё равно проигрывал обычному 'кольцо' из-за этого штрафа.
+        # Аналогично для SLUG/DESCRIPTION - используем сумму по
+        # префиксу (TITLE/TITLE_SIMILAR/TITLE_ALIAS/
+        # TITLE_ALIAS_SIMILAR и т.п.), а не только точное имя ключа.
+        title = self._sum_by_prefix(breakdown, "TITLE")
+        slug = self._sum_by_prefix(breakdown, "SLUG")
+        # "DESC_ALIAS" (не "DESCRIPTION_ALIAS" - см. _score_aliases
+        # выше) не подхватывается префиксом "DESCRIPTION", поэтому
+        # считаем отдельно и складываем.
+        desc = (
+            self._sum_by_prefix(breakdown, "DESCRIPTION")
+            + self._sum_by_prefix(breakdown, "DESC_ALIAS")
         )
+        # SPECS_SIMILAR (нечёткое совпадение характеристики) той же
+        # природы, что и SPECS - тоже суммируем по префиксу.
+        specs = self._sum_by_prefix(breakdown, "SPECS")
+        breadcrumb = self._sum_by_prefix(breakdown, "BREADCRUMB")
+        image_desc = self._sum_by_prefix(breakdown, "IMAGE_DESC")
 
         if title == 0 and slug == 0:
             if image_desc > 0:

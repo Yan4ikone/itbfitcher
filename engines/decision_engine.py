@@ -199,11 +199,27 @@ class DecisionEngine:
         # внешний запрос, поэтому НЕ трогаем обычные уверенные решения
         # (result.has_direct_text_support=True по умолчанию для всех
         # путей, кроме обычного PRODUCTS - см. classification_result.py).
+        #
+        # ДОБАВЛЕНО: третье условие - result.review (LOW_CONFIDENCE/
+        # AMBIGUOUS/DROPDOWN_UNRESOLVED - см. resolver/product_resolver.py
+        # и resolver/dropdown_resolver.py). Раньше карточка с кодом,
+        # формально имеющим has_direct_text_support=True (например,
+        # через DESC_ALIAS - слово реально встретилось в тексте, просто
+        # мельком, среди описания совсем другого товара), но при этом
+        # с итоговой Уверенностью всего 50% и review=True, к ИИ вообще
+        # не уходила - хотя это ЕЩЁ более явно спорная ситуация, чем
+        # просто "нет прямого текстового подтверждения" (разбор кейса
+        # SPDIF-разветвителя: "кабель" вместо реального "разветвитель/
+        # адаптер", Уверенность 50%, ИИ не подключался вовсе).
         # ==========================================================
         had_code_before_image = bool(result.code)
 
         if (
-                (not result.code or not result.has_direct_text_support)
+                (
+                        not result.code
+                        or not result.has_direct_text_support
+                        or result.review
+                )
                 and self.image_processor
         ):
 

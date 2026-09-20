@@ -1,4 +1,4 @@
-from openpyxl.styles import PatternFill
+from openpyxl.styles import Font, PatternFill
 
 from dictionaries.all_dictionaries import (
     ALLOWED_PREFIXES,
@@ -18,6 +18,23 @@ RED_ROW_FILL = PatternFill(
 GREEN_ROW_FILL = PatternFill(
     fill_type="solid",
     fgColor="E8F5E9",
+)
+# ДОБАВЛЕНО: раньше result.review (код проставлен неуверенно/спорно -
+# LOW_CONFIDENCE, AMBIGUOUS, DROPDOWN_UNRESOLVED) был виден куратору
+# ТОЛЬКО как комментарий к ячейке кода (крошечный красный треугольник в
+# углу, легко пропустить при быстром просмотре сотен строк) - сам код в
+# ячейке при этом мог выглядеть как обычное уверенное значение (когда
+# result.code всё же был проставлен, просто с низкой уверенностью - см.
+# processors/ozon_auto_processor.py::apply_result). По просьбе Яна -
+# такие строки теперь ещё и заметно выделяются заливкой/курсивом сразу
+# в самой таблице, без необходимости наводить курсор на комментарий.
+REVIEW_FILL = PatternFill(
+    fill_type="solid",
+    fgColor="FFF3CD",
+)
+REVIEW_FONT = Font(
+    italic=True,
+    color="9C6500",
 )
 # ============================================================
 # НОРМАЛИЗАЦИЯ КОДА
