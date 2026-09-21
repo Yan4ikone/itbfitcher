@@ -4,6 +4,7 @@ import traceback
 import time
 import random
 import asyncio
+import logging
 import openpyxl
 from concurrent.futures import ProcessPoolExecutor
 from openpyxl.comments import Comment
@@ -12,6 +13,7 @@ from learning.importer import load_learning_history
 from parser.cdp_product_parser import CDPProductParser, BLOCKED_RESOURCE_TYPES, log
 from engines.decision_engine import DecisionEngine
 from modules.decision_logger import DecisionLogger
+from utils.app_logging import setup_logging
 from pathlib import Path
 from repositories.card_repository import CardRepository
 from excel.postprocessing import (
@@ -20,6 +22,10 @@ from excel.postprocessing import (
     REVIEW_FILL,
     REVIEW_FONT,
 )
+
+# Отдельное имя (НЕ "log") - в этом файле уже есть module-level `log`,
+# импортированный из parser/cdp_product_parser.py (см. импорт выше).
+app_log = logging.getLogger(__name__)
 
 
 # ==================================================================
@@ -61,6 +67,19 @@ def _init_classifier_worker(learning_history):
     памяти ЭТОГО процесса)."""
 
     global _classifier_engine
+
+    # ДОЧЕРНИЙ процесс - собственный интерпретатор Python, настройка
+    # логирования главного процесса (см. MainApp.py) на него НЕ
+    # распространяется. Без этого вызова ошибка инициализации
+    # image_processor (см. engines/decision_engine.py::__init__,
+    # try/except вокруг _create_image_engine()) и все ошибки
+    # ИИ-движка по картинке (engines/*_image_description_engine.py -
+    # именно здесь реально вызывается describe() для карточек без
+    # кода) были бы видны ТОЛЬКО через print() дочернего процесса -
+    # который либо уходит в devnull (windowed-сборка, см. MainApp.py),
+    # либо в любом случае физически не может попасть в GUI/лог
+    # главного процесса. См. utils/app_logging.py.
+    setup_logging()
 
     _classifier_engine = DecisionEngine(learning_history)
 
@@ -153,6 +172,7 @@ class OzonAutoProcessor:
         self.found_count = 0
         self.not_found_count = 0
         self.cached_count = 0
+        self.antibot_count = 0
         self.learning_buffer = []
         p = Path(excel_path)
         self.result_path = str(p.with_name(f"{p.stem}_RESULT{p.suffix}"))
@@ -192,6 +212,17 @@ class OzonAutoProcessor:
 
         if self.logger:
             self.logger(text)
+        # ------------------------------------------------------
+        # Дублируем в файловый лог (logs/errors_YYYY-MM-DD.log,
+        # см. utils/app_logging.py) - на случай windowed-сборки, где
+        # print() выше уходит в devnull (MainApp.py, sys.stdout is
+        # None), и на случай, если self.logger вообще не подключён.
+        # Все статусные строки, которые уже шли через self.log() по
+        # всему этому файлу (кэш/антибот/классификация/ошибки),
+        # автоматически начинают попадать в этот файл без отдельных
+        # правок в каждом месте вызова.
+        # ------------------------------------------------------
+        app_log.info(text)
     # ==========================================================
     # CACHE
     # ==========================================================
@@ -321,6 +352,28 @@ class OzonAutoProcessor:
                 # PARSE
                 # ==================================================
                 card = await self.async_parser.parse_url_async(page, url)
+                # ==================================================
+                # АНТИБОТ / КАПЧА
+                #
+                # Ozon отдал заглушку вместо карточки (см. parser/
+                # ozon_html_parser.py::parse_ozon_page_async). По
+                # прямому указанию Яна - в этом случае наименование/
+                # код НЕ трогаем вообще, товар просто пропускается
+                # (не классифицируется и не пишется в кэш) - см.
+                # обработку result_data.get("antibot") в _run_async.
+                # ==================================================
+                if getattr(card, "antibot", False):
+                    self.log(
+                        f"[OzonWorker-{worker_id}] "
+                        f"Строка {row}: обнаружен антибот/капча Ozon - "
+                        f"строка пропущена, наименование не трогаем"
+                    )
+                    await result_queue.put({
+                        "row": row,
+                        "url": url,
+                        "antibot": True,
+                    })
+                    continue
                 # ==================================================
                 # EXCEL TITLE
                 # ==================================================
@@ -577,6 +630,28 @@ class OzonAutoProcessor:
                         continue
 
                     row = result_data["row"]
+                    # ==============================================
+                    # ANTIBOT
+                    #
+                    # Строка НЕ трогается вообще (ни наименование, ни
+                    # код, ни цвет/комментарий) - по прямому указанию
+                    # Яна. Не классифицируется и не попадает в
+                    # card_repository/runtime_cards.json, поэтому
+                    # повторный запуск того же файла не подхватит эту
+                    # капчу как будто надёжный кэш (см. разбор бага в
+                    # products-dict-gradation-audit.md).
+                    # ==============================================
+                    if result_data.get("antibot"):
+                        self.antibot_count += 1
+                        self.log(
+                            f"[ANTIBOT] Строка {row}: Ozon отдал "
+                            f"капчу/антибот-заглушку вместо карточки - "
+                            f"наименование и код не изменены"
+                        )
+                        self.processed_rows += 1
+                        self.print_progress()
+
+                        continue
                     # ==============================================
                     # CACHE
                     # ==============================================
@@ -1157,6 +1232,10 @@ class OzonAutoProcessor:
         self.log(
             f"Из кеша: "
             f"{self.cached_count}"
+        )
+        self.log(
+            f"Антибот/капча (пропущено, не тронуто): "
+            f"{self.antibot_count}"
         )
         if self.total_rows:
 

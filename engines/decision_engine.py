@@ -1,4 +1,5 @@
 import os
+import logging
 
 from engines.knowledge_engine import KnowledgeEngine
 from resolver.dropdown_resolver import DropdownResolver
@@ -55,6 +56,9 @@ def _create_image_engine():
     return ImageDescriptionEngine()
 
 
+log = logging.getLogger(__name__)
+
+
 class DecisionEngine:
 
     def __init__(self, learning_history):
@@ -83,6 +87,22 @@ class DecisionEngine:
             self.image_processor = CardImageProcessor(image_service)
         except Exception as e:
             print(f"IMAGE PROCESSOR INIT ERROR (распознавание по картинке отключено): {e}")
+            # ДОБАВЛЕНО: то же самое, но в файл (logs/errors_YYYY-MM-DD.
+            # log, см. utils/app_logging.py) - print() выше не виден
+            # вообще, если это windowed-сборка (MainApp.py) или если
+            # этот DecisionEngine поднят в дочернем процессе
+            # classifier-пула (processors/ozon_auto_processor.py::
+            # _init_classifier_worker), откуда print() физически не
+            # может попасть в GUI/лог главного процесса. exception()
+            # (не error()) - чтобы в файле был виден полный traceback,
+            # а не только текст сообщения (самая частая причина здесь -
+            # не заданный ключ нужного сервиса, например
+            # TIMEWEB_AI_API_KEY, но traceback полезен и для остальных
+            # случаев).
+            log.exception(
+                "IMAGE PROCESSOR INIT ERROR "
+                "(распознавание по картинке отключено)"
+            )
             self.image_processor = None
 
     def decide(self, card, remember=True):

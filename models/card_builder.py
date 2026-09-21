@@ -4,6 +4,7 @@ import re
 from modules.product_card import ProductCard
 from utils.quantity_extractor import (
     extract_quantity,
+    is_component_count_key,
     is_heterogeneous_kit,
     strip_heterogeneous_kit_segments,
 )
@@ -70,6 +71,22 @@ def build_product_card(url, parsed, raw_text):
     card.specs = parsed.get("specs", {})
     card.breadcrumbs = parsed.get("breadcrumbs", [])
     card.images = parsed.get("images", [])
+    # ДОБАВЛЕНО: nm_id товара WB (см. parser/wb_parser.py - там же
+    # объяснение, зачем). Для Ozon это поле парсером не заполняется
+    # вообще (там card.images уже содержит прямые ссылки на фото),
+    # так что для Ozon-карточек здесь всегда останется "".
+    card.url_product_id = str(parsed.get("url_product_id") or "")
+    card.antibot = bool(parsed.get("antibot", False))
+
+    if card.antibot:
+        # Антибот/капча Ozon (см. parser/ozon_html_parser.py -
+        # parse_ozon_page_async) - дальше по коду НИЧЕГО из этой
+        # карточки использовать нельзя (title/description там уже
+        # пустые нарочно), просто возвращаем как есть. Обработка
+        # (пропуск классификации/записи в Excel/кэша) - на уровне
+        # processors/ozon_auto_processor.py, который проверяет
+        # card.antibot сразу после парсинга.
+        return card
 
     if not card.title:
         card.title = card.slug
@@ -178,7 +195,21 @@ def build_product_card(url, parsed, raw_text):
             # Частый случай на Ozon: единица уже в НАЗВАНИИ поля
             # ("Количество в упаковке, шт"), а само значение -
             # просто голое число ("5"). Тогда unit берём из key.
-            if not quantity and value_str.isdigit() and not is_composition_key:
+            #
+            # НО: "Количество секций: 3" (шкаф из 3 секций, а не 3
+            # шкафа), "Количество деталей: 1056" (конструктор из 1056
+            # деталей, а не 1056 фигурок) - здесь ключ считает
+            # КОМПОНЕНТЫ/части самого товара, а не число экземпляров
+            # товара в упаковке. is_component_count_key() - тот же
+            # список слов-исключений, что уже используется в
+            # extract_quantity() для аналогичного случая в свободном
+            # тексте (см. _NOT_PRODUCT_UNIT в quantity_extractor.py).
+            if (
+                    not quantity
+                    and value_str.isdigit()
+                    and not is_composition_key
+                    and not is_component_count_key(key_l)
+            ):
 
                 number = int(value_str)
 

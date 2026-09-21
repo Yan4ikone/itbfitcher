@@ -1,8 +1,11 @@
 import base64
 import io
+import logging
 import os
 
 import anthropic
+
+log = logging.getLogger(__name__)
 
 
 class ImageDescriptionEngine:
@@ -33,14 +36,11 @@ class ImageDescriptionEngine:
         self.max_tokens = 300
 
         self.prompt = (
-            "Ты — эксперт по классификации и описанию товаров в интернет-магазине. "
-            "Внимательно изучи изображение. Игнорируй фон, упаковку и посторонние предметы. "
-            "Верни ответ СТРОГО в следующем формате (без вступлений и лишних слов):\n"
-            "- Тип: [что это]\n"
-            "- Материал: [основной материал]\n"
-            "- Цвет: [основной цвет]\n"
-            "- Форма/Особенности: [ключевые визуальные детали]\n"
-            "- Назначение: [для чего используется]"
+            "Опиши товар на изображении. "
+            "Игнорируй фон. "
+            "Укажи только полезные характеристики: "
+            "тип изделия, материал, форму, "
+            "цвет, назначение."
         )
 
     def describe(self, image):
@@ -80,22 +80,33 @@ class ImageDescriptionEngine:
 
         except anthropic.APITimeoutError:
             print("IMAGE TIMEOUT")
+            log.warning("IMAGE TIMEOUT (Anthropic)")
             return ""
 
         except anthropic.APIConnectionError:
             print("ANTHROPIC СЕТЬ НЕДОСТУПНА")
+            log.error("ANTHROPIC СЕТЬ НЕДОСТУПНА")
             return ""
 
         except anthropic.RateLimitError:
             print("ANTHROPIC RATE LIMIT")
+            log.warning("ANTHROPIC RATE LIMIT")
             return ""
 
         except anthropic.APIStatusError as e:
             print("ANTHROPIC ERROR:", e.status_code, e.message)
+            # ДОБАВЛЕНО: дублируем в файл (logs/errors_YYYY-MM-DD.log,
+            # см. utils/app_logging.py) - print() выше не виден в
+            # windowed-сборке (MainApp.py) и/или в дочернем процессе
+            # classifier-пула (processors/ozon_auto_processor.py::
+            # _init_classifier_worker), где реально вызывается
+            # describe().
+            log.error("ANTHROPIC ERROR: %s %s", e.status_code, e.message)
             return ""
 
         except Exception as e:
             print("IMAGE ERROR:", e)
+            log.exception("IMAGE ERROR (Anthropic)")
             return ""
 
     def _encode_image(self, image):

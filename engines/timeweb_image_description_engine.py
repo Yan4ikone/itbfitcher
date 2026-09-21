@@ -1,8 +1,11 @@
 import base64
 import io
+import logging
 import os
 
 import requests
+
+log = logging.getLogger(__name__)
 
 
 class TimewebImageDescriptionEngine:
@@ -124,6 +127,7 @@ class TimewebImageDescriptionEngine:
 
         except requests.exceptions.Timeout:
             print("IMAGE TIMEOUT (Timeweb)")
+            log.warning("IMAGE TIMEOUT (Timeweb)")
             return ""
 
         except requests.exceptions.RequestException as e:
@@ -133,10 +137,18 @@ class TimewebImageDescriptionEngine:
             except Exception:
                 pass
             print(f"TIMEWEB API ERROR: {e} | Body: {body}")
+            # ДОБАВЛЕНО: дублируем в файл (logs/errors_YYYY-MM-DD.log,
+            # см. utils/app_logging.py) - print() выше не виден в
+            # windowed-сборке и/или в дочернем процессе
+            # classifier-пула (см. processors/ozon_auto_processor.py::
+            # _init_classifier_worker) - именно там реально вызывается
+            # describe() для карточек без кода.
+            log.error("TIMEWEB API ERROR: %s | Body: %s", e, body)
             return ""
 
         except Exception as e:
             print(f"IMAGE ERROR (Timeweb): {e}")
+            log.exception("IMAGE ERROR (Timeweb)")
             return ""
 
     def _encode_image(self, image):
@@ -174,6 +186,10 @@ class TimewebImageDescriptionEngine:
                     "TIMEWEB EMPTY OUTPUT: нет choices в ответе, "
                     f"raw={str(data)[:300]}"
                 )
+                log.warning(
+                    "TIMEWEB EMPTY OUTPUT: нет choices в ответе, raw=%s",
+                    str(data)[:300],
+                )
                 return ""
 
             message = choices[0].get("message") or {}
@@ -185,5 +201,9 @@ class TimewebImageDescriptionEngine:
             print(
                 f"TIMEWEB PARSE ERROR: {e}, "
                 f"raw data: {str(data)[:200]}"
+            )
+            log.exception(
+                "TIMEWEB PARSE ERROR, raw data: %s",
+                str(data)[:200],
             )
             return ""

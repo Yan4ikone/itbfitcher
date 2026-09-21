@@ -99,6 +99,8 @@ class ProductResolver:
         else:
             used_excel_title_fallback = False
 
+        candidates = self._resolve_generic_prefix_tie(candidates)
+
         winner = candidates[0]
 
         if used_excel_title_fallback:
@@ -191,6 +193,77 @@ class ProductResolver:
     # (реальной неоднозначности НЕТ, разница только в отображаемом
     # названии), код НЕ трогаем - незачем гнать на ручную проверку
     # то, что и так однозначно по результату классификации.
+    # ==========================================================
+    # ОБЩЕЕ ИМЯ vs СПЕЦИФИЧНОЕ ИМЯ С ТЕМ ЖЕ КОРНЕМ
+    #
+    # Найдено на кейсе "кольцо уплотнительное" (products-dict-
+    # gradation-audit.md, обновление 19): однословный ОБЩИЙ товар
+    # ("кольцо") неизбежно набирает ТОЧНО ТАКОЙ ЖЕ счёт (полное
+    # совпадение по CLEANED+TITLE), что и специфичный товар с тем же
+    # первым словом ("кольцо уплотнительное") - просто потому, что
+    # текст специфичного названия СОДЕРЖИТ полное имя общего как
+    # подстроку. Это НЕ настоящая мульти-товарная неоднозначность
+    # (см. _clear_ambiguous_multi_product_code выше - "свеча
+    # зажигания" vs "реле" не имеют общего корня и правда разные
+    # вещи) - это один и тот же товар, названный то точно, то в общих
+    # чертах. Раньше такой тай уходил в AMBIGUOUS и код обнулялся,
+    # хотя специфичное имя (значит, и его код/material_codes) - это
+    # ровно то решение, которое нужно.
+    #
+    # Если среди кандидатов с МАКСИМАЛЬНЫМ score есть товар, чьё
+    # название - расширение (через пробел) названий ВСЕХ остальных
+    # тай-кандидатов, он побеждает безусловно, а "родительские"
+    # однословные тай-кандидаты убираются из списка вообще (это не
+    # альтернативные товары для куратора, а просто более общее имя
+    # того же самого).
+    # ==========================================================
+    def _resolve_generic_prefix_tie(self, candidates):
+
+        if len(candidates) < 2:
+            return candidates
+
+        top_score = candidates[0].score
+
+        tied = [c for c in candidates if c.score == top_score]
+
+        if len(tied) < 2:
+            return candidates
+
+        def is_specialization(specific, generic):
+            return (
+                specific.product != generic.product
+                and specific.product.startswith(generic.product + " ")
+            )
+
+        most_specific = None
+
+        for candidate in tied:
+
+            if all(
+                candidate is other or is_specialization(candidate, other)
+                for other in tied
+            ):
+                if most_specific is not None:
+                    # Больше одного "самого специфичного" - не наш
+                    # случай (не единая цепочка общее->частное),
+                    # оставляем как есть для обычной AMBIGUOUS-логики.
+                    return candidates
+
+                most_specific = candidate
+
+        if most_specific is None:
+            return candidates
+
+        absorbed = {
+            other.product for other in tied
+            if other is not most_specific
+        }
+
+        return [most_specific] + [
+            c for c in candidates
+            if c is not most_specific and c.product not in absorbed
+        ]
+
     # ==========================================================
     def _clear_ambiguous_multi_product_code(self, winner, candidates):
 

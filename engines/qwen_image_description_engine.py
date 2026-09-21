@@ -1,8 +1,11 @@
 import base64
 import io
+import logging
 import os
 
 import requests
+
+log = logging.getLogger(__name__)
 
 
 class QwenImageDescriptionEngine:
@@ -135,6 +138,7 @@ class QwenImageDescriptionEngine:
 
         except requests.exceptions.Timeout:
             print("IMAGE TIMEOUT (Qwen)")
+            log.warning("IMAGE TIMEOUT (Qwen)")
             return ""
 
         except requests.exceptions.RequestException as e:
@@ -144,10 +148,12 @@ class QwenImageDescriptionEngine:
             except Exception:
                 pass
             print(f"QWEN API ERROR: {e} | Body: {body}")
+            log.error("QWEN API ERROR: %s | Body: %s", e, body)
             return ""
 
         except Exception as e:
             print(f"IMAGE ERROR (Qwen): {e}")
+            log.exception("IMAGE ERROR (Qwen)")
             return ""
 
     def _encode_image(self, image):
@@ -184,6 +190,10 @@ class QwenImageDescriptionEngine:
                     "QWEN EMPTY OUTPUT: нет choices в ответе, "
                     f"raw={str(data)[:300]}"
                 )
+                log.warning(
+                    "QWEN EMPTY OUTPUT: нет choices в ответе, raw=%s",
+                    str(data)[:300],
+                )
                 return ""
 
             message = choices[0].get("message") or {}
@@ -195,5 +205,9 @@ class QwenImageDescriptionEngine:
             print(
                 f"QWEN PARSE ERROR: {e}, "
                 f"raw data: {str(data)[:200]}"
+            )
+            log.exception(
+                "QWEN PARSE ERROR, raw data: %s",
+                str(data)[:200],
             )
             return ""

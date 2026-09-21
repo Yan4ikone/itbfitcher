@@ -1,8 +1,11 @@
 import base64
 import io
+import logging
 import os
 
 import requests
+
+log = logging.getLogger(__name__)
 
 
 class YandexImageDescriptionEngine:
@@ -45,18 +48,16 @@ class YandexImageDescriptionEngine:
 
         # Мультимодальная модель Qwen с поддержкой изображений
         # (Base64) - см. документацию Yandex AI Studio.
-        self.model = "qwen3.6-35b-a3b"
+        self.model = "yandexgpt-5.1"
         self.timeout = 30
 
         self.prompt = (
-            "Ты — эксперт по классификации и описанию товаров в интернет-магазине. "
-            "Внимательно изучи изображение. Игнорируй фон, упаковку и посторонние предметы. "
-            "Верни ответ СТРОГО в следующем формате (без вступлений и лишних слов):\n"
-            "- Тип: [что это]\n"
-            "- Материал: [основной материал]\n"
-            "- Цвет: [основной цвет]\n"
-            "- Форма/Особенности: [ключевые визуальные детали]\n"
-            "- Назначение: [для чего используется]"
+            "Опиши товар на изображении. "
+            "Игнорируй фон. "
+            "Укажи только полезные характеристики: "
+            "тип изделия, материал, форму, "
+            "цвет, назначение. "
+            "Отвечай кратко, списком, без заголовков."
         )
 
     def describe(self, image):
@@ -105,10 +106,12 @@ class YandexImageDescriptionEngine:
 
         except requests.exceptions.Timeout:
             print("IMAGE TIMEOUT (Yandex)")
+            log.warning("IMAGE TIMEOUT (Yandex)")
             return ""
 
         except requests.exceptions.ConnectionError:
             print("YANDEX СЕТЬ НЕДОСТУПНА")
+            log.error("YANDEX СЕТЬ НЕДОСТУПНА")
             return ""
 
         except requests.exceptions.HTTPError as e:
@@ -118,10 +121,12 @@ class YandexImageDescriptionEngine:
             except Exception:
                 pass
             print(f"YANDEX API ERROR: {e} {body}")
+            log.error("YANDEX API ERROR: %s %s", e, body)
             return ""
 
         except Exception as e:
             print(f"IMAGE ERROR (Yandex): {e}")
+            log.exception("IMAGE ERROR (Yandex)")
             return ""
 
     def _encode_image(self, image):
@@ -179,6 +184,11 @@ class YandexImageDescriptionEngine:
                     "YANDEX EMPTY OUTPUT: status=",
                     status,
                     "error=",
+                    error,
+                )
+                log.warning(
+                    "YANDEX EMPTY OUTPUT: status=%s error=%s",
+                    status,
                     error,
                 )
 

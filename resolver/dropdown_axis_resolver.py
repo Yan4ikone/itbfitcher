@@ -316,6 +316,24 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
         material = str(result.material or "").strip().lower()
 
         pool = variants
+        # НАЙДЕНО при разборе жалобы Яна "снова куча ошибок, легкие
+        # позиции убивает неверный код" (реальный кейс "браслет" -
+        # см. products-dict-gradation-audit.md): если материал
+        # определён, но НИ ОДИН вариант этой оси ему не соответствует
+        # (`by_material` пуст), код ниже раньше тихо ВОЗВРАЩАЛ `pool`
+        # обратно к ПОЛНОМУ, ненарезанному списку вариантов - а дальше
+        # (веткa "объём неизвестен") любой товар с ровно ОДНИМ
+        # dropdown-вариантом (это НЕ редкость - см. обновления (2)/
+        # (17), таких только по одному "декоративному" варианту 166
+        # штук) безусловно выигрывал этот единственный вариант просто
+        # потому что `len(pool) == 1`, СОВЕРШЕННО не глядя, что найденный
+        # материал (например "кожа") не имеет никакого отношения к
+        # group этого варианта (например "пвх"). Теперь: если материал
+        # определён, но не сузил список вариантов вообще - эта ось
+        # честно возвращает None (материал здесь ни при чём для
+        # данного товара), а не продолжает работать по НЕФИЛЬТРОВАННОМУ
+        # списку дальше.
+        material_had_no_variant = False
 
         if material:
 
@@ -333,6 +351,11 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
 
             if by_material:
                 pool = by_material
+            else:
+                material_had_no_variant = True
+
+        if material_had_no_variant:
+            return None
 
         volume_l = self._extract_volume_liters(card)
 

@@ -9,6 +9,21 @@ import requests
 
 log = logging.getLogger(__name__)
 
+# Таблица vol -> basket (номер CDN-хоста basket-NN.wbbasket.ru) -
+# статичная угадка "последней надежды", когда сетевое подтверждение
+# через UPSTREAMS_URL недоступно. Вынесена на уровень модуля (а не
+# метод _basket_guess), потому что utils/wb_image_resolver.py тоже
+# использует ровно эту же таблицу для подбора URL картинки товара -
+# единый источник, чтобы обновлять WB-диапазоны в одном месте.
+BASKET_RANGES = (
+    (143, 1), (287, 2), (431, 3), (719, 4), (1007, 5), (1169, 8),
+    (1601, 10), (1919, 12), (2405, 15), (3053, 18), (3701, 21),
+    (4349, 24), (4877, 26), (5501, 28), (6125, 30), (6749, 32),
+    (7373, 34), (7997, 36), (8741, 38), (9173, 39), (9605, 40),
+    (10373, 41), (11909, 43), (13445, 45), (14981, 47), (16517, 49),
+    (18053, 51), (18821, 52),
+)
+
 
 class WBParser:
     CARD_API_URL = "https://card.wb.ru/cards/v4/detail"
@@ -38,7 +53,18 @@ class WBParser:
             return await self._parse_dom_async(page)
         print(f"[WB PARSER] nm_id={nm_id}")
 
-        best = {}
+        # ДОБАВЛЕНО: сохраняем nm_id в результате под тем же ключом,
+        # что card_builder.py уже копирует в card.url_product_id
+        # (см. пояснение там) - нужен позже в CardImageProcessor
+        # (utils/wb_image_resolver.py), чтобы подобрать URL картинки
+        # для ИИ-фоллбека: card.wb.ru/card.json прямой ссылки на
+        # картинку не дают, а card.images для WB иначе всегда пуст.
+        # best инициализируем НЕ пустым словарём, а сразу с этим
+        # ключом - _merge_wb_result(base, new) тогда с первого же
+        # вызова пойдёт по ветке "base уже не пуст" и сохранит его
+        # при всех следующих слияниях (сама _merge_wb_result его не
+        # трогает).
+        best = {"url_product_id": str(nm_id)}
 
         data = self._find_product_in_responses(responses, nm_id)
         if data:
@@ -112,7 +138,12 @@ class WBParser:
 
         print(f"[WB PARSER] nm_id={nm_id} CARD.JSON/API НЕ НАЙДЕН")
         print(f"[WB PARSER] nm_id={nm_id} FALLBACK -> DOM")
-        return await self._parse_dom_async(page)
+        dom_result = await self._parse_dom_async(page)
+        # nm_id всё равно известен (см. выше) - сохраняем его и
+        # здесь, а не только в "успешных" ветках выше.
+        if isinstance(dom_result, dict):
+            dom_result.setdefault("url_product_id", str(nm_id))
+        return dom_result
 
     @staticmethod
     def _has_description(result):
@@ -347,10 +378,13 @@ class WBParser:
     def _basket_guess(self, vol):
         # Only a fallback hint. New vol values never require editing this list
         # because Card API is the primary source.
-        ranges = ((143,1),(287,2),(431,3),(719,4),(1007,5),(1169,8),(1601,10),(1919,12),(2405,15),(3053,18),(3701,21),(4349,24),(4877,26),(5501,28),(6125,30),(6749,32),(7373,34),(7997,36),(8741,38),(9173,39),(9605,40),(10373,41),(11909,43),(13445,45),(14981,47),(16517,49),(18053,51),(18821,52))
-        for maximum, basket in ranges:
+        for maximum, basket in BASKET_RANGES:
             if vol <= maximum:
                 return basket
+        # 52 - последний basket из BASKET_RANGES выше (не self.BASKET_MAX=60,
+        # который лишь верхняя граница ДЛЯ ПЕРЕБОРА кандидатов, а не
+        # содержательная угадка). Оставляем как было до рефакторинга
+        # таблицы в модульную константу.
         return 52
 
     @staticmethod

@@ -64,6 +64,24 @@ if sys.stderr is None:
 if sys.stdin is None:
     sys.stdin = open(os.devnull, "r")
 
+# ==================================================================
+# ФАЙЛОВОЕ ЛОГИРОВАНИЕ ОШИБОК (logs/errors_YYYY-MM-DD.log)
+#
+# ВАЖНО: строки выше (sys.stdout is None -> devnull) означают, что в
+# windowed/noconsole-сборке (без консоли) ЛЮБОЙ print() в проекте
+# уходит в никуда - именно поэтому ошибки ИИ-движка по картинке
+# (engines/*_image_description_engine.py) и ошибка инициализации
+# image_processor (engines/decision_engine.py) были невидимы вообще
+# нигде ("ИИ не работает, куча ошибок" без единой видимой ошибки).
+# setup_logging() пишет их дополнительно в файл на диске - см.
+# подробное объяснение в utils/app_logging.py. Вызывается здесь как
+# можно раньше - до импорта AppController/OzonAutoProcessor и т.п.,
+# которые могут что-то залогировать уже при первом использовании.
+# ==================================================================
+from utils.app_logging import setup_logging
+
+setup_logging()
+
 
 # ============================================================
 # Helpers
