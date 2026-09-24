@@ -15,6 +15,77 @@ from resolver.special_product_resolver import SpecialProductResolver
 from services.image_description_service import ImageDescriptionService
 from processors.card_image_processor import CardImageProcessor
 
+from dictionaries.products import PRODUCTS
+
+
+# ==================================================================
+# ЭКСПЕРИМЕНТАЛЬНЫЙ РЕЖИМ "ИИ ПО КАЖДОЙ ССЫЛКЕ" (по просьбе Яна,
+# пилотный прогон на части файла) - включается переменной окружения
+# FORCE_AI_NONCLOTHING=1. Когда включён, ИИ-распознавание по картинке
+# (шаг 7.5 в decide()) подключается ПРИНУДИТЕЛЬНО для каждого товара,
+# кроме одежды/обуви/головных уборов (ТН ВЭД главы 61, 62, 64, 65) -
+# для этих категорий обычная текстовая классификация и так близка к
+# 100% точности (готовые dropdown-варианты муж/жен/дет и т.п.), гонять
+# по ним платный ИИ-запрос незачем. Для всех остальных категорий даём
+# ИИ шанс подтвердить или поправить решение ДАЖЕ если текстовая
+# классификация уже уверенно определила код (в обычном режиме шаг 7.5
+# запускается только для спорных/неопределённых карточек - см.
+# условие ниже decide()) - это сознательный, более дорогой и
+# медленный режим ИМЕННО для оценки того, насколько ИИ справляется
+# самостоятельно, а не только как подстраховка.
+#
+# ВАЖНО: сама логика "заменять ли итоговый результат на то, что нашёл
+# ИИ" не меняется - решение принимается ТЕМ ЖЕ кодом ниже (has_direct_
+# text_support и т.п.), никакого специального "доверять ИИ больше
+# обычного" тут нет. FORCE_AI_NONCLOTHING только заставляет ИИ вообще
+# ПОСМОТРЕТЬ на карточку, а не молча пропустить её.
+# ==================================================================
+_APPAREL_FOOTWEAR_CHAPTERS = ("61", "62", "64", "65")
+
+
+def _collect_entry_codes(entry):
+    codes = set()
+
+    code = entry.get("code")
+    if code:
+        codes.add(str(code))
+
+    dropdown = entry.get("dropdown") or {}
+    for variant in dropdown.get("variants", []):
+        variant_code = variant.get("code")
+        if variant_code:
+            codes.add(str(variant_code))
+
+    material_codes = entry.get("material_codes") or {}
+    for material_code in material_codes.values():
+        if material_code:
+            codes.add(str(material_code))
+
+    return codes
+
+
+def is_apparel_footwear_or_headwear(product_key):
+    """True, если product_key - товар из словаря PRODUCTS, все/часть
+    кодов которого относятся к главам ТН ВЭД 61/62 (одежда), 64
+    (обувь) или 65 (головные уборы). Товар, которого нет в словаре
+    (product_key пуст или не найден), НЕ считается одеждой/обувью -
+    он остаётся кандидатом на принудительный ИИ-прогон, поскольку его
+    категория попросту неизвестна."""
+
+    if not product_key:
+        return False
+
+    entry = PRODUCTS.get(product_key)
+
+    if not entry:
+        return False
+
+    for code in _collect_entry_codes(entry):
+        if code[:2] in _APPAREL_FOOTWEAR_CHAPTERS:
+            return True
+
+    return False
+
 
 def _create_image_engine():
     # Выбор движка ИИ-распознавания по картинке через переменную
@@ -253,14 +324,38 @@ class DecisionEngine:
         # ==========================================================
         had_code_before_image = bool(result.code)
 
+        # FORCE_AI_NONCLOTHING - см. is_apparel_footwear_or_headwear() /
+        # комментарий в начале файла. force_ai_check=True означает "эта
+        # карточка попала бы в шаг 7.5 в обычном режиме или нет - не
+        # важно, режим требует прогнать ИИ по ней всё равно", кроме
+        # одежды/обуви/головных уборов (там текстовая классификация и
+        # так надёжна, ИИ на них не тратим).
+        force_ai_check = (
+                os.getenv("FORCE_AI_NONCLOTHING", "0").strip() == "1"
+                and not is_apparel_footwear_or_headwear(result.product)
+        )
+
         if (
                 (
                         not result.code
                         or not result.has_direct_text_support
                         or result.review
+                        or force_ai_check
                 )
                 and self.image_processor
         ):
+
+            # Спорная карточка и без того ушла бы сюда - эта пометка
+            # нужна только чтобы отличить в трейсе строки, где к ИИ
+            # обратились ИСКЛЮЧИТЕЛЬНО из-за принудительного режима,
+            # несмотря на уже уверенный текстовый результат.
+            if force_ai_check and had_code_before_image and result.has_direct_text_support and not result.review:
+                result.trace.add(
+                    "FORCED_AI_CHECK",
+                    "FORCE_AI_NONCLOTHING: ИИ запрошен принудительно, хотя "
+                    f"текстовый результат уже уверенный (код={result.code}, "
+                    f"продукт={result.product})"
+                )
 
             self.image_processor.process(card)
 

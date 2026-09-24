@@ -126,10 +126,37 @@ class SplitDialog(tk.Toplevel):
         self.dest_dir = None
 
         self.title("Разделить по серверам")
-        self.geometry("420x520")
         self.configure(bg=app.BG)
         self.transient(parent)
         self.grab_set()
+
+        # ------------------------------------------------------------
+        # ИСТОРИЯ ПРАВКИ: раньше окно имело фиксированный размер
+        # 420x520 и НЕ подстраивалось под содержимое. Список строк
+        # "Машина N:" рисовался в обычном Frame без прокрутки - при
+        # небольшом количестве машин (5-10) это работало незаметно,
+        # но при вводе, например, 100 машин список требовал ~3000px
+        # высоты, а окно оставалось 520px. Из-за этого "Осталось
+        # нераспределённых", выбор папки и кнопка "Разделить" (они
+        # были упакованы В КОНЦЕ, ПОСЛЕ списка строк) физически
+        # уезжали далеко за пределы видимой области окна, а resizable
+        # окна (изменение размера мышью) всё равно не помогало - ни
+        # один экран не показал бы 3000px высоты целиком.
+        #
+        # Фикс: (1) окно теперь явно resizable и стартует с разумного
+        # размера, подобранного под высоту экрана; (2) список строк
+        # "Машина N:" вынесен в прокручиваемую область (Canvas +
+        # Scrollbar), поддерживающую колесо мыши; (3) "Осталось
+        # нераспределённых", выбор папки и кнопка "Разделить"
+        # упакованы В ЗАКРЕПЛЁННЫЙ нижний блок ДО прокручиваемой
+        # области (side="bottom") - теперь они всегда видны и
+        # доступны, сколько бы машин ни было указано.
+        # ------------------------------------------------------------
+        self.resizable(True, True)
+        screen_h = self.winfo_screenheight()
+        win_h = max(420, min(640, screen_h - 120))
+        self.geometry(f"460x{win_h}")
+        self.minsize(400, 340)
 
         self.entry_vars = []
 
@@ -157,16 +184,19 @@ class SplitDialog(tk.Toplevel):
             n_row, text="Обновить", command=self._rebuild_rows,
         ).pack(side="left", padx=8)
 
-        self.rows_frame = tk.Frame(self, bg=app.BG)
-        self.rows_frame.pack(fill="both", expand=True, padx=15, pady=10)
+        # Закреплённый нижний блок - упаковывается ПЕРВЫМ, side="bottom",
+        # поэтому прокручиваемый список строк ниже никогда не может
+        # вытеснить его за пределы окна.
+        bottom = tk.Frame(self, bg=app.BG)
+        bottom.pack(side="bottom", fill="x")
 
         self.remaining_label = tk.Label(
-            self, text="", bg=app.BG, fg=app.TEXT,
+            bottom, text="", bg=app.BG, fg=app.TEXT,
             font=("Segoe UI", 11, "bold"),
         )
         self.remaining_label.pack(pady=5)
 
-        dest_row = tk.Frame(self, bg=app.BG)
+        dest_row = tk.Frame(bottom, bg=app.BG)
         dest_row.pack(pady=5, fill="x", padx=15)
 
         self.dest_var = tk.StringVar(value="Папка не выбрана")
@@ -182,9 +212,52 @@ class SplitDialog(tk.Toplevel):
         ).pack(side="right")
 
         ttk.Button(
-            self, text="Разделить", command=self._do_split,
+            bottom, text="Разделить", command=self._do_split,
             style="Primary.TButton",
         ).pack(pady=15, fill="x", padx=15)
+
+        # Прокручиваемая область со строками машин (занимает всё
+        # оставшееся место над закреплённым нижним блоком).
+        scroll_area = tk.Frame(self, bg=app.BG)
+        scroll_area.pack(side="top", fill="both", expand=True, padx=15, pady=10)
+
+        rows_canvas = tk.Canvas(scroll_area, bg=app.BG, highlightthickness=0)
+        rows_vsb = ttk.Scrollbar(
+            scroll_area, orient="vertical", command=rows_canvas.yview,
+        )
+        rows_canvas.configure(yscrollcommand=rows_vsb.set)
+        rows_canvas.pack(side="left", fill="both", expand=True)
+        rows_vsb.pack(side="right", fill="y")
+
+        self.rows_frame = tk.Frame(rows_canvas, bg=app.BG)
+        rows_window = rows_canvas.create_window(
+            (0, 0), window=self.rows_frame, anchor="nw",
+        )
+
+        def _on_rows_configure(_event=None):
+            rows_canvas.configure(scrollregion=rows_canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            rows_canvas.itemconfigure(rows_window, width=event.width)
+
+        self.rows_frame.bind("<Configure>", _on_rows_configure)
+        rows_canvas.bind("<Configure>", _on_canvas_configure)
+
+        def _on_mousewheel(event):
+            rows_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _bind_mousewheel(_event=None):
+            rows_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(_event=None):
+            rows_canvas.unbind_all("<MouseWheel>")
+
+        rows_canvas.bind("<Enter>", _bind_mousewheel)
+        rows_canvas.bind("<Leave>", _unbind_mousewheel)
+        # На случай, если курсор остался над списком в момент закрытия
+        # окна (иначе "Leave" не наступит, и bind_all("<MouseWheel>")
+        # останется висеть глобально на уже уничтоженный canvas).
+        self.bind("<Destroy>", _unbind_mousewheel)
 
         self._rebuild_rows()
 
@@ -885,6 +958,14 @@ class App:
             merge_server_results(
                 list(paths),
                 output_path,
+                # Файлы машин теперь содержат ТОЛЬКО свои строки (см.
+                # server_split.py) - строки сопоставляются с исходным
+                # файлом по ссылке, а не по номеру, поэтому сборке
+                # нужен именно ОРИГИНАЛЬНЫЙ, ещё не делённый файл (тот
+                # же self.selected_file["path"], который делили
+                # кнопкой "Разделить по серверам") как основа со всеми
+                # строками на местах.
+                source_path=self.selected_file["path"],
                 log=self.gui_log,
             )
             self.gui_log(f"✓ Результаты собраны: {output_path}")
