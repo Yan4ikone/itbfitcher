@@ -10127,10 +10127,10 @@ PRODUCTS = {
     'стабилизированные цветы': {
         'code': '0603900000',
         'patterns': [],
-        'aliases': [],
+        'aliases': ['живые цветы'],
     },
     'стакан': {
-        'code': '4823699000',
+        'code': '',
         'patterns': [],
         'aliases': [
             'stakan',
@@ -10138,9 +10138,19 @@ PRODUCTS = {
         'dropdown': {
             'variants': [
                 {
-                    'code': '7013379900',
+                    'code': '6912002900',
+                    'name': 'Керамика',
+                    'group': 'ceramic',
+                },
+                {
+                    'code': '7013499900',
+                    'name': 'Стекло',
                     'group': 'glass',
-                    'match': [],
+                },
+                {
+                    'code': '3924100000',
+                    'name': 'Пластик',
+                    'group': 'plastic',
                 },
             ],
         },

@@ -16,6 +16,7 @@ from services.image_description_service import ImageDescriptionService
 from processors.card_image_processor import CardImageProcessor
 
 from dictionaries.products import PRODUCTS
+from core.ai_settings import is_image_ai_enabled
 
 
 # ==================================================================
@@ -324,6 +325,23 @@ class DecisionEngine:
         # ==========================================================
         had_code_before_image = bool(result.code)
 
+        # ТУМБЛЕР "Использовать ИИ по картинке" (чекбокс в MainApp.py,
+        # хранится в settings.json - см. core/ai_settings.py). Главный
+        # выключатель: если куратор выключил его, шаг 7.5 не выполняется
+        # НИКОГДА, независимо от того, спорная карточка или нет и
+        # включён ли FORCE_AI_NONCLOTHING - проверяется в самом начале,
+        # до остальных условий, и читается заново на каждой карточке
+        # (не кэшируется), чтобы переключение тумблера подхватывалось
+        # сразу, без перезапуска программы/воркеров пакетной обработки.
+        image_ai_enabled = is_image_ai_enabled()
+
+        if not image_ai_enabled:
+            result.trace.add(
+                "IMAGE_DISABLED",
+                "ИИ-распознавание по картинке отключено тумблером в "
+                "настройках - шаг пропущен"
+            )
+
         # FORCE_AI_NONCLOTHING - см. is_apparel_footwear_or_headwear() /
         # комментарий в начале файла. force_ai_check=True означает "эта
         # карточка попала бы в шаг 7.5 в обычном режиме или нет - не
@@ -336,7 +354,8 @@ class DecisionEngine:
         )
 
         if (
-                (
+                image_ai_enabled
+                and (
                         not result.code
                         or not result.has_direct_text_support
                         or result.review

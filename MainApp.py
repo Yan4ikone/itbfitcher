@@ -46,6 +46,8 @@ from tkinter import ttk, messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
 
 from core.app_controller import AppController
+from core.ai_settings import is_image_ai_enabled, set_image_ai_enabled
+from learning.archive_importer import import_archive_files
 from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
 from learning.learning_window import LearningWindow
@@ -381,6 +383,11 @@ class App:
             "not_found": tk.StringVar(value="0"),
         }
         self.skip_filled_var = tk.BooleanVar(value=True)
+        # Тумблер "Использовать ИИ по картинке" - начальное значение
+        # читается из settings.json (core/ai_settings.py), чтобы при
+        # следующем запуске программы сохранялось то, что куратор
+        # выбрал в прошлый раз, а не сбрасывалось на дефолт.
+        self.use_image_ai_var = tk.BooleanVar(value=is_image_ai_enabled())
 
         self._configure_styles()
         self._build()
@@ -654,6 +661,11 @@ class App:
             command=self.merge_from_servers,
             style="Secondary.TButton"
         ).pack(side="left", padx=7)
+        ttk.Button(
+            row2, text="Импорт архива",
+            command=self.import_archive,
+            style="Secondary.TButton"
+        ).pack(side="left")
 
         tk.Checkbutton(
             body,
@@ -665,6 +677,18 @@ class App:
             selectcolor=self.CARD,
             font=("Segoe UI", 9),
         ).pack(anchor="w", pady=(11, 0))
+
+        tk.Checkbutton(
+            body,
+            text="Использовать ИИ по картинке (для спорных карточек)",
+            variable=self.use_image_ai_var,
+            command=self._on_toggle_image_ai,
+            bg=self.CARD,
+            activebackground=self.CARD,
+            fg=self.MUTED,
+            selectcolor=self.CARD,
+            font=("Segoe UI", 9),
+        ).pack(anchor="w", pady=(4, 0))
 
     def _build_log_card(self, parent):
         card = self._card(parent)
@@ -695,6 +719,20 @@ class App:
     def append_log(self, message):
         self.log_text.insert(tk.END, message + "\n")
         self.log_text.see(tk.END)
+
+    def _on_toggle_image_ai(self):
+        # Сохраняется сразу по клику (не по кнопке "Запустить") - в
+        # settings.json, откуда его на каждой карточке читает
+        # DecisionEngine.decide() (engines/decision_engine.py, шаг 7.5,
+        # см. core/ai_settings.py). Действует сразу, в т.ч. на уже
+        # запущенную пакетную обработку (воркеры перечитывают файл на
+        # каждой карточке, а не один раз при старте).
+        enabled = self.use_image_ai_var.get()
+        set_image_ai_enabled(enabled)
+        self.append_log(
+            "ИИ по картинке: "
+            + ("включено" if enabled else "выключено")
+        )
 
     def gui_log(self, message):
         self.root.after(0, lambda: self.append_log(str(message)))
@@ -1014,6 +1052,67 @@ class App:
             self.set_status("Ошибка")
             self.gui_log(f"✗ Ошибка обучения: {e}")
             messagebox.showerror("Ошибка обучения", str(e))
+
+    # ========================================================
+    # Импорт архива ("Первичная проверка" - файлы, которые куратор
+    # вёл ОТДЕЛЬНО от программы: исходное название, исправленное,
+    # код ТН ВЭД). См. learning/archive_importer.py.
+    # ========================================================
+
+    def import_archive(self):
+
+        paths = filedialog.askopenfilenames(
+            title="Выберите архивные файлы «Первичная проверка»",
+            filetypes=[("Excel files", "*.xlsx *.xlsm")],
+        )
+
+        if not paths:
+            return
+
+        if not messagebox.askyesno(
+            "Импорт архива",
+            f"Выбрано файлов: {len(paths)}.\n\n"
+            "Строки, где куратор согласился с названием, будут "
+            "применены к словарю сразу. Расхождения и спорные случаи "
+            "(например, новое название совпадает с уже существующим "
+            "алиасом другого товара) откроются на проверку в окне "
+            "обучения, как обычно.\n\nПродолжить?",
+        ):
+            return
+
+        self.set_status("Импорт архива...")
+
+        try:
+            result = import_archive_files(list(paths), dry_run=False)
+        except Exception as e:
+            self.set_status("Ошибка")
+            self.gui_log(f"✗ Ошибка импорта архива: {e}")
+            messagebox.showerror("Ошибка импорта архива", str(e))
+            return
+
+        self.set_status("Готово")
+        self.gui_log("✓ Импорт архива завершён")
+        self.gui_log(result.summary_text())
+
+        review_report = result.discrepancy_report
+        has_review_items = any((
+            review_report.new_products,
+            review_report.new_aliases,
+            review_report.new_dropdown_variants,
+            review_report.new_dropdown_candidates,
+            review_report.new_patterns,
+            review_report.new_dictionary_words,
+        ))
+
+        if has_review_items and result.discrepancy_runtime is not None:
+            window = LearningWindow(
+                self.root, review_report, result.discrepancy_runtime
+            )
+            self.root.wait_window(window)
+            if window.applied:
+                self.gui_log("✓ Проверенные расхождения из архива сохранены")
+
+        messagebox.showinfo("Импорт архива", result.summary_text())
 
     def run(self):
         self.root.mainloop()

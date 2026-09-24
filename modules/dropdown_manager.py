@@ -157,6 +157,26 @@ def apply_specific_dropdowns(
             continue
 
         # --------------------------------------------------
+        # Не трогаем ячейку, для которой уже построен свой,
+        # более специфичный комментарий с вариантами - например,
+        # result.alternatives для СПОРНОГО (result.review) кода
+        # (см. processors/ozon_auto_processor.py::apply_result(),
+        # engines/result_engine.py::set_comment()) или историческое
+        # предупреждение (excel/writer.py::add_history_warning()).
+        # Без этой проверки комментарий/DataValidation ниже молча
+        # ЗАТЁРЛИ бы уже поставленный - тот источник иногда точнее
+        # (например, при неоднозначности между НЕСКОЛЬКИМИ разными
+        # товарами, а не только вариантами одного).
+        # --------------------------------------------------
+        cell = ws.cell(
+            row=row,
+            column=code_col_idx
+        )
+
+        if cell.comment is not None:
+            continue
+
+        # --------------------------------------------------
         # DataValidation
         # --------------------------------------------------
 
@@ -174,11 +194,6 @@ def apply_specific_dropdowns(
         )
 
         dv.showInputMessage = True
-
-        cell = ws.cell(
-            row=row,
-            column=code_col_idx
-        )
 
         dv.add(cell)
         ws.add_data_validation(dv)
@@ -263,8 +278,6 @@ def apply_specific_dropdowns(
                     fill_type="solid",
                     fgColor=color
                 )
-
-        break
 
 
 def apply_dropdowns(wb, ws):

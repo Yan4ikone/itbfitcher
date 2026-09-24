@@ -2,12 +2,14 @@ from openpyxl.comments import Comment
 from openpyxl.styles import PatternFill
 
 from dictionaries.all_dictionaries import MATERIAL_COLORS
+from utils.dropdown_helpers import build_alternatives_validation
 
 
 
 def apply_result(ws, row, code_col, result):
     set_code(ws, row, code_col, result)
     set_comment(ws, row, code_col, result)
+    set_dropdown(ws, row, code_col, result)
     set_color(ws, row, code_col, result)
 
 
@@ -31,6 +33,29 @@ def set_comment(ws, row, code_col, result):
     )
 
     ws.cell(row=row, column=code_col).comment = Comment(text, "Classifier")
+
+
+def set_dropdown(ws, row, code_col, result):
+    """Настоящий выпадающий список Excel (Data Validation) для
+    result.alternatives - в дополнение к комментарию (см. set_comment
+    выше). Комментарий пропадает, как только куратор начинает печатать
+    в ячейке кода - список остаётся и позволяет выбрать готовый код
+    кликом, без набора 10 цифр вручную. См. utils/dropdown_helpers.py::
+    build_alternatives_validation."""
+
+    if not result.review:
+        return
+
+    alternatives = result.alternatives or {}
+    dv = build_alternatives_validation(alternatives.keys())
+
+    if not dv:
+        return
+
+    cell = ws.cell(row=row, column=code_col)
+    dv.add(cell)
+    ws.add_data_validation(dv)
+
 
 def _get_color_group(result):
     """

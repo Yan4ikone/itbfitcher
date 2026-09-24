@@ -13,6 +13,8 @@ dropdown-варианты хранят только code/group/match - "name" н
 чтение полностью обратно совместимо.
 """
 
+from openpyxl.worksheet.datavalidation import DataValidation
+
 from utils.material_extractor import MATERIAL_GROUP_EN
 
 # group хранится по-английски у большинства товаров (metal/plastic/...),
@@ -79,3 +81,55 @@ def variant_color_key(variant: dict) -> str:
         return group_color_key(group)
 
     return str(variant.get("name", "") or "").strip().lower()
+
+
+def build_alternatives_validation(codes, prompt="Выберите код вручную"):
+    """Настоящий выпадающий список Excel (Data Validation, type="list")
+    для набора кодов-альтернатив - используется и для result.alternatives
+    (см. resolver/dropdown_resolver.py, случай "ничего не определили" /
+    resolver/product_resolver.py, неоднозначность между несколькими
+    товарами), и в любом другом месте, где нужно дать куратору выбрать
+    один код из готового набора кликом.
+
+    В отличие от Excel-комментария (openpyxl.comments.Comment) - тот
+    виден только при наведении курсора и ПРОПАДАЕТ, как только ячейка
+    входит в режим редактирования (жалоба Яна - при попытке ввести код
+    вручную подсказка с вариантами исчезает, а запомнить/не ошибиться
+    в 10 цифрах неудобно) - нативный список Excel показывает стрелку
+    выбора, пока ячейка выделена, независимо от того, начал ли куратор
+    печатать, и позволяет выбрать готовый код кликом, без набора вручную.
+    Используется как дополнение к комментарию (который поясняет, что
+    означает каждый код), а не вместо него.
+
+    formula1 Excel - инлайн-строка "код1,код2,..." в кавычках, без
+    отдельного скрытого листа-диапазона (тот же приём, что уже
+    применяется в modules/dropdown_manager.py::apply_specific_dropdowns
+    для материальных вариантов известных товаров). У Excel есть жёсткий
+    лимит в 255 символов на такую строку - при превышении валидацию не
+    строим (возвращаем None): длинный список всё равно неюзабелен, а
+    сориентироваться можно по комментарию.
+    """
+
+    codes = [
+        str(code).strip()
+        for code in codes
+        if code not in (None, "", 0) and str(code).strip()
+    ]
+
+    if not codes:
+        return None
+
+    formula = '"' + ",".join(codes) + '"'
+
+    if len(formula) > 255:
+        return None
+
+    dv = DataValidation(
+        type="list",
+        formula1=formula,
+        allow_blank=True,
+    )
+    dv.prompt = prompt
+    dv.showInputMessage = True
+
+    return dv
