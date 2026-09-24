@@ -1,3 +1,5 @@
+import importlib
+
 from tkinter import *
 from tkinter import ttk, messagebox
 
@@ -1572,7 +1574,7 @@ class VariantEditorWindow(Toplevel):
     learning/dictionary_editor.py.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, initial_product=None):
 
         super().__init__(parent)
 
@@ -1790,6 +1792,20 @@ class VariantEditorWindow(Toplevel):
             bottom, text="Удалить выбранное слово",
             command=self._delete_selected_word,
         ).pack(side=RIGHT)
+
+        # --------------------------------------------------
+        # Открыт напрямую из ProductEditorWindow с уже известным
+        # товаром ("Открыть выпадающий список...") - не заставляем
+        # куратора искать его заново.
+        # --------------------------------------------------
+        if initial_product:
+            self.product_query_var.set(initial_product)
+            self._refresh_matches()
+            for index in range(self.matches_list.size()):
+                if self.matches_list.get(index) == initial_product:
+                    self.matches_list.selection_set(index)
+                    self._load_selected_product()
+                    break
 
     # ==========================================================
 
@@ -2133,6 +2149,638 @@ class VariantEditorWindow(Toplevel):
 
         self.move_target_var.set("")
         self._reload_tree()
+
+
+class ProductEditorWindow(Toplevel):
+    """
+    Полный редактор ОДНОГО товара (dictionaries/products.py) -
+    название, плоский код, алиасы, паттерны - плюс создание/
+    переименование/удаление товара целиком. Открывается напрямую
+    кнопкой "Редактор словаря" в главном окне (MainApp.py), рядом с
+    "Обучение" - НЕ привязан к прогону обучения, можно открыть в
+    любой момент.
+
+    Специально НЕ дублирует редактирование dropdown-вариантов (код/
+    group/match/перенос) - для этого уже есть VariantEditorWindow
+    выше, кнопка "Открыть выпадающий список..." просто открывает его
+    с уже выбранным товаром.
+
+    Как и остальные редакторы в этом файле - каждое действие сразу
+    пишется на диск через learning/dictionary_editor.py, без
+    отдельной кнопки "Применить".
+    """
+
+    def __init__(self, parent):
+
+        super().__init__(parent)
+
+        self.title("Редактор словаря товаров")
+        self.geometry("640x760")
+        self.transient(parent)
+
+        self.current_product = None
+
+        container = ttk.Frame(self, padding=10)
+        container.pack(fill=BOTH, expand=True)
+        container.columnconfigure(0, weight=1)
+
+        # --------------------------------------------------
+        # Поиск товара - тот же UX, что в VariantEditorWindow.
+        # --------------------------------------------------
+        search_frame = ttk.Frame(container)
+        search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        search_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(search_frame, text="Товар:").grid(
+            row=0, column=0, sticky="w"
+        )
+
+        self.product_query_var = StringVar()
+        query_entry = ttk.Entry(
+            search_frame, textvariable=self.product_query_var
+        )
+        query_entry.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        query_entry.bind("<KeyRelease>", lambda event: self._refresh_matches())
+
+        ttk.Button(
+            search_frame, text="Проблемы словаря...",
+            command=self._open_issues,
+        ).grid(row=0, column=2, padx=(6, 0))
+
+        matches_frame = ttk.Frame(container)
+        matches_frame.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        matches_frame.columnconfigure(0, weight=1)
+
+        self.matches_list = Listbox(matches_frame, height=5)
+        self.matches_list.grid(row=0, column=0, sticky="ew")
+        self.matches_list.bind(
+            "<<ListboxSelect>>", lambda event: self._load_selected_product()
+        )
+
+        # --------------------------------------------------
+        # Выбранный товар - название/код
+        # --------------------------------------------------
+        header_frame = ttk.LabelFrame(
+            container, text="Выбранный товар", padding=8
+        )
+        header_frame.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        header_frame.columnconfigure(1, weight=1)
+
+        self.selected_name_var = StringVar(value="(товар не выбран)")
+        ttk.Label(
+            header_frame, textvariable=self.selected_name_var,
+            font=("Segoe UI", 10, "bold"),
+        ).grid(row=0, column=0, columnspan=3, sticky="w")
+
+        ttk.Label(header_frame, text="Код:").grid(
+            row=1, column=0, sticky="w", pady=(6, 0)
+        )
+        self.code_var = StringVar()
+        ttk.Entry(
+            header_frame, textvariable=self.code_var
+        ).grid(row=1, column=1, sticky="ew", padx=(6, 6), pady=(6, 0))
+        ttk.Button(
+            header_frame, text="Сохранить код",
+            command=self._save_code,
+        ).grid(row=1, column=2, pady=(6, 0))
+
+        ttk.Label(
+            header_frame,
+            text="Если у товара настоящая градация по выпадающему "
+            "списку (2+ разных кода среди вариантов) - плоский код "
+            "всё равно сбросится при следующем сохранении, это "
+            "самозащита, а не ошибка редактора.",
+            foreground="#666666", wraplength=560, justify="left",
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
+        ttk.Label(header_frame, text="Переименовать в:").grid(
+            row=3, column=0, sticky="w", pady=(6, 0)
+        )
+        self.rename_var = StringVar()
+        ttk.Entry(
+            header_frame, textvariable=self.rename_var
+        ).grid(row=3, column=1, sticky="ew", padx=(6, 6), pady=(6, 0))
+        ttk.Button(
+            header_frame, text="Переименовать",
+            command=self._rename_product,
+        ).grid(row=3, column=2, pady=(6, 0))
+
+        actions_frame = ttk.Frame(header_frame)
+        actions_frame.grid(row=4, column=0, columnspan=3, sticky="e", pady=(8, 0))
+
+        ttk.Button(
+            actions_frame, text="Открыть выпадающий список...",
+            command=self._open_variant_editor,
+        ).pack(side=LEFT, padx=(0, 6))
+        ttk.Button(
+            actions_frame, text="Удалить товар...",
+            command=self._delete_product,
+        ).pack(side=LEFT)
+
+        # --------------------------------------------------
+        # Алиасы
+        # --------------------------------------------------
+        alias_frame = ttk.LabelFrame(container, text="Алиасы", padding=8)
+        alias_frame.grid(row=3, column=0, sticky="nsew", pady=(0, 8))
+        alias_frame.columnconfigure(0, weight=1)
+        container.rowconfigure(3, weight=1)
+
+        self.alias_list = Listbox(alias_frame, height=6)
+        self.alias_list.grid(row=0, column=0, columnspan=3, sticky="nsew")
+        alias_frame.rowconfigure(0, weight=1)
+
+        self.new_alias_var = StringVar()
+        ttk.Entry(
+            alias_frame, textvariable=self.new_alias_var
+        ).grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=(6, 0))
+        ttk.Button(
+            alias_frame, text="Добавить",
+            command=self._add_alias,
+        ).grid(row=1, column=1, pady=(6, 0))
+        ttk.Button(
+            alias_frame, text="Удалить выбранный",
+            command=self._delete_selected_alias,
+        ).grid(row=1, column=2, pady=(6, 0))
+
+        # --------------------------------------------------
+        # Паттерны
+        # --------------------------------------------------
+        pattern_frame = ttk.LabelFrame(container, text="Паттерны (регулярные выражения)", padding=8)
+        pattern_frame.grid(row=4, column=0, sticky="nsew", pady=(0, 8))
+        pattern_frame.columnconfigure(0, weight=1)
+        container.rowconfigure(4, weight=1)
+
+        self.pattern_list = Listbox(pattern_frame, height=5)
+        self.pattern_list.grid(row=0, column=0, columnspan=3, sticky="nsew")
+        pattern_frame.rowconfigure(0, weight=1)
+
+        self.new_pattern_var = StringVar()
+        ttk.Entry(
+            pattern_frame, textvariable=self.new_pattern_var
+        ).grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=(6, 0))
+        ttk.Button(
+            pattern_frame, text="Добавить",
+            command=self._add_pattern,
+        ).grid(row=1, column=1, pady=(6, 0))
+        ttk.Button(
+            pattern_frame, text="Удалить выбранный",
+            command=self._delete_selected_pattern,
+        ).grid(row=1, column=2, pady=(6, 0))
+
+        # --------------------------------------------------
+        # Новый товар
+        # --------------------------------------------------
+        new_frame = ttk.LabelFrame(container, text="Создать новый товар", padding=8)
+        new_frame.grid(row=5, column=0, sticky="ew")
+        new_frame.columnconfigure(1, weight=1)
+        new_frame.columnconfigure(3, weight=1)
+
+        ttk.Label(new_frame, text="Название:").grid(row=0, column=0, sticky="w")
+        self.create_name_var = StringVar()
+        ttk.Entry(
+            new_frame, textvariable=self.create_name_var
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 6))
+
+        ttk.Label(new_frame, text="Код (необязательно):").grid(
+            row=0, column=2, sticky="w"
+        )
+        self.create_code_var = StringVar()
+        ttk.Entry(
+            new_frame, textvariable=self.create_code_var, width=14
+        ).grid(row=0, column=3, sticky="ew", padx=(6, 6))
+
+        ttk.Button(
+            new_frame, text="Создать",
+            command=self._create_product,
+        ).grid(row=0, column=4)
+
+    # ==========================================================
+    # ПОИСК / ВЫБОР ТОВАРА
+    # ==========================================================
+
+    def _refresh_matches(self):
+
+        query = self.product_query_var.get()
+
+        self.matches_list.delete(0, END)
+
+        if not query.strip():
+            return
+
+        for name in dictionary_editor.find_products(query):
+            self.matches_list.insert(END, name)
+
+    def _load_selected_product(self):
+
+        selection = self.matches_list.curselection()
+
+        if not selection:
+            return
+
+        self._select_product(self.matches_list.get(selection[0]))
+
+    def _select_product(self, product):
+
+        self.current_product = product
+        self.selected_name_var.set(product)
+        self.rename_var.set("")
+
+        importlib.invalidate_caches()
+        importlib.reload(dictionary_editor.products_module)
+        info = dictionary_editor.products_module.PRODUCTS.get(product) or {}
+
+        self.code_var.set(str(info.get("code", "")))
+
+        self.alias_list.delete(0, END)
+        for alias in info.get("aliases", []) or []:
+            self.alias_list.insert(END, alias)
+
+        self.pattern_list.delete(0, END)
+        for pattern in info.get("patterns", []) or []:
+            self.pattern_list.insert(END, pattern)
+
+    def _require_product(self):
+
+        if not self.current_product:
+            messagebox.showwarning(
+                "Редактор словаря товаров",
+                "Сначала найдите и выберите товар.",
+                parent=self,
+            )
+            return None
+
+        return self.current_product
+
+    # ==========================================================
+    # КОД / ПЕРЕИМЕНОВАНИЕ / УДАЛЕНИЕ ТОВАРА
+    # ==========================================================
+
+    def _save_code(self):
+
+        product = self._require_product()
+        if not product:
+            return
+
+        try:
+            dictionary_editor.set_product_code(product, self.code_var.get())
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор словаря товаров", str(error), parent=self
+            )
+            return
+
+        self._select_product(product)
+
+    def _rename_product(self):
+
+        product = self._require_product()
+        if not product:
+            return
+
+        new_name = self.rename_var.get().strip()
+
+        if not new_name:
+            messagebox.showwarning(
+                "Редактор словаря товаров",
+                "Введите новое название.",
+                parent=self,
+            )
+            return
+
+        try:
+            dictionary_editor.rename_product(product, new_name)
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор словаря товаров", str(error), parent=self
+            )
+            return
+
+        self.product_query_var.set(new_name)
+        self._refresh_matches()
+        self._select_product(new_name)
+
+    def _delete_product(self):
+
+        product = self._require_product()
+        if not product:
+            return
+
+        if not messagebox.askyesno(
+            "Редактор словаря товаров",
+            f"Удалить товар «{product}» целиком - вместе с кодом, "
+            "алиасами, паттернами и выпадающим списком (если есть)? "
+            "Отменить нельзя.",
+            parent=self,
+        ):
+            return
+
+        try:
+            dictionary_editor.delete_product(product)
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор словаря товаров", str(error), parent=self
+            )
+            return
+
+        self.current_product = None
+        self.selected_name_var.set("(товар не выбран)")
+        self.code_var.set("")
+        self.alias_list.delete(0, END)
+        self.pattern_list.delete(0, END)
+        self._refresh_matches()
+
+    def _create_product(self):
+
+        name = self.create_name_var.get()
+        code = self.create_code_var.get()
+
+        try:
+            dictionary_editor.create_product(name, code)
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор словаря товаров", str(error), parent=self
+            )
+            return
+
+        created_name = name.strip()
+        self.create_name_var.set("")
+        self.create_code_var.set("")
+        self.product_query_var.set(created_name)
+        self._refresh_matches()
+        self._select_product(created_name)
+
+    # ==========================================================
+    # АЛИАСЫ
+    # ==========================================================
+
+    def _add_alias(self):
+
+        product = self._require_product()
+        if not product:
+            return
+
+        alias = self.new_alias_var.get().strip().lower()
+
+        if not alias:
+            return
+
+        collisions = dictionary_editor.check_alias_collision(product, alias)
+
+        if collisions:
+            if not messagebox.askyesno(
+                "Возможная коллизия",
+                f"«{alias}» уже используется у: {', '.join(collisions)} - "
+                "как название товара или чужой алиас. Один и тот же текст "
+                "описания может начать путаться между товарами.\n\n"
+                "Всё равно добавить?",
+                parent=self,
+            ):
+                return
+
+        try:
+            dictionary_editor.add_alias(product, alias)
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор словаря товаров", str(error), parent=self
+            )
+            return
+
+        self.new_alias_var.set("")
+        self._select_product(product)
+
+    def _delete_selected_alias(self):
+
+        product = self._require_product()
+        if not product:
+            return
+
+        selection = self.alias_list.curselection()
+
+        if not selection:
+            messagebox.showwarning(
+                "Редактор словаря товаров",
+                "Выберите алиас в списке.",
+                parent=self,
+            )
+            return
+
+        alias = self.alias_list.get(selection[0])
+        dictionary_editor.delete_alias(product, alias)
+        self._select_product(product)
+
+    # ==========================================================
+    # ПАТТЕРНЫ
+    # ==========================================================
+
+    def _add_pattern(self):
+
+        product = self._require_product()
+        if not product:
+            return
+
+        pattern = self.new_pattern_var.get().strip()
+
+        if not pattern:
+            return
+
+        try:
+            dictionary_editor.add_pattern(product, pattern)
+        except ValueError as error:
+            messagebox.showwarning(
+                "Редактор словаря товаров", str(error), parent=self
+            )
+            return
+
+        self.new_pattern_var.set("")
+        self._select_product(product)
+
+    def _delete_selected_pattern(self):
+
+        product = self._require_product()
+        if not product:
+            return
+
+        selection = self.pattern_list.curselection()
+
+        if not selection:
+            messagebox.showwarning(
+                "Редактор словаря товаров",
+                "Выберите паттерн в списке.",
+                parent=self,
+            )
+            return
+
+        pattern = self.pattern_list.get(selection[0])
+        dictionary_editor.delete_pattern(product, pattern)
+        self._select_product(product)
+
+    # ==========================================================
+    # ВЫПАДАЮЩИЙ СПИСОК / ДИАГНОСТИКА
+    # ==========================================================
+
+    def _open_variant_editor(self):
+
+        product = self._require_product()
+        if not product:
+            return
+
+        VariantEditorWindow(self, initial_product=product)
+
+    def _open_issues(self):
+
+        DictionaryIssuesWindow(self)
+
+
+class DictionaryIssuesWindow(Toplevel):
+    """
+    Диагностика живого словаря - коллизии алиасов (тот же класс
+    проблемы, что "держатель"/"поло", см. products-dict-gradation-
+    audit.md) и товары-дубли с разницей только в пробелах/регистре
+    (найдено при ревизии 2026-09-24, например 'абажур'/'абажур ').
+
+    Ничего не правит сама - только показывает, чтобы куратор мог
+    пройтись по списку и решить по каждому случаю (двойным кликом
+    открывает товар в ProductEditorWindow-родителе для правки)."""
+
+    def __init__(self, parent):
+
+        super().__init__(parent)
+
+        self.parent_editor = parent
+
+        self.title("Проблемы словаря")
+        self.geometry("760x560")
+        self.transient(parent)
+
+        container = ttk.Frame(self, padding=10)
+        container.pack(fill=BOTH, expand=True)
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(1, weight=1)
+        container.rowconfigure(3, weight=1)
+
+        ttk.Label(
+            container,
+            text="Алиас совпадает с названием/алиасом ДРУГОГО товара:",
+            font=("Segoe UI", 9, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+
+        collisions_frame = ttk.Frame(container)
+        collisions_frame.grid(row=1, column=0, sticky="nsew", pady=(2, 8))
+        collisions_frame.columnconfigure(0, weight=1)
+        collisions_frame.rowconfigure(0, weight=1)
+
+        self.collisions_tree = ttk.Treeview(
+            collisions_frame, columns=("owners", "collides"), show="tree headings",
+        )
+        self.collisions_tree.heading("#0", text="Алиас")
+        self.collisions_tree.heading("owners", text="У товаров")
+        self.collisions_tree.heading("collides", text="Конфликтует с")
+        self.collisions_tree.column("#0", width=160)
+        self.collisions_tree.grid(row=0, column=0, sticky="nsew")
+
+        vsb1 = ttk.Scrollbar(
+            collisions_frame, orient="vertical", command=self.collisions_tree.yview
+        )
+        vsb1.grid(row=0, column=1, sticky="ns")
+        self.collisions_tree.configure(yscrollcommand=vsb1.set)
+        self.collisions_tree.bind("<Double-1>", self._open_collision_product)
+
+        ttk.Label(
+            container,
+            text="Товары-дубли (разное только пробелами/регистром названия):",
+            font=("Segoe UI", 9, "bold"),
+        ).grid(row=2, column=0, sticky="w")
+
+        dupes_frame = ttk.Frame(container)
+        dupes_frame.grid(row=3, column=0, sticky="nsew", pady=(2, 8))
+        dupes_frame.columnconfigure(0, weight=1)
+        dupes_frame.rowconfigure(0, weight=1)
+
+        self.dupes_tree = ttk.Treeview(dupes_frame, show="tree")
+        self.dupes_tree.grid(row=0, column=0, sticky="nsew")
+
+        vsb2 = ttk.Scrollbar(
+            dupes_frame, orient="vertical", command=self.dupes_tree.yview
+        )
+        vsb2.grid(row=0, column=1, sticky="ns")
+        self.dupes_tree.configure(yscrollcommand=vsb2.set)
+        self.dupes_tree.bind("<Double-1>", self._open_dupe_product)
+
+        ttk.Button(
+            container, text="Обновить", command=self._reload,
+        ).grid(row=4, column=0, sticky="e")
+
+        ttk.Label(
+            container,
+            text="Двойной клик по строке открывает товар в редакторе слева "
+            "для правки. Список ничего не меняет сам - часть совпадений "
+            "может быть намеренной, решать куратору по каждому случаю.",
+            foreground="#666666", wraplength=720, justify="left",
+        ).grid(row=5, column=0, sticky="w", pady=(4, 0))
+
+        self._reload()
+
+    def _reload(self):
+
+        self.collisions_tree.delete(*self.collisions_tree.get_children())
+        self.dupes_tree.delete(*self.dupes_tree.get_children())
+
+        collisions = dictionary_editor.list_alias_collisions()
+
+        for item in collisions:
+            self.collisions_tree.insert(
+                "", "end",
+                text=item["alias"],
+                values=(", ".join(item["owners"]), ", ".join(item["collides_with"])),
+            )
+
+        near = dictionary_editor.list_near_duplicate_products()
+
+        for group in near:
+            node = self.dupes_tree.insert("", "end", text=group["key"], open=True)
+            for variant in group["variants"]:
+                self.dupes_tree.insert(node, "end", text=repr(variant))
+
+        self.title(
+            f"Проблемы словаря - коллизий: {len(collisions)}, "
+            f"товаров-дублей: {len(near)}"
+        )
+
+    def _open_collision_product(self, event):
+
+        item = self.collisions_tree.focus()
+
+        if not item:
+            return
+
+        owners = self.collisions_tree.item(item, "values")[0]
+        first_owner = owners.split(", ")[0] if owners else ""
+
+        if first_owner and hasattr(self.parent_editor, "_select_product"):
+            self.parent_editor.product_query_var.set(first_owner)
+            self.parent_editor._refresh_matches()
+            self.parent_editor._select_product(first_owner)
+
+    def _open_dupe_product(self, event):
+
+        item = self.dupes_tree.focus()
+
+        if not item:
+            return
+
+        # Двойной клик по конкретному варианту (листу) - у корня
+        # (группы) текста в repr-кавычках нет.
+        text = self.dupes_tree.item(item, "text")
+
+        if not (text.startswith("'") or text.startswith('"')):
+            return
+
+        product = text[1:-1]
+
+        if hasattr(self.parent_editor, "_select_product"):
+            self.parent_editor.product_query_var.set(product)
+            self.parent_editor._refresh_matches()
+            self.parent_editor._select_product(product)
 
 
 class TrashWordDialog(Toplevel):

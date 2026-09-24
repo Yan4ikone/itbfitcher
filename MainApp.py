@@ -50,7 +50,7 @@ from core.ai_settings import is_image_ai_enabled, set_image_ai_enabled
 from learning.archive_importer import import_archive_files
 from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
-from learning.learning_window import LearningWindow
+from learning.learning_window import LearningWindow, ProductEditorWindow
 from result_window import ResultWindow
 from server_split import (
     split_by_servers,
@@ -647,6 +647,10 @@ class App:
             row, text="Обучение", command=self.start_learning,
             style="Secondary.TButton"
         ).pack(side="right")
+        ttk.Button(
+            row, text="Редактор словаря", command=self.open_product_editor,
+            style="Secondary.TButton"
+        ).pack(side="right", padx=(0, 7))
 
         row2 = tk.Frame(body, bg=self.CARD)
         row2.pack(fill="x", pady=(7, 0))
@@ -1020,6 +1024,15 @@ class App:
     # ========================================================
     # Learning
     # ========================================================
+
+    def open_product_editor(self):
+        """Полный редактор словаря товаров (код/алиасы/паттерны/
+        выпадающий список, создание/переименование/удаление товара) -
+        в отличие от "Обучение", не требует сначала прогнать файл:
+        открывается сразу, из любого места. См.
+        learning/learning_window.py::ProductEditorWindow."""
+
+        ProductEditorWindow(self.root)
 
     def start_learning(self):
         if not self._require_file():

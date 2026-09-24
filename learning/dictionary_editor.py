@@ -11,6 +11,7 @@ LearningBuilder и применяет их одной кнопкой "Приме
 """
 
 import importlib
+import re
 import sys
 from pathlib import Path
 
@@ -32,6 +33,8 @@ from dictionaries import products as products_module
 from dictionaries.products_formatter import canonicalize_products, format_products
 from learning.dictionary_registry import DICTIONARY_REGISTRY, get_dictionary
 from learning.dictionary_writer import update_dict_constant
+from learning.learning_filters import transliterate_ru
+from learning.name_normalizer import normalize_dictionary_name
 from utils.material_extractor import MATERIAL_GROUP_EN
 
 
@@ -370,6 +373,194 @@ def delete_match_word(product: str, code: str, word: str) -> None:
     _reload_products()
 
 
+def _name_forms(text):
+    """Нормализованная форма + её транслитерация - то же представление,
+    в котором learning/analyzer.py::_build_reserved_alias_map() и
+    learning/archive_importer.py::_name_forms() сверяют занятость
+    имени. Дублируется здесь намеренно (тот же принцип, что и
+    sys.dont_write_bytecode выше) - редактор словарей самостоятельный
+    инструмент, ему не следует тянуть модуль архивного импорта только
+    ради одной вспомогательной функции."""
+
+    normalized = normalize_dictionary_name(text).lower().strip()
+
+    if not normalized:
+        return ()
+
+    return (normalized, transliterate_ru(normalized))
+
+
+def check_alias_collision(product: str, alias: str) -> list:
+    """Список ЧУЖИХ товаров (не product), у которых форма alias
+    (прямая или транслитерация) уже занята - либо как собственное
+    название, либо как уже добавленный алиас. Не запрещает ничего
+    сама - куратор в редакторе решает добровольно, добавлять ли алиас
+    несмотря на предупреждение (в отличие от автоматического
+    archive_importer.py, здесь действие ручное и осознанное). Пустой
+    список - коллизий нет.
+
+    См. products-dict-gradation-audit.md - тот же класс проблемы, что
+    "держатель"/"поло": 67 таких коллизий уже нашлись в живом словаре
+    при ревизии 2026-09-24, см. list_alias_collisions() для полного
+    списка."""
+
+    product = str(product or "").strip()
+    forms = set(_name_forms(alias))
+
+    if not forms:
+        return []
+
+    _reload_products()
+    owners = set()
+
+    for name, info in products_module.PRODUCTS.items():
+
+        if name == product:
+            continue
+
+        if not isinstance(info, dict):
+            continue
+
+        candidate_forms = set(_name_forms(name))
+
+        for existing_alias in info.get("aliases", []) or []:
+            candidate_forms.update(_name_forms(existing_alias))
+
+        if forms & candidate_forms:
+            owners.add(name)
+
+    return sorted(owners)
+
+
+def list_alias_collisions() -> list:
+    """Полная диагностика живого словаря - ВСЕ случаи, где alias
+    одного товара дословно (или транслитом) совпадает с названием/
+    алиасом ДРУГОГО товара. Не правит ничего - только показывает,
+    чтобы куратор мог пройтись и решить по каждому случаю сам (часть
+    может быть намеренной, часть - нет).
+
+    Возвращает [{"alias": str, "owners": [товары, у кого это алиас],
+    "collides_with": [товары, чьё это имя/чужой алиас]}, ...],
+    отсортировано по alias."""
+
+    _reload_products()
+    products = products_module.PRODUCTS
+
+    name_owner = {}
+    for name in products:
+        for form in _name_forms(name):
+            name_owner.setdefault(form, set()).add(name)
+
+    alias_owner = {}
+    for name, info in products.items():
+        if not isinstance(info, dict):
+            continue
+        for alias in info.get("aliases", []) or []:
+            for form in _name_forms(alias):
+                alias_owner.setdefault(form, {}).setdefault(
+                    str(alias).strip().lower(), set()
+                ).add(name)
+
+    results = []
+    seen_keys = set()
+
+    for form, alias_texts in alias_owner.items():
+
+        for alias_text, owners in alias_texts.items():
+
+            key = (form, alias_text)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+
+            collides_with = set()
+
+            # Совпадает с названием чужого товара.
+            for other in name_owner.get(form, set()):
+                if other not in owners:
+                    collides_with.add(other)
+
+            # Совпадает с алиасом чужого товара (тот же alias у 2+
+            # РАЗНЫХ товаров - какой из них "правильный" при
+            # классификации, неочевидно).
+            if len(owners) > 1:
+                collides_with.update(owners)
+
+            if collides_with:
+                results.append({
+                    "alias": alias_text,
+                    "owners": sorted(owners),
+                    "collides_with": sorted(collides_with - owners) or sorted(owners),
+                })
+
+    results.sort(key=lambda item: item["alias"])
+
+    return results
+
+
+def list_near_duplicate_products() -> list:
+    """Товары, чьи названия совпадают после strip()+lower(), но
+    записаны по-разному (например, 'абажур' и 'абажур ' - лишний
+    пробел) - разные ключи словаря PRODUCTS, но по факту, скорее
+    всего, один и тот же товар, заведённый дважды по ошибке.
+
+    Возвращает [{"key": нормализованная форма, "variants": [точные
+    названия, ...]}, ...] - только группы из 2+ вариантов."""
+
+    _reload_products()
+    products = products_module.PRODUCTS
+
+    groups = {}
+    for name in products:
+        key = name.strip().lower()
+        groups.setdefault(key, []).append(name)
+
+    return [
+        {"key": key, "variants": sorted(variants)}
+        for key, variants in sorted(groups.items())
+        if len(variants) > 1
+    ]
+
+
+def add_alias(product: str, alias: str) -> None:
+    """Добавляет ОДИН алиас верхнего уровня товару - обратная операция
+    к delete_alias() ниже. В отличие от автоматического обучения
+    (learning/builder.py::LearningBuilder.add_alias), здесь это прямое
+    осознанное действие куратора - поэтому НЕ проверяет коллизию сама
+    (см. check_alias_collision() выше - GUI обязан спросить куратора
+    ДО вызова этой функции, если коллизия есть, а не блокировать
+    молча)."""
+
+    alias = str(alias or "").strip().lower()
+
+    if not alias:
+        raise ValueError("Алиас не должен быть пустым")
+
+    _reload_products()
+    current = products_module.PRODUCTS
+    info = current.get(str(product or "").strip())
+
+    if not info:
+        raise ValueError(f"Товар «{product}» не найден")
+
+    product_normalized = str(product or "").strip().lower()
+
+    if alias == product_normalized:
+        raise ValueError("Алиас совпадает с названием самого товара")
+
+    existing = list(info.get("aliases") or [])
+    known = {str(a).strip().lower() for a in existing}
+
+    if alias in known:
+        raise ValueError(f"Алиас «{alias}» уже есть у «{product}»")
+
+    existing.append(alias)
+    info["aliases"] = existing
+
+    _write_products(current)
+    _reload_products()
+
+
 def delete_alias(product: str, alias: str) -> None:
     """Удаляет ОДИН алиас верхнего уровня у товара (не match-слово
     dropdown-варианта - для этого delete_match_word). Нужна в первую
@@ -583,6 +774,202 @@ def move_variant(source_product: str, code: str, target_product: str) -> None:
     ]
 
     target_variants.append(dict(variant))
+
+    _write_products(current)
+    _reload_products()
+
+
+# ==================================================================
+# ПАТТЕРНЫ (dictionaries/products.py, info["patterns"] - регулярные
+# выражения, см. resolver/candidate_scorer.py::_score_patterns,
+# сверяются через re.search() с описанием карточки).
+#
+# До этих двух функций паттерн можно было добавить только через
+# автообучение (learning/builder.py::LearningBuilder.add_pattern) -
+# оно НЕ проверяет, что строка вообще является валидным regex (ошибка
+# просто крешнула бы re.search() при следующей классификации). Ручной
+# ввод куратора менее предсказуем, чем то, что предлагает анализатор -
+# поэтому здесь, в отличие от builder.py, регекс проверяется ДО
+# записи на диск (re.compile) - лучше явная ошибка в редакторе сразу,
+# чем скрытый краш при следующей обработке файла.
+# ==================================================================
+
+def add_pattern(product: str, pattern: str) -> None:
+
+    pattern = str(pattern or "").strip()
+
+    if not pattern:
+        raise ValueError("Паттерн не должен быть пустым")
+
+    try:
+        re.compile(pattern)
+    except re.error as error:
+        raise ValueError(f"Невалидное регулярное выражение: {error}")
+
+    _reload_products()
+    current = products_module.PRODUCTS
+    info = current.get(str(product or "").strip())
+
+    if not info:
+        raise ValueError(f"Товар «{product}» не найден")
+
+    existing = list(info.get("patterns") or [])
+
+    if pattern in existing:
+        raise ValueError(f"Паттерн «{pattern}» уже есть у «{product}»")
+
+    existing.append(pattern)
+    info["patterns"] = existing
+
+    _write_products(current)
+    _reload_products()
+
+
+def delete_pattern(product: str, pattern: str) -> None:
+
+    pattern = str(pattern or "").strip()
+
+    _reload_products()
+    current = products_module.PRODUCTS
+    info = current.get(str(product or "").strip())
+
+    if not info:
+        raise ValueError(f"Товар «{product}» не найден")
+
+    info["patterns"] = [
+        p for p in (info.get("patterns") or [])
+        if str(p).strip() != pattern
+    ]
+
+    _write_products(current)
+    _reload_products()
+
+
+# ==================================================================
+# ТОВАР ЦЕЛИКОМ - создание/переименование/удаление/плоский код
+#
+# До этих функций такие правки делались только руками в products.py
+# текстом. create_product/rename_product намеренно проверяют коллизию
+# по strip()+lower() (см. list_near_duplicate_products() выше) - это
+# прямая защита от повторения найденной при ревизии 2026-09-24 ошибки
+# "абажур"/"абажур " (два разных ключа словаря из-за лишнего пробела,
+# по факту один и тот же товар, заведённый дважды).
+# ==================================================================
+
+def _find_by_normalized_name(current: dict, name: str):
+    """Ищет товар по названию, СНАЧАЛА точно, затем по strip()+lower() -
+    чтобы create_product/rename_product ловили коллизию даже тогда,
+    когда куратор ввёл то же название с лишним пробелом или в другом
+    регистре, а не только дословное совпадение ключа."""
+
+    name = str(name or "").strip()
+
+    if name in current:
+        return name
+
+    normalized = name.lower()
+
+    for existing in current:
+        if existing.strip().lower() == normalized:
+            return existing
+
+    return None
+
+
+def create_product(name: str, code: str = "") -> None:
+
+    name = str(name or "").strip()
+
+    if not name:
+        raise ValueError("Название товара не должно быть пустым")
+
+    _reload_products()
+    current = products_module.PRODUCTS
+
+    collision = _find_by_normalized_name(current, name)
+
+    if collision is not None:
+        raise ValueError(
+            f"Товар «{collision}» уже существует (с точностью до "
+            "пробелов/регистра) - похоже, это тот же товар."
+        )
+
+    current[name] = {
+        "code": str(code or "").strip(),
+        "patterns": [],
+        "aliases": [],
+    }
+
+    _write_products(current)
+    _reload_products()
+
+
+def rename_product(old_name: str, new_name: str) -> None:
+
+    old_name = str(old_name or "").strip()
+    new_name = str(new_name or "").strip()
+
+    if not new_name:
+        raise ValueError("Новое название не должно быть пустым")
+
+    _reload_products()
+    current = products_module.PRODUCTS
+
+    if old_name not in current:
+        raise ValueError(f"Товар «{old_name}» не найден")
+
+    if new_name != old_name:
+
+        collision = _find_by_normalized_name(current, new_name)
+
+        if collision is not None:
+            raise ValueError(
+                f"Товар «{collision}» уже существует (с точностью до "
+                "пробелов/регистра)."
+            )
+
+    info = current.pop(old_name)
+    current[new_name] = info
+
+    _write_products(current)
+    _reload_products()
+
+
+def delete_product(name: str) -> None:
+    """Удаляет товар целиком - вместе с его кодом, паттернами,
+    алиасами и dropdown-вариантами. Необратимо (как и всё в этом
+    редакторе - см. модульный docstring)."""
+
+    name = str(name or "").strip()
+
+    _reload_products()
+    current = products_module.PRODUCTS
+
+    if name not in current:
+        raise ValueError(f"Товар «{name}» не найден")
+
+    current.pop(name)
+
+    _write_products(current)
+    _reload_products()
+
+
+def set_product_code(product: str, code: str) -> None:
+    """Меняет плоский info["code"]. Для товара с настоящей градацией
+    по dropdown (2+ разных кода среди вариантов) canonicalize_products()
+    при следующем сохранении всё равно обнулит плоский код обратно
+    (см. dictionaries/products_formatter.py::canon_entry) - это
+    самовосстанавливающийся guard от бага, разобранного в
+    products-dict-gradation-audit.md, а не ошибка редактора."""
+
+    _reload_products()
+    current = products_module.PRODUCTS
+    info = current.get(str(product or "").strip())
+
+    if not info:
+        raise ValueError(f"Товар «{product}» не найден")
+
+    info["code"] = str(code or "").strip()
 
     _write_products(current)
     _reload_products()
