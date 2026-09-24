@@ -17,6 +17,55 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 from utils.material_extractor import MATERIAL_GROUP_EN
 
+
+def write_code_cell(cell, code):
+    """Пишет код ТН ВЭД в ячейку, сохраняя ведущий ноль.
+
+    Раньше во всех местах, где код пишется в ячейку (engines/
+    result_engine.py::set_code, processors/ozon_auto_processor.py::
+    apply_result/apply_cached_result), использовалось голое
+    int(code) - для подавляющего большинства кодов это просто число,
+    но код, начинающийся с "0" (такие коды в ТН ВЭД РЕАЛЬНО
+    встречаются - например товарные позиции группы 05), при этом
+    МОЛЧА терял этот ноль (int("0503109000") == 503109000 - код
+    "укорачивается" и становится другим, неверным числом), да ещё и
+    сама ячейка получала обычный числовой формат, из-за чего даже
+    заново введённый вручную код с нулём в начале Excel по умолчанию
+    отобразил бы без него. Жалоба Яна (products-dict-gradation-audit.md).
+
+    Теперь: если код начинается с "0" - пишем его КАК ТЕКСТ и
+    принудительно ставим текстовый формат ячейки ('@'), иначе
+    сохраняем прежнее поведение (обычное число, если это вообще
+    число - для сортировки/фильтрации в Excel так удобнее).
+
+    Пустой код (result.code == "") - тоже прежнее поведение: пишем
+    как есть (пустую строку), НЕ заменяем на None - вызывающий код
+    (например, отдельная явная очистка C{row}=None у result.review в
+    processors/ozon_auto_processor.py) сам решает, когда ячейку нужно
+    именно обнулить. code is None - тоже прежнее поведение (пишем
+    None как есть, а не строку "None")."""
+
+    if code is None:
+        cell.value = None
+        return
+
+    code = str(code).strip()
+
+    if not code:
+        cell.value = code
+        return
+
+    if code.startswith("0") and code.isdigit() and code != "0":
+        cell.value = code
+        cell.number_format = "@"
+        return
+
+    try:
+        cell.value = int(code)
+    except (ValueError, TypeError):
+        cell.value = code
+
+
 # group хранится по-английски у большинства товаров (metal/plastic/...),
 # но для показа человеку удобнее по-русски - обратный перевод.
 MATERIAL_GROUP_RU = {en: ru for ru, en in MATERIAL_GROUP_EN.items()}

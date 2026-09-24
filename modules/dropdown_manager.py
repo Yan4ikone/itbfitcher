@@ -23,10 +23,32 @@ from openpyxl.utils import get_column_letter
 
 
 def generate_tnved_codes():
+    """Список всех уникальных кодов ТН ВЭД из словаря - источник для
+    общего (на весь столбец) выпадающего списка apply_dropdowns() ниже.
+
+    Раньше коды собирались как int(code) - для кода, начинающегося с
+    "0" (в ТН ВЭД такие реально есть, например группа 05), это молча
+    теряло ведущий ноль (int("0503109000") == 503109000 - другое,
+    неверное число) ещё на этапе построения самого списка-источника,
+    то есть даже если куратор выбирал код именно из этого выпадающего
+    списка, а не печатал руками, ноль всё равно исчезал. Теперь коды
+    остаются строками (сортировка - по (длина, значение), чтобы
+    10-значные ТН ВЭД коды сортировались как обычно, а не лексикографи-
+    чески вперемешку с более короткими значениями, если такие когда-
+    нибудь попадутся) - число ведущих нулей сохраняется, а
+    apply_dropdowns() ниже дополнительно ставит текстовый формат ('@')
+    на сам список-источник, чтобы Excel не переинтерпретировал такую
+    строку обратно в число при отображении."""
+
     if not PRODUCTS:
         return []
 
     unique_codes = set()
+
+    def _add(code_value):
+        code = str(code_value).strip()
+        if code and code.isdigit() and code != "0":
+            unique_codes.add(code)
 
     for name, info in PRODUCTS.items():
         if not isinstance(info, dict):
@@ -38,38 +60,23 @@ def generate_tnved_codes():
                 code = str(v).strip()
                 break
 
-        if code and code.isdigit() and code != "0":
-            unique_codes.add(int(code))
+        _add(code)
+
         for mk, mv in info.items():
             if (
                     "material" in str(mk).lower()
                     and isinstance(mv, dict)
             ):
                 for material, mat_code in mv.items():
-                    mat_code_str = str(mat_code).strip()
-
-                    if (
-                            mat_code_str.isdigit()
-                            and mat_code_str != "0"
-                    ):
-                        unique_codes.add(
-                            int(mat_code_str)
-                        )
+                    _add(mat_code)
             if mk == "dropdown" and isinstance(mv, dict):
                 for variant in mv.get("variants", []):
                     if not isinstance(variant, dict):
                         continue
 
-                    variant_code = str(variant.get("code", "")).strip()
+                    _add(variant.get("code", ""))
 
-                    if (
-                            variant_code.isdigit()
-                            and variant_code != "0"
-                    ):
-                        unique_codes.add(
-                            int(variant_code)
-                        )
-    return sorted(list(unique_codes))
+    return sorted(unique_codes, key=lambda c: (len(c), c))
 
 
 def apply_specific_dropdowns(
@@ -303,7 +310,12 @@ def apply_dropdowns(wb, ws):
 
     hidden_ws.cell(row=1, column=1, value="ТН ВЭД Коды")
     for row_idx, code in enumerate(tnved_codes, start=2):
-        hidden_ws.cell(row=row_idx, column=1, value=code)
+        # code - строка (см. generate_tnved_codes выше) - пишем как
+        # текст и явно ставим текстовый формат, чтобы ведущий ноль
+        # (если есть) не потерялся и не потерялся бы повторно, если
+        # кто-то откроет и пересохранит этот скрытый лист в Excel.
+        cell = hidden_ws.cell(row=row_idx, column=1, value=code)
+        cell.number_format = "@"
     safe_name = "List_TNVED_Codes"
     last_row = len(tnved_codes) + 1
     ref = f"'{hidden_sheet_name}'!$A$2:$A${last_row}"

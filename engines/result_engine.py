@@ -2,7 +2,7 @@ from openpyxl.comments import Comment
 from openpyxl.styles import PatternFill
 
 from dictionaries.all_dictionaries import MATERIAL_COLORS
-from utils.dropdown_helpers import build_alternatives_validation
+from utils.dropdown_helpers import build_alternatives_validation, write_code_cell
 
 
 
@@ -15,10 +15,7 @@ def apply_result(ws, row, code_col, result):
 
 def set_code(ws, row, code_col, result):
     cell = ws.cell(row=row, column=code_col)
-    try:
-        cell.value = int(result.code)
-    except (ValueError, TypeError):
-        cell.value = result.code
+    write_code_cell(cell, result.code)
 
 
 def set_comment(ws, row, code_col, result):

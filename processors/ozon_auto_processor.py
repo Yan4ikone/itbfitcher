@@ -23,7 +23,7 @@ from excel.postprocessing import (
     REVIEW_FONT,
 )
 from modules.dropdown_manager import apply_specific_dropdowns
-from utils.dropdown_helpers import build_alternatives_validation
+from utils.dropdown_helpers import build_alternatives_validation, write_code_cell
 
 # Отдельное имя (НЕ "log") - в этом файле уже есть module-level `log`,
 # импортированный из parser/cdp_product_parser.py (см. импорт выше).
@@ -887,10 +887,7 @@ class OzonAutoProcessor:
         ws[f"N{row}"] = cached_card.get("dropdown_group", "") or ""
 
         if code and code not in ("0", "nan"):
-            try:
-                ws[f"C{row}"] = int(code)
-            except ValueError:
-                ws[f"C{row}"] = code
+            write_code_cell(ws[f"C{row}"], code)
 
             self.found_count += 1
             self.log(f"CACHE Описание: {description}")
@@ -971,10 +968,7 @@ class OzonAutoProcessor:
         # C
         # ------------------------------------------------------
         if result.code:
-            try:
-                ws[f"C{row}"] = int(result.code)
-            except ValueError:
-                ws[f"C{row}"] = (result.code)
+            write_code_cell(ws[f"C{row}"], result.code)
         elif result.review:
             # Явно очищаем ячейку (а не оставляем как есть), иначе
             # при повторной обработке той же книги старый код от
