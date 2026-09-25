@@ -24,11 +24,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'абажур': {
-        'code': '6307909800',
-        'patterns': [],
-        'aliases': [],
-    },
     'абажур ': {
         'code': '9405990008',
         'patterns': [],
@@ -345,11 +340,6 @@ PRODUCTS = {
             'диффузор',
         ],
     },
-    'аудиокабель': {
-        'code': '8544429009',
-        'patterns': [],
-        'aliases': [],
-    },
     'аудиокассета': {
         'code': '8523299000',
         'patterns': [],
@@ -435,11 +425,6 @@ PRODUCTS = {
     },
     'балдахин': {
         'code': '6303910000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'балетки': {
-        'code': '6405901000',
         'patterns': [],
         'aliases': [],
     },
@@ -691,11 +676,6 @@ PRODUCTS = {
             'записная книжка',
             'bloknot',
         ],
-    },
-    'блузка': {
-        'code': '6106909000',
-        'patterns': [],
-        'aliases': [],
     },
     'боди': {
         'code': '6114300000',
@@ -1643,11 +1623,6 @@ PRODUCTS = {
         'aliases': [
             'voda parfyumernaya',
         ],
-    },
-    'водная игрушка': {
-        'code': '9503009500',
-        'patterns': [],
-        'aliases': [],
     },
     'водолазка': {
         'code': '6110309900',
@@ -3669,24 +3644,14 @@ PRODUCTS = {
             'радиоуправля.*игруш',
         ],
         'aliases': [
-            'diy кристалл эпоксидный брелок для ключей брелок для самообороны игрушечный нож в форме ножа',
-            'витрина для конструктора и хранения фигурок коллекционирования',
-            'волчок',
-            'игрушка радиоуправляемая',
-            'konstruktor',
             'бизиборд',
             'игрушки в наборе',
-            'nastraivaemaya pechat s imenem rebenka noch sinyaya sova',
             'игрушечный',
-            'vitrina dlya konstruktora i hraneniya figurok kollektsionirovaniya',
             'интерактивная игрушка',
             'игрушка на управлении',
             'сюжетно ролевые игрушки',
-            'diy kristall epoksidnyy brelok dlya klyuchey brelok dlya samooborony igrushechnyy nozh v forme',
             'кубики',
-            'конструктор',
             'игрушечное',
-            'настраиваемая печать с именем ребенка синяя сова',
             'igrushka',
             'игрушка-попрыгун',
             'попрыгунчик мячик',
@@ -3701,16 +3666,6 @@ PRODUCTS = {
                 },
             ],
         },
-    },
-    'игрушка для ванной': {
-        'code': '9503009500',
-        'patterns': [],
-        'aliases': [],
-    },
-    'игрушка для мальчиков набор': {
-        'code': '9503008100',
-        'patterns': [],
-        'aliases': [],
     },
     'измельчитель бытовых отходов': {
         'code': '8509400000',
@@ -3841,12 +3796,6 @@ PRODUCTS = {
             'usb.*кабел',
         ],
         'aliases': [
-            'kabel dlya internet soedineniya raznotsvetnyy',
-            'kabel dlya mobilnyh ustroystv usb type a usb type c m belyy',
-            'kabel dlya kompyuternoy periferii raznotsvetnyy',
-            'кабель для мобильных устройств usb type a usb type c белый',
-            'кабель для компьютерной периферии разноцветный',
-            'кабель для интернет соединения разноцветный',
             'kabel',
             'аудиокабель',
             'audiokabel',
@@ -3857,31 +3806,6 @@ PRODUCTS = {
                     'code': '8544429007',
                     'group': 'медь',
                     'match': [],
-                },
-            ],
-        },
-    },
-    'кабель переходник': {
-        'code': '',
-        'patterns': [],
-        'aliases': [],
-        'dropdown': {
-            'title': 'Выберите вариант',
-            'variants': [
-                {
-                    'code': '8544429007',
-                    'name': 'Кабель',
-                    'group': 'other',
-                },
-                {
-                    'code': '8536900100',
-                    'name': 'Адаптер',
-                    'group': 'other',
-                },
-                {
-                    'code': '8504405500',
-                    'name': 'Зарядка',
-                    'group': 'other',
                 },
             ],
         },
@@ -4087,11 +4011,6 @@ PRODUCTS = {
         'aliases': [
             'жиклер',
         ],
-    },
-    'кардиган': {
-        'code': '6110309900',
-        'patterns': [],
-        'aliases': [],
     },
     'карманы для одежды': {
         'code': '6117900000',
@@ -4299,11 +4218,6 @@ PRODUCTS = {
             ],
         },
     },
-    'кеды': {
-        'code': '6404110000',
-        'patterns': [],
-        'aliases': [],
-    },
     'кейкапы для клавиатуры': {
         'code': '3926909709',
         'patterns': [
@@ -4499,11 +4413,6 @@ PRODUCTS = {
     },
     'книга детская': {
         'code': '4903000000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'книжка игрушка': {
-        'code': '9503009500',
         'patterns': [],
         'aliases': [],
     },
@@ -5122,21 +5031,7 @@ PRODUCTS = {
             ],
         },
     },
-    'коробка для вина': {
-        'code': '3923100000',
-        'patterns': [
-            'короб.*для.*вина',
-        ],
-        'aliases': [
-            'подарочная коробка для вина и набор сомелье',
-        ],
-    },
-    'коробка для продуктов': {
-        'code': '4819100000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'коробка для хранения': {
+    'коробка': {
         'code': '',
         'patterns': [],
         'aliases': [
@@ -5146,21 +5041,22 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3923100000',
-                    'group': 'other',
+                    'group': 'plastic',
                     'match': [],
                 },
                 {
-                    'code': '3926909709',
-                    'group': 'other',
+                    'code': '4202929800',
+                    'group': 'textile',
+                    'match': [],
+                },
+                {
+                    'code': '4819100000',
+                    'name': 'Бумага',
+                    'group': 'бумага',
                     'match': [],
                 },
             ],
         },
-    },
-    'коробка подарочная': {
-        'code': '4811900000',
-        'patterns': [],
-        'aliases': [],
     },
     'коронка сверлильная': {
         'code': '8207506000',
@@ -5865,11 +5761,7 @@ PRODUCTS = {
             'пальто',
             'плащ',
             'shuba',
-            'пуховик с воротником труба',
-            'vetrovka moocie modnye novye stili',
             'vetrovka',
-            'ветровка moocie модные новые стили',
-            'shuba naturalnaya',
             'kurtka',
             'мотоджерси',
             'puhovik',
@@ -5877,7 +5769,6 @@ PRODUCTS = {
             'plashch',
             'parka',
             'косуха',
-            'bomber',
             'palto',
         ],
         'dropdown': {
@@ -7163,9 +7054,6 @@ PRODUCTS = {
         'code': '9503004100',
         'patterns': [],
         'aliases': [
-            'мягкая игрушка овечка плюшевая овечка',
-            'myagkaya igrushka ovechka plyushevaya ovechka',
-            'талисман вязаный военный на заказ ручная работа барс',
             'букет из мягких игрушек',
         ],
     },
@@ -10828,22 +10716,7 @@ PRODUCTS = {
         ],
         'aliases': [
             'блузка',
-            'блузка школьная с коротким рукавом',
-            'блузка рубашка офисная',
-            'блузка на шнуровке с пышными рукавами',
             'rubashka',
-            'rubashka sassin',
-            'рубашка модные вещи рубашка',
-            'рубашка aueoeo',
-            'рубашка медицинская',
-            'блузка кружевная с длинным рукавом волан',
-            'rubashka aueoeo',
-            'блузка с бантом офисная',
-            'рубашка sassin',
-            'рубашка лён с карманом',
-            'rubashka tovary za rubl modnyy i izyskannyy',
-            'rubashka modnye veshchi rubashka oversayz',
-            'блузка школьная укороченная с короткими рукавами',
             'bluzka',
         ],
         'dropdown': {
@@ -11312,9 +11185,7 @@ PRODUCTS = {
             'свитшот',
             'толстовка',
             'худи',
-            'свитер massimo dutti',
             'sviter',
-            'sviter massimo dutti',
             'tolstovka',
             'hudi',
             'vodolazka',
@@ -11323,7 +11194,6 @@ PRODUCTS = {
             'kardigan',
             'olimpiyka',
             'джерси',
-            'лонгслив',
         ],
         'dropdown': {
             'title': 'Выберите вариант',
@@ -11341,12 +11211,18 @@ PRODUCTS = {
                     'code': '4201000000',
                     'group': 'animal',
                     'match': [
-                        'свитшот',
-                        'утепленной',
-                        'подкладкой',
-                        'толстовка',
-                        'benz',
-                        'mercedes',
+                        'для собаки',
+                        'для собак',
+                        'собачья',
+                        'собачий',
+                        'для кошки',
+                        'для кошек',
+                        'кошачья',
+                        'кошачий',
+                        'для питомца',
+                        'для питомцев',
+                        'для животного',
+                        'для животных',
                     ],
                 },
                 {
@@ -14691,10 +14567,6 @@ PRODUCTS = {
                     'name': 'Текстиль',
                     'group': 'textile',
                 },
-                {
-                    'code': '3923100000',
-                    'group': 'plastic',
-                },
             ],
         },
     },
@@ -15505,9 +15377,7 @@ PRODUCTS = {
     'ящик': {
         'code': '',
         'patterns': [],
-        'aliases': [
-            'korobka',
-        ],
+        'aliases': [],
         'dropdown': {
             'title': 'Выберите вариант',
             'variants': [
@@ -15529,47 +15399,7 @@ PRODUCTS = {
                 {
                     'code': '4011900000',
                     'name': 'Прочие',
-                    'group': 'other',
-                },
-                {
-                    'code': '4811900000',
-                    'name': '',
-                    'group': 'other',
-                },
-            ],
-        },
-    },
-    'ящик для инструментов': {
-        'code': '3923100000',
-        'patterns': [
-            'ящик.*для.*инстр',
-        ],
-        'aliases': [
-            'dewalt dwst833951 ящик для инструментов',
-            'milwaukee 48736110 коленный коврик packout профессиональный для работы в мастерской',
-        ],
-    },
-    'ящик для хранения': {
-        'code': '',
-        'patterns': [],
-        'aliases': [],
-        'dropdown': {
-            'title': 'Выберите вариант',
-            'variants': [
-                {
-                    'code': '3923100000',
-                    'name': 'Пласт',
-                    'group': 'plastic',
-                },
-                {
-                    'code': '4202929800',
-                    'name': 'Текстиль',
-                    'group': 'textile',
-                },
-                {
-                    'code': '3924900009',
-                    'name': 'Быт пластик',
-                    'group': 'plastic',
+                    'group': 'бумага',
                 },
             ],
         },
