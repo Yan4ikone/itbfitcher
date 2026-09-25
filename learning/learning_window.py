@@ -11,6 +11,68 @@ from learning.dictionary_registry import dictionary_choices, group_choices
 from learning import dictionary_editor
 
 
+# ======================================================================
+# Копирование фрагмента текста из Treeview/Listbox (жалоба Яна - "не
+# могу копировать коды через Ctrl+C" в окнах редактирования словаря,
+# products-dict-gradation-audit.md, обновление 2026-09-25).
+#
+# Ни Treeview, ни Listbox не умеют выделять мышью ЧАСТЬ текста внутри
+# строки/пункта - там можно выбрать только строку/пункт целиком, а
+# Ctrl+C для них в принципе ничего не подключено. Обычный Entry (даже
+# readonly) умеет выделение фрагмента мышью и копирование по Ctrl+C
+# "из коробки" - это встроенное поведение Tkinter, отдельно
+# реализовывать не нужно. Поэтому решение - не переизобретать
+# копирование в Treeview/Listbox, а дублировать текст текущего выбора
+# в readonly Entry рядом, где можно свободно выделить нужный фрагмент.
+# ======================================================================
+
+def _make_copy_field(parent):
+    """Создаёт readonly Entry для отображения текста текущего выбора
+    (см. комментарий выше). Возвращает (StringVar, Entry) - вызывающий
+    код сам решает, куда и с каким grid/pack его разместить."""
+
+    var = StringVar()
+
+    entry = ttk.Entry(parent, textvariable=var, state="readonly")
+
+    return var, entry
+
+
+def _bind_tree_copy_field(tree, var):
+    """Синхронизирует readonly-поле (см. _make_copy_field) с текущим
+    выделением в Treeview - при выборе узла его текст дублируется в
+    поле. Учитывает и обычные деревья (show="tree", весь текст в
+    "text"), и многоколоночные (show="tree headings", часть данных - в
+    "values", напр. collisions_tree/dupes_tree) - склеивает "text" и
+    непустые "values" через " | ". add="+" - чтобы не затереть уже
+    существующие обработчики "<<TreeviewSelect>>" у этого дерева
+    (например, подгрузку деталей выбранного варианта)."""
+
+    def _sync(event=None):
+        selection = tree.selection()
+        if not selection:
+            var.set("")
+            return
+        item = tree.item(selection[0])
+        parts = [str(item.get("text", "") or "")]
+        for value in item.get("values", ()) or ():
+            if value not in (None, ""):
+                parts.append(str(value))
+        var.set(" | ".join(part for part in parts if part))
+
+    tree.bind("<<TreeviewSelect>>", _sync, add="+")
+
+
+def _bind_listbox_copy_field(listbox, var):
+    """То же самое для Listbox - см. _bind_tree_copy_field."""
+
+    def _sync(event=None):
+        selection = listbox.curselection()
+        var.set(listbox.get(selection[0]) if selection else "")
+
+    listbox.bind("<<ListboxSelect>>", _sync, add="+")
+
+
 class LearningWindow(Toplevel):
 
     def __init__(self, parent, report: LearningReport, runtime):
@@ -1325,6 +1387,14 @@ class DictionaryEditorWindow(Toplevel):
         vsb.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=vsb.set)
 
+        # Поле для копирования фрагмента выбранной строки (Ctrl+C) -
+        # см. _make_copy_field/_bind_tree_copy_field в начале файла.
+        self.tree_copy_var, tree_copy_entry = _make_copy_field(tree_frame)
+        tree_copy_entry.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0)
+        )
+        _bind_tree_copy_field(self.tree, self.tree_copy_var)
+
         # --------------------------------------------------
         # Добавление
         # --------------------------------------------------
@@ -1617,6 +1687,12 @@ class VariantEditorWindow(Toplevel):
             "<<ListboxSelect>>", lambda event: self._load_selected_product()
         )
 
+        self.matches_copy_var, matches_copy_entry = _make_copy_field(
+            matches_frame
+        )
+        matches_copy_entry.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+        _bind_listbox_copy_field(self.matches_list, self.matches_copy_var)
+
         # --------------------------------------------------
         # Дерево: вариант (code — group / name) -> match-слова
         # --------------------------------------------------
@@ -1633,6 +1709,16 @@ class VariantEditorWindow(Toplevel):
         )
         vsb.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=vsb.set)
+
+        # Поле для копирования фрагмента выбранной строки (код, group
+        # или match-слово) через Ctrl+C - см. _make_copy_field/
+        # _bind_tree_copy_field в начале файла. Это и есть ответ на
+        # жалобу Яна "не могу копировать коды через Ctrl+C".
+        self.tree_copy_var, tree_copy_entry = _make_copy_field(tree_frame)
+        tree_copy_entry.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0)
+        )
+        _bind_tree_copy_field(self.tree, self.tree_copy_var)
 
         # --------------------------------------------------
         # Group у выбранного варианта
@@ -2217,6 +2303,12 @@ class ProductEditorWindow(Toplevel):
             "<<ListboxSelect>>", lambda event: self._load_selected_product()
         )
 
+        self.matches_copy_var, matches_copy_entry = _make_copy_field(
+            matches_frame
+        )
+        matches_copy_entry.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+        _bind_listbox_copy_field(self.matches_list, self.matches_copy_var)
+
         # --------------------------------------------------
         # Выбранный товар - название/код
         # --------------------------------------------------
@@ -2302,6 +2394,12 @@ class ProductEditorWindow(Toplevel):
             command=self._delete_selected_alias,
         ).grid(row=1, column=2, pady=(6, 0))
 
+        self.alias_copy_var, alias_copy_entry = _make_copy_field(alias_frame)
+        alias_copy_entry.grid(
+            row=2, column=0, columnspan=3, sticky="ew", pady=(4, 0)
+        )
+        _bind_listbox_copy_field(self.alias_list, self.alias_copy_var)
+
         # --------------------------------------------------
         # Паттерны
         # --------------------------------------------------
@@ -2326,6 +2424,14 @@ class ProductEditorWindow(Toplevel):
             pattern_frame, text="Удалить выбранный",
             command=self._delete_selected_pattern,
         ).grid(row=1, column=2, pady=(6, 0))
+
+        self.pattern_copy_var, pattern_copy_entry = _make_copy_field(
+            pattern_frame
+        )
+        pattern_copy_entry.grid(
+            row=2, column=0, columnspan=3, sticky="ew", pady=(4, 0)
+        )
+        _bind_listbox_copy_field(self.pattern_list, self.pattern_copy_var)
 
         # --------------------------------------------------
         # Новый товар
@@ -2685,6 +2791,14 @@ class DictionaryIssuesWindow(Toplevel):
         self.collisions_tree.configure(yscrollcommand=vsb1.set)
         self.collisions_tree.bind("<Double-1>", self._open_collision_product)
 
+        self.collisions_copy_var, collisions_copy_entry = _make_copy_field(
+            collisions_frame
+        )
+        collisions_copy_entry.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0)
+        )
+        _bind_tree_copy_field(self.collisions_tree, self.collisions_copy_var)
+
         ttk.Label(
             container,
             text="Товары-дубли (разное только пробелами/регистром названия):",
@@ -2705,6 +2819,12 @@ class DictionaryIssuesWindow(Toplevel):
         vsb2.grid(row=0, column=1, sticky="ns")
         self.dupes_tree.configure(yscrollcommand=vsb2.set)
         self.dupes_tree.bind("<Double-1>", self._open_dupe_product)
+
+        self.dupes_copy_var, dupes_copy_entry = _make_copy_field(dupes_frame)
+        dupes_copy_entry.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0)
+        )
+        _bind_tree_copy_field(self.dupes_tree, self.dupes_copy_var)
 
         ttk.Button(
             container, text="Обновить", command=self._reload,
