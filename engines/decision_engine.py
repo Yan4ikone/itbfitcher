@@ -17,6 +17,7 @@ from processors.card_image_processor import CardImageProcessor
 
 from dictionaries.products import PRODUCTS
 from core.ai_settings import is_image_ai_enabled
+from utils.apparel_chapters import is_apparel_footwear_or_headwear
 
 
 # ==================================================================
@@ -40,52 +41,15 @@ from core.ai_settings import is_image_ai_enabled
 # text_support и т.п.), никакого специального "доверять ИИ больше
 # обычного" тут нет. FORCE_AI_NONCLOTHING только заставляет ИИ вообще
 # ПОСМОТРЕТЬ на карточку, а не молча пропустить её.
+#
+# is_apparel_footwear_or_headwear() ПЕРЕЕХАЛА в utils/apparel_chapters.py
+# (2026-09-25) - та же проверка нужна теперь ЕЩЁ и в
+# resolver/dropdown_resolver.py (шаг 4, политика "для одежды код
+# ставим всегда, но с пометкой на проверку" - см. products-dict-
+# gradation-audit.md), а dropdown_resolver.py не может импортировать
+# отсюда (decision_engine.py сам импортирует DropdownResolver из
+# dropdown_resolver.py - обратный импорт дал бы цикл).
 # ==================================================================
-_APPAREL_FOOTWEAR_CHAPTERS = ("61", "62", "64", "65")
-
-
-def _collect_entry_codes(entry):
-    codes = set()
-
-    code = entry.get("code")
-    if code:
-        codes.add(str(code))
-
-    dropdown = entry.get("dropdown") or {}
-    for variant in dropdown.get("variants", []):
-        variant_code = variant.get("code")
-        if variant_code:
-            codes.add(str(variant_code))
-
-    material_codes = entry.get("material_codes") or {}
-    for material_code in material_codes.values():
-        if material_code:
-            codes.add(str(material_code))
-
-    return codes
-
-
-def is_apparel_footwear_or_headwear(product_key):
-    """True, если product_key - товар из словаря PRODUCTS, все/часть
-    кодов которого относятся к главам ТН ВЭД 61/62 (одежда), 64
-    (обувь) или 65 (головные уборы). Товар, которого нет в словаре
-    (product_key пуст или не найден), НЕ считается одеждой/обувью -
-    он остаётся кандидатом на принудительный ИИ-прогон, поскольку его
-    категория попросту неизвестна."""
-
-    if not product_key:
-        return False
-
-    entry = PRODUCTS.get(product_key)
-
-    if not entry:
-        return False
-
-    for code in _collect_entry_codes(entry):
-        if code[:2] in _APPAREL_FOOTWEAR_CHAPTERS:
-            return True
-
-    return False
 
 
 def _create_image_engine():

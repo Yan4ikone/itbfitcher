@@ -1,6 +1,7 @@
 from resolver.dropdown_axis_resolver import AXIS_RESOLVERS, get_axis_resolver
 from utils.dropdown_helpers import variant_display_name
 from utils.material_extractor import MATERIAL_GROUP_EN
+from utils.apparel_chapters import is_apparel_footwear_or_headwear
 
 # Английские канонические токены материала (см. MATERIAL_GROUP_EN) -
 # ими по конвенции (обновления (2)/(17) products-dict-gradation-audit.md)
@@ -151,7 +152,7 @@ class DropdownResolver:
                     )
                     return
         # --------------------------------------------------
-        # 4. Ничего не определили.
+        # 4. Ничего не определили однозначно.
         #
         # Раньше здесь молча брался ПЕРВЫЙ вариант из списка
         # (result.code = variants[0]["code"]), ставился
@@ -162,32 +163,60 @@ class DropdownResolver:
         # products-dict-gradation-audit.md, обновление (7)) показала:
         # эта ветка даёт правильный код только в ~22% случаев — хуже,
         # чем случайное угадывание среди вариантов — и при этом
-        # confidence/review НИКУДА не попадают в сам Excel (только в
+        # confidence/review НИКУДА не попадали в сам Excel (только в
         # консольный лог, который куратор не читает построчно), то
         # есть куратор физически не мог отличить этот угаданный код
-        # от настоящего решения.
+        # от настоящего решения. По решению Яна тогда — код НЕ
+        # угадывать, оставлять пустым, source="DROPDOWN_UNRESOLVED".
         #
-        # По решению Яна: товар (result.product) уже определён верно
-        # выше по цепочке — его и оставляем. А код/dropdown-название
-        # НЕ угадываем — оставляем пустыми и явно помечаем как
-        # неопределённые (source="DROPDOWN_UNRESOLVED", отдельно от
-        # "DROPDOWN_FIRST", чтобы не путать со старым, угадывающим
-        # поведением). alternatives по-прежнему собираем — это и есть
-        # список кодов, из которых нужно выбрать вручную; его
-        # использует ozon_auto_processor.apply_result(), чтобы явно
-        # показать куратору варианты прямо в Excel.
+        # ОБНОВЛЕНО (2026-09-25, products-dict-gradation-audit.md,
+        # обновление 11) — Ян прямо попросил развернуть это РОВНО для
+        # одежды/обуви/головных уборов (ТН ВЭД главы 61/62/64/65):
+        # "тут одежда, ставить её надо, но с пометкой проверки, так я
+        # буду понимать, что нужно править". Расклад теперь другой,
+        # чем в обновлении (7): confidence/review ТЕПЕРЬ доходят до
+        # Excel (ozon_auto_processor.apply_result() их показывает), то
+        # есть угаданный-но-помеченный код куратор реально отличит от
+        # уверенного решения — раньше это было физически невозможно, и
+        # именно поэтому в (7) решили не угадывать вовсе. Для товара
+        # ВНЕ этих 4 глав поведение НЕ меняется (по просьбе Яна же —
+        # там подстраховка через ИИ по картинке, engines/
+        # decision_engine.py шаг 7.5, которая по этим товарам, наоборот,
+        # НЕ запускается в обычном режиме, т.к. текстовая классификация
+        # для них и так надёжна).
+        #
+        # alternatives по-прежнему собираем в обоих случаях — список
+        # кодов, из которых можно выбрать вручную (используется
+        # ozon_auto_processor.apply_result(), показывает куратору
+        # варианты прямо в Excel).
         # --------------------------------------------------
+        result.alternatives = {
+            item.get("code", ""): variant_display_name(item)
+            for item in variants
+            if item.get("code")
+        }
+
+        first_with_code = next(
+            (v for v in variants if str(v.get("code", "")).strip()),
+            None,
+        )
+
+        if first_with_code and is_apparel_footwear_or_headwear(result.product):
+            self._apply_variant(
+                result,
+                first_with_code,
+                source="DROPDOWN_FIRST_CLOTHING",
+                confidence=30,
+                review=True,
+            )
+            return
+
         result.code = ""
         result.dropdown_group = ""
         result.dropdown = ""
         result.review = True
         result.source = "DROPDOWN_UNRESOLVED"
         result.confidence = 0
-        result.alternatives = {
-            item.get("code", ""): variant_display_name(item)
-            for item in variants
-            if item.get("code")
-        }
     # ==========================================================
     # AXIS DISPATCH
     # ==========================================================

@@ -4527,19 +4527,14 @@ PRODUCTS = {
         'code': '8518220009',
         'patterns': [],
         'aliases': [
-            'little prince ретро bluetoothколонка ручной работы с функцией музыкальной шкатулки подарок на день рождения',
-            'саундбар для телевизора компьютера tv soundbar домашний кинотеатр акустика',
             'саундбар',
             'saundbar',
-            'saundbar dlya televizora kompyutera tv soundbar mdz da domashniy kinoteatr akustika bluetooth',
         ],
     },
     'колонки': {
         'code': '8518299600',
         'patterns': [],
-        'aliases': [
-            'запчасть для умной колонки',
-        ],
+        'aliases': [],
     },
     'колпак': {
         'code': '8306290009',
@@ -4664,11 +4659,10 @@ PRODUCTS = {
         'aliases': [
             'эротическое белье',
             'нижнее бельё',
-            'комплект нижнего белья кружевной прозрачный в сетку',
-            'комплект нижнего белья атласный',
-            'komplekt nizhnego belya miuke yoyo komplekt nizhnego belya',
-            'комплект нижнего белья miuke yoyo комплект нижнего белья',
+            'комплект белья',
+            'набор белья',
         ],
+        'excludes_context': ['постельн', 'малыш', 'ребен', 'детск'],
     },
     'комплект одежды': {
         'code': '',

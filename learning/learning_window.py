@@ -171,7 +171,7 @@ class LearningWindow(Toplevel):
             text="В словарь мусора...",
             command=self._send_alias_to_trash,
         ).grid(
-            row=2,
+            row=3,
             column=0,
             columnspan=2,
             sticky="w",
@@ -198,7 +198,7 @@ class LearningWindow(Toplevel):
             text="Редактор словарей...",
             command=self._open_dictionary_editor,
         ).grid(
-            row=2,
+            row=3,
             column=0,
             columnspan=2,
             sticky="w",
@@ -210,7 +210,7 @@ class LearningWindow(Toplevel):
             text="Редактор match/group...",
             command=self._open_variant_editor,
         ).grid(
-            row=3,
+            row=4,
             column=0,
             columnspan=2,
             sticky="w",
@@ -332,6 +332,29 @@ class LearningWindow(Toplevel):
             "<space>",
             self._toggle_current
         )
+
+        # ------------------------------------------------------
+        # КОПИРОВАНИЕ ЧЕРЕЗ Ctrl+C (жалоба Яна "Скопировать я до сих
+        # пор не могу", products-dict-gradation-audit.md, обновление
+        # 2026-09-25 (12)) - см. _make_copy_field/_bind_tree_copy_field
+        # в начале файла. Раньше этот фикс стоял только в окнах
+        # редактора словаря (DictionaryIssuesWindow и т.п.) - а самое
+        # используемое окно в системе, "Обучение системы" с его 7
+        # вкладками (новые товары/алиасы/dropdown/паттерны/неизвестные
+        # слова/...), строится ЦЕЛИКОМ через этот общий _create_tree(),
+        # и туда фикс раньше не попадал. Кладём один раз сюда, а не в
+        # 7 разных мест - применяется сразу ко всем вкладкам.
+        # ------------------------------------------------------
+        copy_var, copy_entry = _make_copy_field(parent)
+        copy_entry.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(4, 0)
+        )
+        _bind_tree_copy_field(tree, copy_var)
+
         return tree
 
 
@@ -1733,9 +1756,22 @@ class VariantEditorWindow(Toplevel):
             row=0, column=0, sticky="w"
         )
         self.new_group_var = StringVar()
-        ttk.Entry(
-            group_frame, textvariable=self.new_group_var
-        ).grid(row=0, column=1, sticky="ew", padx=(6, 6))
+        # ДОБАВЛЕНО по просьбе Яна (2026-09-25): "я не понимаю какие
+        # группы у нас есть, отсутствует выбор группы в программе" -
+        # обычный Entry раньше давал печатать что угодно вслепую, не
+        # показывая уже принятые в словаре значения (см.
+        # dictionary_editor.list_known_groups()) - источник опечаток
+        # вроде "plastik" вместо "plastic", которые молча ломают
+        # автоматическое определение кода (resolver/
+        # dropdown_axis_resolver.py сравнивает group СТРОГО без
+        # опечаток). Combobox остаётся РЕДАКТИРУЕМЫМ (не readonly) -
+        # значение, которого ещё нет в списке (например, новая
+        # намеренная категория), всё ещё можно ввести вручную.
+        self.new_group_combo = ttk.Combobox(
+            group_frame, textvariable=self.new_group_var,
+            values=dictionary_editor.list_known_groups(),
+        )
+        self.new_group_combo.grid(row=0, column=1, sticky="ew", padx=(6, 6))
         ttk.Button(
             group_frame, text="Сохранить group",
             command=self._save_group,
@@ -1821,9 +1857,16 @@ class VariantEditorWindow(Toplevel):
             row=0, column=2, sticky="w"
         )
         self.add_variant_group_var = StringVar()
-        ttk.Entry(
-            new_variant_frame, textvariable=self.add_variant_group_var
-        ).grid(row=0, column=3, sticky="ew", padx=(6, 6))
+        # См. комментарий у self.new_group_combo выше - тот же
+        # редактируемый Combobox со списком уже известных значений
+        # group, чтобы куратор видел варианты и не печатал вслепую.
+        self.add_variant_group_combo = ttk.Combobox(
+            new_variant_frame, textvariable=self.add_variant_group_var,
+            values=dictionary_editor.list_known_groups(),
+        )
+        self.add_variant_group_combo.grid(
+            row=0, column=3, sticky="ew", padx=(6, 6)
+        )
 
         ttk.Label(new_variant_frame, text="Название:").grid(
             row=1, column=0, sticky="w", pady=(4, 0)
@@ -2755,7 +2798,7 @@ class DictionaryIssuesWindow(Toplevel):
         self.parent_editor = parent
 
         self.title("Проблемы словаря")
-        self.geometry("760x560")
+        self.geometry("760x820")
         self.transient(parent)
 
         container = ttk.Frame(self, padding=10)
@@ -2763,6 +2806,7 @@ class DictionaryIssuesWindow(Toplevel):
         container.columnconfigure(0, weight=1)
         container.rowconfigure(1, weight=1)
         container.rowconfigure(3, weight=1)
+        container.rowconfigure(5, weight=1)
 
         ttk.Label(
             container,
@@ -2826,9 +2870,60 @@ class DictionaryIssuesWindow(Toplevel):
         )
         _bind_tree_copy_field(self.dupes_tree, self.dupes_copy_var)
 
+        # --------------------------------------------------
+        # ДОБАВЛЕНО по просьбе Яна (2026-09-25): "пусть проверяет
+        # помимо ошибок в словаре, добавит ошибки в группах, а то может
+        # не так написана группа и не попадает под критерии отбора" -
+        # см. dictionary_editor.list_group_issues() - НАМЕРЕННО
+        # консервативная проверка (пустая group / group-латиница вне
+        # известного словаря англ. токенов), чтобы не утопить в ложных
+        # срабатываниях (подробности - в докстринге функции).
+        # --------------------------------------------------
+        ttk.Label(
+            container,
+            text="Подозрительная group у dropdown-варианта "
+            "(пустая или похожая на опечатку):",
+            font=("Segoe UI", 9, "bold"),
+        ).grid(row=4, column=0, sticky="w")
+
+        groups_frame = ttk.Frame(container)
+        groups_frame.grid(row=5, column=0, sticky="nsew", pady=(2, 8))
+        groups_frame.columnconfigure(0, weight=1)
+        groups_frame.rowconfigure(0, weight=1)
+
+        self.group_issues_tree = ttk.Treeview(
+            groups_frame,
+            columns=("code", "variant_name", "group", "issue"),
+            show="tree headings",
+        )
+        self.group_issues_tree.heading("#0", text="Товар")
+        self.group_issues_tree.heading("code", text="Код")
+        self.group_issues_tree.heading("variant_name", text="Название варианта")
+        self.group_issues_tree.heading("group", text="Group")
+        self.group_issues_tree.heading("issue", text="Проблема")
+        self.group_issues_tree.column("#0", width=200)
+        self.group_issues_tree.column("code", width=100)
+        self.group_issues_tree.column("issue", width=110)
+        self.group_issues_tree.grid(row=0, column=0, sticky="nsew")
+
+        vsb3 = ttk.Scrollbar(
+            groups_frame, orient="vertical", command=self.group_issues_tree.yview
+        )
+        vsb3.grid(row=0, column=1, sticky="ns")
+        self.group_issues_tree.configure(yscrollcommand=vsb3.set)
+        self.group_issues_tree.bind("<Double-1>", self._open_group_issue_product)
+
+        self.group_issues_copy_var, group_issues_copy_entry = _make_copy_field(
+            groups_frame
+        )
+        group_issues_copy_entry.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0)
+        )
+        _bind_tree_copy_field(self.group_issues_tree, self.group_issues_copy_var)
+
         ttk.Button(
             container, text="Обновить", command=self._reload,
-        ).grid(row=4, column=0, sticky="e")
+        ).grid(row=6, column=0, sticky="e")
 
         ttk.Label(
             container,
@@ -2836,7 +2931,7 @@ class DictionaryIssuesWindow(Toplevel):
             "для правки. Список ничего не меняет сам - часть совпадений "
             "может быть намеренной, решать куратору по каждому случаю.",
             foreground="#666666", wraplength=720, justify="left",
-        ).grid(row=5, column=0, sticky="w", pady=(4, 0))
+        ).grid(row=7, column=0, sticky="w", pady=(4, 0))
 
         self._reload()
 
@@ -2844,6 +2939,7 @@ class DictionaryIssuesWindow(Toplevel):
 
         self.collisions_tree.delete(*self.collisions_tree.get_children())
         self.dupes_tree.delete(*self.dupes_tree.get_children())
+        self.group_issues_tree.delete(*self.group_issues_tree.get_children())
 
         collisions = dictionary_editor.list_alias_collisions()
 
@@ -2861,9 +2957,28 @@ class DictionaryIssuesWindow(Toplevel):
             for variant in group["variants"]:
                 self.dupes_tree.insert(node, "end", text=repr(variant))
 
+        group_issues = dictionary_editor.list_group_issues()
+
+        issue_labels = {
+            "empty": "пустая",
+            "unrecognized": "похожа на опечатку",
+        }
+
+        for item in group_issues:
+            self.group_issues_tree.insert(
+                "", "end",
+                text=item["product"],
+                values=(
+                    item["code"],
+                    item["variant_name"],
+                    item["group"],
+                    issue_labels.get(item["issue"], item["issue"]),
+                ),
+            )
+
         self.title(
             f"Проблемы словаря - коллизий: {len(collisions)}, "
-            f"товаров-дублей: {len(near)}"
+            f"товаров-дублей: {len(near)}, group: {len(group_issues)}"
         )
 
     def _open_collision_product(self, event):
@@ -2896,6 +3011,23 @@ class DictionaryIssuesWindow(Toplevel):
             return
 
         product = text[1:-1]
+
+        if hasattr(self.parent_editor, "_select_product"):
+            self.parent_editor.product_query_var.set(product)
+            self.parent_editor._refresh_matches()
+            self.parent_editor._select_product(product)
+
+    def _open_group_issue_product(self, event):
+
+        item = self.group_issues_tree.focus()
+
+        if not item:
+            return
+
+        product = self.group_issues_tree.item(item, "text")
+
+        if not product:
+            return
 
         if hasattr(self.parent_editor, "_select_product"):
             self.parent_editor.product_query_var.set(product)

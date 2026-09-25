@@ -522,6 +522,151 @@ def list_near_duplicate_products() -> list:
     ]
 
 
+# ==================================================================
+# GROUP (dropdown.variants[].group) - список известных значений и
+# диагностика опечаток.
+#
+# ДОБАВЛЕНО по просьбе Яна (2026-09-25, products-dict-gradation-
+# audit.md): "я не понимаю какие группы у нас есть, отсутствует выбор
+# группы в программе" - до этого group редактировался обычным text
+# Entry (VariantEditorWindow/"Добавить новый вариант товару" в
+# learning_window.py), куратор не видел, какие значения уже приняты в
+# словаре, и мог случайно опечататься (например "plastik" вместо
+# "plastic") - опечатка молча ломает автоматическое определение кода
+# по этому варианту (см. resolver/dropdown_axis_resolver.py/
+# dropdown_resolver.py), при этом никакой ошибки нигде не появляется -
+# вариант просто никогда не выбирается.
+# ==================================================================
+
+def list_known_groups() -> list:
+    """Все РЕАЛЬНО используемые в products.py значения group (среди
+    всех dropdown.variants всех товаров) - отсортированный список без
+    повторов, для выпадающего списка в редакторе (Combobox), чтобы
+    куратор видел, что уже принято, и переиспользовал существующее
+    значение вместо того, чтобы печатать новое вслепую."""
+
+    _reload_products()
+    products = products_module.PRODUCTS
+
+    groups = set()
+
+    for info in products.values():
+
+        if not isinstance(info, dict):
+            continue
+
+        dropdown = info.get("dropdown") or {}
+
+        for variant in dropdown.get("variants", []) or []:
+
+            group = str(variant.get("group", "")).strip()
+
+            if group:
+                groups.add(group)
+
+    return sorted(groups)
+
+
+# Каноническая "белая" вокабула group-значений, которые РЕАЛЬНО
+# сравниваются осевыми резолверами (resolver/dropdown_axis_resolver.py)
+# - только они и решают код автоматически по этой оси:
+#   - MaterialAxisResolver ("material") - английские токены
+#     MATERIAL_GROUP_EN.values() (metal/plastic/wood/...);
+#   - GenderAxisResolver ("gender") - GENDER_ALIASES.keys();
+#   - CharacteristicAxisResolver ("mechanism") - CHARACTERISTIC_ALIASES.keys();
+#   - PurposeCategoryAxisResolver ("purpose_category") - PURPOSE_ALIASES.keys().
+# "other" - НЕ ось, а устоявшаяся в словаре заглушка "остальное/по
+# умолчанию" (166+ вариантов, см. "Обновление 2026-09-17" в аудите) -
+# намеренно в списке, чтобы не считать её опечаткой.
+def _known_group_vocabulary():
+
+    return (
+        set(MATERIAL_GROUP_EN.values())
+        | set(all_dictionaries.GENDER_ALIASES.keys())
+        | set(all_dictionaries.CHARACTERISTIC_ALIASES.keys())
+        | set(all_dictionaries.PURPOSE_ALIASES.keys())
+        | {"other"}
+    )
+
+
+def list_group_issues() -> list:
+    """Диагностика ЯВНО подозрительных значений group - специально
+    ОЧЕНЬ консервативная (низкий риск ложных срабатываний), а не
+    полная сверка со всеми ~1600 товарами: то же group, записанное
+    ПО-РУССКИ (например "картон"/"нержавеющая сталь"/"полиэстер") в
+    подавляющем большинстве случаев прекрасно работает через шаг 2
+    dropdown_resolver.py (буквальный поиск слова в тексте карточки) -
+    и это НЕ ошибка, флагать такие как проблему значит утопить куратора
+    в ~100 ложных срабатываний (см. products-dict-gradation-audit.md,
+    прогон 2026-09-25) - именно этого Яна попросил избежать.
+
+    Вместо этого здесь только два по-настоящему надёжных признака
+    "эта group никогда ни с чем не совпадёт":
+
+    1. Пустая group - вариант физически не может быть выбран ни одной
+       осью (все резолверы читают variant.get("group")).
+    2. Group - латиница/ASCII, но НЕ входит ни в один канонический
+       английский словарь (_known_group_vocabulary() выше). Такое
+       значение выглядит как попытка записать её "по конвенции"
+       (английским токеном для материала/пола/механизма/назначения),
+       но с опечаткой/неверным словом - типичный английский токен
+       НИКОГДА не встретится буквально в русскоязычном тексте карточки
+       (шаг 2 тоже не поможет), а осевые резолверы сравнивают строго
+       точное совпадение, без опечаток и синонимов.
+
+    Возвращает [{"product": ..., "code": ..., "group": ...,
+    "issue": "empty"|"unrecognized"}, ...], отсортировано по товару."""
+
+    _reload_products()
+    products = products_module.PRODUCTS
+
+    vocabulary = _known_group_vocabulary()
+
+    issues = []
+
+    for name, info in products.items():
+
+        if not isinstance(info, dict):
+            continue
+
+        dropdown = info.get("dropdown") or {}
+
+        for variant in dropdown.get("variants", []) or []:
+
+            group = str(variant.get("group", "")).strip()
+            code = str(variant.get("code", ""))
+            variant_name = str(variant.get("name", ""))
+
+            if not group:
+                issues.append({
+                    "product": name,
+                    "code": code,
+                    "variant_name": variant_name,
+                    "group": group,
+                    "issue": "empty",
+                })
+                continue
+
+            low = group.lower()
+
+            if (
+                    low.isascii()
+                    and low.replace(" ", "").isalpha()
+                    and low not in vocabulary
+            ):
+                issues.append({
+                    "product": name,
+                    "code": code,
+                    "variant_name": variant_name,
+                    "group": group,
+                    "issue": "unrecognized",
+                })
+
+    issues.sort(key=lambda item: (item["product"], item["code"]))
+
+    return issues
+
+
 def add_alias(product: str, alias: str) -> None:
     """Добавляет ОДИН алиас верхнего уровня товару - обратная операция
     к delete_alias() ниже. В отличие от автоматического обучения
