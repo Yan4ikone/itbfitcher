@@ -1,7 +1,8 @@
 {
-  "template_file": "Шабломатор.xlsm",
-  "check_file": "в проверку.xlsx",
-  "default_coefficient": 1.0,
-  "output_folder": "output",
-  "merged_folder": "merged"
+    "template_file": "Шабломатор.xlsm",
+    "check_file": "в проверку.xlsx",
+    "default_coefficient": 1.0,
+    "output_folder": "output",
+    "merged_folder": "merged",
+    "use_image_ai": true
 }

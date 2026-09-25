@@ -369,10 +369,37 @@ MATERIAL_COLORS = {
     "female": "F8BBD0",
     "child": "FFF9C4",
     "adult": "D7CCC8",
-    # характеристика/механизм
+    # характеристика/механизм (CHARACTERISTIC_ALIASES)
     "electric": "FFE082",
     "manual": "C8E6C9",
     "household": "FFCCBC",
+    "battery": "B39DDB",
+    # ДОБАВЛЕНО по просьбе Яна ("сделай покраску и для остальных
+    # групп товаров") - раньше apply_group_colors красила ячейку кода
+    # только для материала/пола/трёх из четырёх характеристик (не
+    # хватало "battery") - ни один из 15 ключей PURPOSE_ALIASES
+    # (ось "purpose_category" - см. resolver/dropdown_axis_resolver.py
+    # PurposeCategoryAxisResolver) цвета не имел вообще, то есть код,
+    # выбранный по этой оси, в Excel никогда не подсвечивался.
+    # Намеренно НЕ добавлен цвет для "other" (166+ вариантов) - это
+    # заглушка "остальное по умолчанию", а не реальный различающий
+    # факт, красить её значило бы красить одним цветом совершенно
+    # разные товары без смысловой связи.
+    "animal": "D2B48C",
+    "automobile": "90A4AE",
+    "motorcycle": "78909C",
+    "bicycle": "AED581",
+    "fuel": "FFAB91",
+    "water": "81D4FA",
+    "air": "80DEEA",
+    "magnet": "7E57C2",
+    "furniture": "A1887F",
+    "fishing": "80CBC4",
+    "jewelry": "FFD700",
+    "toys": "F06292",
+    "tableware": "EFEBE9",
+    "lamp": "FFEB3B",
+    "uf": "D1C4E9",
 }
 
 TRASH_BRANDS = {

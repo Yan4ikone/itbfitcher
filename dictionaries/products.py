@@ -2446,6 +2446,11 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
+    'детектор протечки': {
+        'code': '8531103000',
+        'patterns': [],
+        'aliases': [],
+    },
     'детская книжка': {
         'code': '4903000000',
         'patterns': [],
@@ -7285,8 +7290,6 @@ PRODUCTS = {
         'code': '',
         'patterns': [],
         'aliases': [
-            'пеногенератор для мойки керхер пенная насадка пенообразователь совместим с karcher foam+',
-            'penogenerator dlya moyki kerher pennaya nasadka penoobrazovatel sovmestim s karcher',
             'nasadka',
         ],
         'dropdown': {
@@ -7312,7 +7315,10 @@ PRODUCTS = {
     'насадка для мойки высокого давления': {
         'code': '8424900000',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'удлинитель для мойки',
+            'удлинитель мойки',
+        ],
     },
     'насадка для плуга': {
         'code': '8467990001',
