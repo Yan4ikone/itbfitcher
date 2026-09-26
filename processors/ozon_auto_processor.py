@@ -23,7 +23,7 @@ from excel.postprocessing import (
     REVIEW_FONT,
 )
 from modules.dropdown_manager import apply_specific_dropdowns
-from utils.dropdown_helpers import build_alternatives_validation, write_code_cell
+from utils.dropdown_helpers import build_alternatives_validation, comment_box_size, write_code_cell
 
 # Отдельное имя (НЕ "log") - в этом файле уже есть module-level `log`,
 # импортированный из parser/cdp_product_parser.py (см. импорт выше).
@@ -1006,7 +1006,17 @@ class OzonAutoProcessor:
                 f"{code} — {name}"
                 for code, name in alternatives.items()
             )
-            ws[f"C{row}"].comment = Comment(comment_text, "Classifier")
+            # Размер по содержимому (см. utils/dropdown_helpers.py::
+            # comment_box_size) - раньше дефолтные 144x79pt обрезали
+            # список альтернатив почти сразу после заголовка (жалоба
+            # Яна).
+            comment_width, comment_height = comment_box_size(comment_text)
+            ws[f"C{row}"].comment = Comment(
+                comment_text,
+                "Classifier",
+                width=comment_width,
+                height=comment_height,
+            )
             # ДОБАВЛЕНО: настоящий выпадающий список Excel (Data
             # Validation) поверх комментария. Комментарий виден только
             # при наведении курсора и ПРОПАДАЕТ, как только ячейка
@@ -1156,6 +1166,28 @@ class OzonAutoProcessor:
             # ПОСТОБРАБОТКА
             # Покраска строк по запрещённым/разрешённым префиксам
             # кода.
+            #
+            # ДОБАВЛЕНО (2026-09-25, products-dict-gradation-audit.md,
+            # обновление 14) - Яна: "в постобработке в колонке с
+            # наименованием ... должны были проставляться 2 слова
+            # можно/нельзя в зависимости от кодов" (как было в старых
+            # макросах). Сама логика ("Можно"/"Нельзя" по коду) уже
+            # полностью реализована в excel/postprocessing.py::
+            # apply_visual_postprocessing() через параметр
+            # decision_col_idx - и уже правильно подключена в другом,
+            # альтернативном шаблонном пайплайне (excel/processor.py::
+            # process_file_with_normalization(), через
+            # detect_template_structure()["decision_col"]). Но именно
+            # ЭТОТ, реально используемый Яном ежедневно пайплайн
+            # (обработка живых карточек Ozon) вызывал
+            # apply_visual_postprocessing() БЕЗ decision_col_idx вовсе
+            # (параметр по умолчанию None) - поэтому колонка молчала,
+            # хотя красная/зелёная покраска строк работала. K/L/M/N уже
+            # заняты (Да/Нет "новый товар", Да/Нет "новый dropdown",
+            # материал, группа dropdown - см. apply_result() выше) -
+            # используем следующую свободную колонку O (15). Если в
+            # реальном файле Яна колонка O уже занята чем-то другим -
+            # нужно будет перенести на другую свободную колонку.
             # ------------------------------------------------------
             self.log("Проверка ограничений...")
 
@@ -1163,7 +1195,8 @@ class OzonAutoProcessor:
 
             visual_stats = apply_visual_postprocessing(
                 ws,
-                code_col_idx=3,       # колонка C
+                code_col_idx=3,        # колонка C
+                decision_col_idx=15,   # колонка O ("Можно"/"Нельзя")
                 max_row=postprocess_last_row,
             )
 

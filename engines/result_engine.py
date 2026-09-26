@@ -2,7 +2,7 @@ from openpyxl.comments import Comment
 from openpyxl.styles import PatternFill
 
 from dictionaries.all_dictionaries import MATERIAL_COLORS
-from utils.dropdown_helpers import build_alternatives_validation, write_code_cell
+from utils.dropdown_helpers import build_alternatives_validation, comment_box_size, write_code_cell
 
 
 
@@ -29,7 +29,18 @@ def set_comment(ws, row, code_col, result):
         for code, name in alternatives.items()
     )
 
-    ws.cell(row=row, column=code_col).comment = Comment(text, "Classifier")
+    # Размер по содержимому (см. utils/dropdown_helpers.py::
+    # comment_box_size, products-dict-gradation-audit.md, обновление
+    # 14) - тот же дефолтный-комментарий-обрезает-список баг, что и в
+    # processors/ozon_auto_processor.py::apply_result.
+    width, height = comment_box_size(text)
+
+    ws.cell(row=row, column=code_col).comment = Comment(
+        text,
+        "Classifier",
+        width=width,
+        height=height,
+    )
 
 
 def set_dropdown(ws, row, code_col, result):
