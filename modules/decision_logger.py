@@ -24,6 +24,7 @@ class DecisionLogger:
 
             self._write_header(f, card, result)
             self._write_candidates(f, result)
+            self._write_trace(f, result)
             f.write("\n")
             f.write("=" * 100)
             f.write("\n\n")
@@ -50,6 +51,22 @@ class DecisionLogger:
 
         if result.material:
             f.write(f"MATERIAL       : {result.material}\n")
+        # ДОБАВЛЕНО (2026-09-26, products-dict-gradation-audit.md,
+        # обновление 17) - разбор кейса Яна "валик" показал, что этот
+        # лог (единственный, который реально читает Ян по каждой
+        # карточке) до сих пор не показывал ни флаг "под вопросом", ни
+        # причину, ни что вообще происходило на шагах DROPDOWN/ИИ-
+        # фоллбека и т.п. (result.trace копится по всему decide(), но
+        # никуда не писался - см. engines/decision_engine.py,
+        # modules/decision_trace.py). Из-за этого по одному только
+        # этому файлу нельзя было понять ни почему карточка ушла на
+        # проверку, ни пробовал ли вообще подключиться ИИ по картинке -
+        # приходилось лезть в код и гадать. Теперь пишем оба поля и
+        # ВЕСЬ трейс карточки следом за кандидатами.
+        f.write(f"REVIEW         : {result.review}\n")
+
+        if result.comment:
+            f.write(f"REASON         : {result.comment}\n")
         f.write("\n")
     # ==========================================================
     # CANDIDATES
@@ -110,4 +127,29 @@ class DecisionLogger:
                     f"{match['type']:<20}"
                     f"{match['text']}\n"
                 )
+        f.write("\n")
+    # ==========================================================
+    # TRACE (ДОБАВЛЕНО - обновление 17, см. комментарий в _write_header)
+    #
+    # result.trace копит по одной записи на каждый значимый шаг
+    # decide() - SPECIAL_PRODUCT/DROPDOWN/CARD/HISTORY/LEARNING/
+    # IMAGE_DISABLED/FORCED_AI_CHECK/IMAGE_UNAVAILABLE/IMAGE_FALLBACK/
+    # IMAGE_FALLBACK_EMPTY/IMAGE_FALLBACK_REJECTED/FINAL и т.п. (см.
+    # engines/decision_engine.py, resolver/result_builder.py,
+    # classifier/*.py) - именно здесь видно, пробовал ли подключиться
+    # ИИ по картинке и что из этого вышло, без необходимости лезть в
+    # код или в отдельный errors_YYYY-MM-DD.log.
+    # ==========================================================
+    def _write_trace(self, f, result):
+
+        trace = getattr(result, "trace", None)
+        text = trace.to_text() if trace else ""
+
+        if not text:
+            return
+
+        f.write("TRACE\n")
+        f.write("-" * 100)
+        f.write("\n")
+        f.write(text)
         f.write("\n")

@@ -1,5 +1,9 @@
+import logging
+
 from services.image_loader import ImageLoader
 from utils.wb_image_resolver import resolve_wb_image_url
+
+log = logging.getLogger(__name__)
 
 
 class CardImageProcessor:
@@ -56,5 +60,24 @@ class CardImageProcessor:
                     card.cleaned_text = description
         except Exception as e:
             print(f"IMAGE PROCESS ERROR: {e}")
+            # ДОБАВЛЕНО (2026-09-26, products-dict-gradation-audit.md,
+            # обновление 17): раньше исключение здесь (не загрузилась
+            # картинка, упал ИИ-запрос и т.п.) уходило ТОЛЬКО в print() -
+            # а этот метод вызывается ИСКЛЮЧИТЕЛЬНО из decision_engine.py
+            # шаг 7.5, который в боевом режиме почти всегда выполняется
+            # внутри дочернего процесса classifier-пула
+            # (processors/ozon_auto_processor.py::CLASSIFIER_WORKERS) -
+            # там print() физически не может попасть ни в консоль, ни в
+            # GUI-лог главного процесса (см. подробное объяснение в
+            # utils/app_logging.py). Разбор кейса Яна "валик" (карточка
+            # осталась "под вопросом", а куратор не мог понять, пробовал
+            # ли вообще подключиться ИИ) показал, что это ЕДИНСТВЕННОЕ
+            # место во всём ИИ-фоллбеке, которое всё ещё не дублировалось
+            # в файл - в отличие от ошибки инициализации image_processor
+            # (engines/decision_engine.py) и ошибок самого API
+            # (engines/image_description_engine.py), которые такую
+            # дублирующую запись уже получили раньше. log.exception() (не
+            # log.error()) - чтобы в файле был виден полный traceback.
+            log.exception("IMAGE PROCESS ERROR (распознавание по картинке)")
 
         return card
