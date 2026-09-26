@@ -33,6 +33,14 @@ class ProductParser:
             # raw_text) - даже с высоким весом в скоринге ниже, самих
             # кандидатов просто не было бы в списке для оценки.
             texts.append(card.image_description)
+        # ДОБАВЛЕНО (2026-09-26, products-dict-gradation-audit.md,
+        # обновление 15): запоминаем текст, который реально НАЗЫВАЕТ
+        # товар (title/slug/description/material/quantity/
+        # image_description), ДО подмешивания specs/sections/features
+        # ниже - см. подробное объяснение прямо под "cleaned_text_only"
+        # дальше по функции.
+        text_only = " ".join(texts)
+
         for key, value in card.specs.items():
             if not value:
                 continue
@@ -77,6 +85,28 @@ class ProductParser:
         # прямому указанию Яна - см. engines/decision_engine.py, шаг 7.5).
         # products-dict-gradation-audit.md.
         description_cleaned, _, _ = clean_text(card.description or "")
+        # ДОБАВЛЕНО (2026-09-26, обновление 15) - тот же класс проблемы,
+        # что и у description выше, только для CLEANED - САМОГО тяжёлого
+        # по весу поля во всём скоринге (350 у CandidateScorer, больше,
+        # чем TITLE=250 и DESCRIPTION=200 вместе с запасом). Пока эта
+        # переменная (`cleaned`, полная склейка ВСЕХ полей, включая
+        # specs/sections/features) шла в ключ "cleaned_text" - ОДНО
+        # случайное совпадение постороннего значения характеристики
+        # засчитывалось СРАЗУ в трёх весовых корзинах одновременно:
+        # CLEANED(350, через этот ключ) + SPECS(до 450) + SPEC_TYPE(300,
+        # если ключ характеристики - "Тип"/"Тип товара") - до 1100+ очков
+        # от ОДНОГО стороннего спек-значения, тогда как настоящий сигнал
+        # (буквальное совпадение в TITLE у истинного товара) весит всего
+        # 250. Разбор: карточка "(A J W K) Пропорциональный
+        # Электромагнитный Клапан..." (заголовок и описание чётко
+        # называют клапан) получила код держателя ИСКЛЮЧИТЕЛЬНО из-за
+        # постороннего значения характеристики "держатель" - тройной
+        # счёт по CLEANED+SPECS+SPEC_TYPE (1058 очков) перевесил честное
+        # совпадение "клапан" в TITLE+DESCRIPTION+CLEANED от настоящего
+        # текста (800 очков). specs/sections/features и так уже честно
+        # учитываются через отдельные, однократные веса SPECS/SPEC_TYPE
+        # ниже - незачем ЕЩЁ РАЗ давать им максимальный вес поля CLEANED.
+        cleaned_text_only, _, _ = clean_text(text_only)
         product = self.extractor.extract(cleaned)
         quantity = extract_quantity(raw_text)
 
@@ -94,7 +124,7 @@ class ProductParser:
             "title": card.title.lower(),
             "slug": card.slug.lower(),
             "description": description_cleaned.lower(),
-            "cleaned_text": cleaned.lower(),
+            "cleaned_text": cleaned_text_only.lower(),
             "search_text": raw_text.lower(),
             "specs": spec_values,
             "material": getattr(card, "material", ""),
