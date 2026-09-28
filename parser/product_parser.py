@@ -1,5 +1,6 @@
 from cleaner.product_cleaner import clean_text
 from cleaner.product_extractor import ProductExtractor
+from utils.package_contents_extractor import extract_package_contents
 from utils.quantity_extractor import extract_quantity
 from utils.tokenizer import lemmatized_tokens
 
@@ -107,6 +108,12 @@ class ProductParser:
         # учитываются через отдельные, однократные веса SPECS/SPEC_TYPE
         # ниже - незачем ЕЩЁ РАЗ давать им максимальный вес поля CLEANED.
         cleaned_text_only, _, _ = clean_text(text_only)
+        # ДОБАВЛЕНО (2026-09-26, products-dict-gradation-audit.md,
+        # обновление 18) - см. подробное объяснение в
+        # utils/package_contents_extractor.py. Ищем ТОЛЬКО в
+        # card.description (не в уже склеенном raw_text) - шаблон
+        # всегда часть текста продавца, а не характеристик/секций.
+        package_contents = extract_package_contents(card.description or "")
         product = self.extractor.extract(cleaned)
         quantity = extract_quantity(raw_text)
 
@@ -142,4 +149,5 @@ class ProductParser:
             "image_description": str(
                 getattr(card, "image_description", "") or ""
             ).lower(),
+            "package_contents": package_contents.lower(),
         }

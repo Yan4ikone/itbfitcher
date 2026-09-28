@@ -71,6 +71,11 @@ class CandidateScorer:
             "image_description": normalize_dictionary_name(
                 parsed.get("image_description", "")
             ).lower().strip(),
+            # ДОБАВЛЕНО (обновление 18) - см. _score_product/
+            # _apply_penalties ниже и utils/package_contents_extractor.py.
+            "package_contents": normalize_dictionary_name(
+                parsed.get("package_contents", "")
+            ).lower().strip(),
         }
         prepared = {**parsed, **normalized}
         self._score_product(
@@ -164,6 +169,26 @@ class CandidateScorer:
             180,
             "BREADCRUMB",
         )
+        # ДОБАВЛЕНО (2026-09-26, products-dict-gradation-audit.md,
+        # обновление 18) - строка "Содержимое пакета/упаковки: N x
+        # <товар>" (см. utils/package_contents_extractor.py) - это
+        # прямое заявление продавца "вот что лежит в коробке",
+        # надёжнее обычного маркетингового текста описания. Вес - выше
+        # TITLE (250), на уровне SPEC_TYPE (300): продавец здесь
+        # называет товар однозначно, но это всё же текст ИЗ описания,
+        # а не заголовок/URL-slug карточки. См. также освобождение от
+        # штрафа "нет упоминания в заголовке" в _apply_penalties ниже -
+        # без него это поле было бы бесполезно именно в тех кейсах,
+        # где оно единственное и нужно ("Запчасти автомобильные" -
+        # общий маркетплейсный ярлык вместо названия товара, реальное
+        # имя - только здесь: "Кабель-адаптер Bluetooth").
+        self._field_score(
+            candidate,
+            parsed.get("package_contents", ""),
+            product,
+            300,
+            "PACKAGE_CONTENTS",
+        )
     # ==============================================================
     # ALIAS
     # ==============================================================
@@ -189,6 +214,9 @@ class CandidateScorer:
             ("description", 300, "DESC_ALIAS"),
             ("cleaned_text", 250, "CLEANED_ALIAS"),
             ("image_description", 350, "IMAGE_DESC_ALIAS"),
+            # ДОБАВЛЕНО (обновление 18) - см. комментарий у
+            # PACKAGE_CONTENTS в _score_product выше.
+            ("package_contents", 300, "PACKAGE_CONTENTS_ALIAS"),
         )
 
         for field_key, weight, source in fields:
@@ -627,9 +655,23 @@ class CandidateScorer:
         specs = self._sum_by_prefix(breakdown, "SPECS")
         breadcrumb = self._sum_by_prefix(breakdown, "BREADCRUMB")
         image_desc = self._sum_by_prefix(breakdown, "IMAGE_DESC")
+        # ДОБАВЛЕНО (обновление 18) - см. комментарий у PACKAGE_CONTENTS
+        # в _score_product выше. "IMAGE_DESC" по префиксу случайно не
+        # подхватывает "PACKAGE_CONTENTS"/"PACKAGE_CONTENTS_ALIAS" -
+        # это отдельный префикс, считаем отдельно.
+        package_contents = self._sum_by_prefix(breakdown, "PACKAGE_CONTENTS")
 
         if title == 0 and slug == 0:
-            if image_desc > 0:
+            if package_contents > 0:
+                # Явное заявление продавца "вот что в коробке" - как и
+                # image_desc/breadcrumb ниже, надёжный сигнал сам по
+                # себе, даже когда TITLE/SLUG - общий маркетплейсный
+                # ярлык категории, а не название товара (разбор кейса
+                # "Кабель-адаптер Bluetooth" при общем TITLE "Запчасти
+                # автомобильные" - products-dict-gradation-audit.md,
+                # обновление 18).
+                candidate.score -= 150
+            elif image_desc > 0:
                 # Описание с картинки запрашивается ИМЕННО когда
                 # title/description уже пусты - это ожидаемый, а не
                 # тревожный случай. Применяем тот же смягчённый штраф,
