@@ -76,6 +76,11 @@ class CandidateScorer:
             "package_contents": normalize_dictionary_name(
                 parsed.get("package_contents", "")
             ).lower().strip(),
+            # ДОБАВЛЕНО (обновление 19) - см. _score_product/
+            # _apply_penalties ниже и utils/declared_name_extractor.py.
+            "declared_name": normalize_dictionary_name(
+                parsed.get("declared_name", "")
+            ).lower().strip(),
         }
         prepared = {**parsed, **normalized}
         self._score_product(
@@ -189,6 +194,26 @@ class CandidateScorer:
             300,
             "PACKAGE_CONTENTS",
         )
+        # ДОБАВЛЕНО (2026-09-28, products-dict-gradation-audit.md,
+        # обновление 19) - строка "Название/Наименование: <товар>" (см.
+        # utils/declared_name_extractor.py) - продавец здесь ЯВНО и
+        # однозначно называет товар (буквально "имя товара"), надёжнее
+        # обычного TITLE карточки: в разборе "Ремкомплект глушителя
+        # арт.I501089111" сам TITLE был скопирован из совершенно
+        # другого, не относящегося к делу товара (ошибка продавца при
+        # массовой загрузке), тогда как это поле верно называло
+        # реальный товар ("Крепежный кронштейн..."). Вес и полное
+        # освобождение от штрафов "нет в заголовке" - как у настоящего
+        # TITLE (см. _apply_penalties ниже), а не смягчённое, как у
+        # PACKAGE_CONTENTS - это поле buквально и есть заявленное имя
+        # товара.
+        self._field_score(
+            candidate,
+            parsed.get("declared_name", ""),
+            product,
+            300,
+            "DECLARED_NAME",
+        )
     # ==============================================================
     # ALIAS
     # ==============================================================
@@ -217,6 +242,9 @@ class CandidateScorer:
             # ДОБАВЛЕНО (обновление 18) - см. комментарий у
             # PACKAGE_CONTENTS в _score_product выше.
             ("package_contents", 300, "PACKAGE_CONTENTS_ALIAS"),
+            # ДОБАВЛЕНО (обновление 19) - см. комментарий у
+            # DECLARED_NAME в _score_product выше.
+            ("declared_name", 300, "DECLARED_NAME_ALIAS"),
         )
 
         for field_key, weight, source in fields:
@@ -643,6 +671,11 @@ class CandidateScorer:
         # TITLE_ALIAS_SIMILAR и т.п.), а не только точное имя ключа.
         title = self._sum_by_prefix(breakdown, "TITLE")
         slug = self._sum_by_prefix(breakdown, "SLUG")
+        # ДОБАВЛЕНО (обновление 19) - см. комментарий у DECLARED_NAME в
+        # _score_product выше. Заявленное продавцом "Название:" - это
+        # буквально имя товара, доверяем ему как настоящему TITLE (а не
+        # смягчённо, как PACKAGE_CONTENTS) - см. использование ниже.
+        declared_name = self._sum_by_prefix(breakdown, "DECLARED_NAME")
         # "DESC_ALIAS" (не "DESCRIPTION_ALIAS" - см. _score_aliases
         # выше) не подхватывается префиксом "DESCRIPTION", поэтому
         # считаем отдельно и складываем.
@@ -661,7 +694,7 @@ class CandidateScorer:
         # это отдельный префикс, считаем отдельно.
         package_contents = self._sum_by_prefix(breakdown, "PACKAGE_CONTENTS")
 
-        if title == 0 and slug == 0:
+        if title == 0 and slug == 0 and declared_name == 0:
             if package_contents > 0:
                 # Явное заявление продавца "вот что в коробке" - как и
                 # image_desc/breadcrumb ниже, надёжный сигнал сам по
@@ -688,7 +721,7 @@ class CandidateScorer:
                 candidate.score -= 150
             else:
                 candidate.score -= 500
-        if desc > 0 and title == 0:
+        if desc > 0 and title == 0 and declared_name == 0:
             candidate.score -= 250
         if candidate.score < 0:
             candidate.score = 0

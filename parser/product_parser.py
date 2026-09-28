@@ -1,5 +1,6 @@
 from cleaner.product_cleaner import clean_text
 from cleaner.product_extractor import ProductExtractor
+from utils.declared_name_extractor import extract_declared_name
 from utils.package_contents_extractor import extract_package_contents
 from utils.quantity_extractor import extract_quantity
 from utils.tokenizer import lemmatized_tokens
@@ -28,19 +29,34 @@ class ProductParser:
             texts.append(card.material)
         if card.quantity:
             texts.append(card.quantity)
-        if getattr(card, "image_description", ""):
-            # Без этого CandidateFinder вообще не находил бы товары
-            # по описанию с картинки (он ищет кандидатов по токенам
-            # raw_text) - даже с высоким весом в скоринге ниже, самих
-            # кандидатов просто не было бы в списке для оценки.
-            texts.append(card.image_description)
         # ДОБАВЛЕНО (2026-09-26, products-dict-gradation-audit.md,
         # обновление 15): запоминаем текст, который реально НАЗЫВАЕТ
-        # товар (title/slug/description/material/quantity/
-        # image_description), ДО подмешивания specs/sections/features
+        # товар (title/slug/description/material/quantity), ДО
+        # подмешивания image_description/specs/sections/features
         # ниже - см. подробное объяснение прямо под "cleaned_text_only"
         # дальше по функции.
         text_only = " ".join(texts)
+
+        if getattr(card, "image_description", ""):
+            # ИСПРАВЛЕНО (2026-09-28, products-dict-gradation-audit.md,
+            # обновление 19) - раньше image_description добавлялось в
+            # texts ДО вычисления text_only выше, из-за чего описание
+            # с картинки попадало И в CLEANED (350, через
+            # cleaned_text_only ниже), И отдельно в IMAGE_DESC (350,
+            # resolver/candidate_scorer.py) - одна-единственная, иногда
+            # ошибочная догадка ИИ по фото засчитывалась как ДВЕ
+            # независимые улики (700 очков) и легко перевешивала полное
+            # отсутствие слова в реальном, написанном продавцом тексте
+            # карточки. Разбор: "YSL кушон для лица" (тональное
+            # средство) - ИИ увидел на фото что-то похожее на клатч и
+            # описал "золотистая фурнитура", это ошибочно и уверенно
+            # (без пометки на проверку) стало кодом фурнитуры.
+            # CandidateFinder по-прежнему видит image_description - оно
+            # остаётся в texts/raw_text/tokens ниже (нужно, чтобы товар,
+            # названный только на картинке, вообще попадал в кандидаты -
+            # см. исходный комментарий об этом в истории обновления 15),
+            # просто больше не дублируется в text_only/cleaned_text_only.
+            texts.append(card.image_description)
 
         for key, value in card.specs.items():
             if not value:
@@ -114,6 +130,12 @@ class ProductParser:
         # card.description (не в уже склеенном raw_text) - шаблон
         # всегда часть текста продавца, а не характеристик/секций.
         package_contents = extract_package_contents(card.description or "")
+        # ДОБАВЛЕНО (2026-09-28, products-dict-gradation-audit.md,
+        # обновление 19) - см. подробное объяснение в
+        # utils/declared_name_extractor.py. Как и package_contents -
+        # ищем ТОЛЬКО в card.description, шаблон всегда часть текста
+        # продавца.
+        declared_name = extract_declared_name(card.description or "")
         product = self.extractor.extract(cleaned)
         quantity = extract_quantity(raw_text)
 
@@ -150,4 +172,5 @@ class ProductParser:
                 getattr(card, "image_description", "") or ""
             ).lower(),
             "package_contents": package_contents.lower(),
+            "declared_name": declared_name.lower(),
         }
