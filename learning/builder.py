@@ -18,7 +18,18 @@ from dictionaries import all_dictionaries
 from dictionaries.products_formatter import canonicalize_products, format_products
 from learning.alias_guard import alias_forms, build_guard, save_snapshot
 from learning.dictionary_registry import DICTIONARY_REGISTRY
+from utils.code_groups import group_for_code
 from learning.dictionary_writer import update_dict_constant
+
+
+def _variant_group(group, code):
+
+    group = str(group or "").strip()
+
+    if group and group.lower() != "other":
+        return group
+
+    return group_for_code(code)
 
 
 class LearningBuilder:
@@ -108,7 +119,9 @@ class LearningBuilder:
             []
         ).append({
             "code": code,
-            "group": getattr(item, "group", "") or "other",
+            # Группа по коду ТН ВЭД вместо заглушки "other" (2026-09-29,
+            # utils/code_groups.py) - иначе вариант не различим ни одной осью.
+            "group": _variant_group(getattr(item, "group", ""), code),
             "match": list(getattr(item, "match", ()) or ()),
         })
     # ==========================================================
@@ -159,7 +172,7 @@ class LearningBuilder:
 
             variants.append({
                 "code": code,
-                "group": "other",
+                "group": group_for_code(code),
                 "match": list(words),
             })
 

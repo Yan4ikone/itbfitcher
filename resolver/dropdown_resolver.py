@@ -107,6 +107,7 @@ class DropdownResolver:
                 confidence=90,
                 review=False,
             )
+            self._flag_shared_group(result, variant, variants)
             return
         # --------------------------------------------------
         # 2. Fallback: ищем group прямо в тексте карточки
@@ -184,6 +185,7 @@ class DropdownResolver:
                         confidence=95,
                         review=False,
                     )
+                    self._flag_shared_group(result, variant, variants)
                     return
         # --------------------------------------------------
         # 4. Ничего не определили однозначно.
@@ -338,6 +340,47 @@ class DropdownResolver:
     # ==========================================================
     # APPLY VARIANT
     # ==========================================================
+    # ==========================================================
+    # ОДНА ГРУППА - НЕСКОЛЬКО КОДОВ (2026-09-29)
+    #
+    # После замены заглушки group="other" на группы по коду ТН ВЭД
+    # (utils/code_groups.py) у части товаров два варианта с разными
+    # кодами оказались в одной группе, и куратор ставил оба почти
+    # одинаково часто (например "игрушечная машинка": 9503009909 и
+    # 9503008500 - обе toys). Ось по тексту их не различит - выбирается
+    # первый, более частый. Уверенным такой выбор считать нельзя:
+    # ставим пометку на проверку и отдаём альтернативы в Excel.
+    # Вариант со своими match-словами выбран по ним - это не догадка.
+    # ==========================================================
+    def _flag_shared_group(self, result, variant, variants):
+
+        if variant.get("match"):
+            return
+
+        group = str(variant.get("group", "")).strip().lower()
+        code = str(variant.get("code", "")).strip()
+
+        if not group:
+            return
+
+        siblings = [
+            item for item in variants
+            if str(item.get("group", "")).strip().lower() == group
+            and str(item.get("code", "")).strip() not in ("", code)
+        ]
+
+        if not siblings:
+            return
+
+        result.review = True
+        result.confidence = min(result.confidence or 60, 60)
+        result.source = f"{result.source}_AMBIGUOUS"
+        result.alternatives = {
+            item.get("code", ""): variant_display_name(item)
+            for item in [variant] + [v for v in variants if v is not variant]
+            if item.get("code")
+        }
+
     def _apply_variant(self, result, variant, source, confidence, review):
         code = str(variant.get("code", "")).strip()
 

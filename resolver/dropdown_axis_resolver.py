@@ -201,7 +201,12 @@ class PurposeCategoryAxisResolver(DropdownAxisResolver):
         if not text:
             return None
 
-        purpose = find_known_purpose(text)
+        allowed = {
+            str(variant.get("group", "")).strip().lower()
+            for variant in variants
+        }
+
+        purpose = find_known_purpose(text, allowed=allowed)
 
         if not purpose:
             return None

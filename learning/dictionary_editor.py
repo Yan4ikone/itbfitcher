@@ -598,9 +598,9 @@ def list_known_groups() -> list:
 #   - GenderAxisResolver ("gender") - GENDER_ALIASES.keys();
 #   - CharacteristicAxisResolver ("mechanism") - CHARACTERISTIC_ALIASES.keys();
 #   - PurposeCategoryAxisResolver ("purpose_category") - PURPOSE_ALIASES.keys().
-# "other" - НЕ ось, а устоявшаяся в словаре заглушка "остальное/по
-# умолчанию" (166+ вариантов, см. "Обновление 2026-09-17" в аудите) -
-# намеренно в списке, чтобы не считать её опечаткой.
+# "other" из списка убран (2026-09-29): у каждого варианта теперь
+# группа по коду ТН ВЭД (utils/code_groups.py), так что появившийся
+# "other" - ошибка, и проверка его покажет.
 def _known_group_vocabulary():
 
     return (
@@ -608,7 +608,6 @@ def _known_group_vocabulary():
         | set(all_dictionaries.GENDER_ALIASES.keys())
         | set(all_dictionaries.CHARACTERISTIC_ALIASES.keys())
         | set(all_dictionaries.PURPOSE_ALIASES.keys())
-        | {"other"}
     )
 
 

@@ -9,7 +9,7 @@ _KNOWN_PURPOSE_WORDS = {
 }
 
 
-def find_known_purpose(text: str) -> str:
+def find_known_purpose(text: str, allowed=None) -> str:
     """Ищет в свободном тексте (заголовок/описание/характеристики) любое
     известное слово-маркер "назначения" товара из справочника
     PURPOSE_ALIASES ("для автомобиля"/"для животных"/"вода"/"магнит" и
@@ -33,7 +33,15 @@ def find_known_purpose(text: str) -> str:
 
     best = None  # (start_pos, -length, canonical)
 
+    # allowed - ограничить поиск ключами, которые реально есть у товара
+    # среди вариантов (2026-09-29): иначе широкий ключ вроде "sport" или
+    # "carnival", встретившись в тексте раньше, "занимал" место и ось
+    # вообще не находила нужный вариант ("bicycle" и т.п.).
     for canonical, words in _KNOWN_PURPOSE_WORDS.items():
+
+        if allowed is not None and canonical not in allowed:
+            continue
+
         for word in words:
             match = re.search(rf"(?<!\w){re.escape(word)}(?!\w)", text)
             if match:
