@@ -358,9 +358,18 @@ class LearningBuilder:
 
                 code = str(variant.get("code", "")).strip()
 
+                # Код уже удаляли у этого товара (куратор или чистка
+                # словаря) - назад не возвращаем (learning/alias_guard.py).
+                if guard is not None and guard.code_rejected(product, code):
+                    print("VARIANT SKIPPED (код удалялся):", product, code)
+                    continue
+
                 if code and code not in known_codes:
                     existing_variants.append(variant)
                     known_codes.add(code)
+
+            if not existing_variants and "dropdown" in target:
+                target.pop("dropdown", None)
 
         # 4. Новые dropdown целиком (товар раньше вообще без dropdown).
         for product, dropdown in self._new_dropdowns.items():
@@ -375,7 +384,19 @@ class LearningBuilder:
                 # или в другой сессии) - не перезаписываем.
                 continue
 
-            target["dropdown"] = dropdown
+            variants = [
+                variant for variant in dropdown.get("variants", []) or []
+                if guard is None
+                or not guard.code_rejected(product, variant.get("code"))
+            ]
+            codes = {str(v.get("code", "")).strip() for v in variants} - {""}
+
+            # После отсева удалённых кодов выбирать уже не из чего.
+            if len(codes) < 2:
+                print("NEW DROPDOWN SKIPPED (коды удалялись):", product)
+                continue
+
+            target["dropdown"] = {**dropdown, "variants": variants}
 
         # 5.5. Расширение match у УЖЕ существующих dropdown-вариантов
         # словами, накопленными из новых подтверждённых карточек -

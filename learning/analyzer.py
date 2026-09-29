@@ -224,9 +224,57 @@ class LearningAnalyzer:
         # DROPDOWN CANDIDATES (по накопленной статистике)
         # --------------------------------------------------
         self._analyze_dropdown_candidates(report)
+        self._drop_rejected_codes(report)
         self._print_report(report)
 
         return report
+    # ==========================================================
+    # УДАЛЁННЫЕ КОДЫ НЕ ПРЕДЛАГАЕМ (2026-09-29)
+    #
+    # Код, который куратор или чистка словаря уже убрали у товара
+    # (storage/rejected_codes.json, learning/alias_guard.py), не должен
+    # снова появляться ни новым вариантом, ни новым dropdown - иначе
+    # каждый импорт архива возвращал бы редкие коды, которые из словаря
+    # только что убрали.
+    # ==========================================================
+    def _drop_rejected_codes(self, report):
+
+        guard = self._alias_guard
+
+        if guard is None:
+            return
+
+        report.new_dropdown_variants = [
+            item for item in report.new_dropdown_variants
+            if not guard.code_rejected(item.product, item.code)
+        ]
+
+        kept = []
+
+        for item in report.new_dropdown_candidates:
+
+            codes = tuple(
+                (code, count) for code, count in item.codes
+                if not guard.code_rejected(item.product, code)
+            )
+
+            if len(codes) < self.MIN_DROPDOWN_DISTINCT_CODES:
+                continue
+
+            if len(codes) != len(item.codes):
+                item = type(item)(
+                    product=item.product,
+                    codes=codes,
+                    keywords=tuple(
+                        pair for pair in (item.keywords or ())
+                        if not guard.code_rejected(item.product, pair[0])
+                    ),
+                )
+
+            kept.append(item)
+
+        report.new_dropdown_candidates = kept
+
     # ==========================================================
     # DESCRIPTION
     # ==========================================================
