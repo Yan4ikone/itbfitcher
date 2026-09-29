@@ -2,6 +2,7 @@ import re
 from collections import Counter
 
 from cleaner.alias_builder import AliasBuilder
+from learning.alias_guard import build_guard, is_related, lemmas
 from learning.learning_filters import (
     extract_dropdown_keywords,
     is_valid_alias,
@@ -59,6 +60,7 @@ class LearningAnalyzer:
         # просто защитное значение по умолчанию, на случай вызова
         # _add_alias()/_analyze_aliases() до analyze().
         self._reserved_alias_map = {}
+        self._alias_guard = None
     # ==========================================================
     # PUBLIC
     # ==========================================================
@@ -74,6 +76,10 @@ class LearningAnalyzer:
         # Строится один раз на прогон - см. _build_reserved_alias_map()
         # и is_valid_alias(..., reserved_names=...) в _add_alias().
         self._reserved_alias_map = self._build_reserved_alias_map()
+        # Защита от алиасов, заведомо конфликтующих со словарём (чужое
+        # название/чужой алиас/удалённый куратором/не связан по словам) -
+        # см. learning/alias_guard.py. Строится один раз на прогон.
+        self._alias_guard = build_guard(dict(self.runtime.all_products()))
 
         for card in self.runtime.all_cards():
 
@@ -270,6 +276,24 @@ class LearningAnalyzer:
 
             return (product_name, product_info)
         # --------------------------------------------------
+        # ОПИСАНИЕ УЖЕ ЕСТЬ В СЛОВАРЕ КАК АЛИАС ОДНОГО ТОВАРА
+        #
+        # Раньше runtime.get_product() знал только НАЗВАНИЯ - описание,
+        # совпадающее с чужим алиасом, при несовпадении кода уходило в
+        # "новый товар" (так завелись товары-дубли вроде "аксессуар для
+        # вентилятора" рядом с алиасом у "вентилятор") или алиасом к
+        # ТРЕТЬЕМУ товару. Теперь это просто наблюдение по товару-
+        # владельцу алиаса - без новых алиасов и новых товаров.
+        # --------------------------------------------------
+        owner = (
+            self._alias_guard.owner_of(description)
+            if self._alias_guard is not None else None
+        )
+
+        if owner:
+            print("ALIAS OWNER:", owner)
+            return (owner, self.runtime.get_product(owner) or {})
+        # --------------------------------------------------
         # TRY MATCHING
         # --------------------------------------------------
         matched = self.matcher.match(description, code)
@@ -283,7 +307,7 @@ class LearningAnalyzer:
             return (product_name, product_info)
 
 
-        dropdown_product = self._find_product_by_dropdown_code(code)
+        dropdown_product = self._find_product_by_dropdown_code(code, description)
         print("DROPDOWN MATCH:", dropdown_product)
 
         if dropdown_product:
@@ -306,12 +330,23 @@ class LearningAnalyzer:
     # ==========================================================
     # DROPDOWN CODE REVERSE LOOKUP
     # ==========================================================
-    def _find_product_by_dropdown_code(self, code):
+    def _find_product_by_dropdown_code(self, code, description=""):
+        """Товар, у которого среди dropdown-вариантов есть этот код.
+
+        Раньше возвращался ПЕРВЫЙ такой товар по порядку словаря - а
+        общие коды (3926909709 и т.п.) стоят в вариантах у десятков
+        товаров, поэтому описание уходило алиасом к случайному товару
+        (так в "аквариум"/"автовизитка" и т.п. копились чужие названия).
+        Теперь среди ВСЕХ товаров с этим кодом выбирается тот, что
+        связан с описанием по словам (learning/alias_guard.is_related);
+        если такого нет или их несколько - None (это новый товар)."""
 
         code = str(code).strip()
 
         if not code:
             return None
+
+        holders = []
 
         for product_name, info in self.runtime.all_products():
 
@@ -321,7 +356,31 @@ class LearningAnalyzer:
             for variant in variants:
 
                 if str(variant.get("code", "")).strip() == code:
-                    return product_name
+                    holders.append(product_name)
+                    break
+
+        if not description:
+            return holders[0] if len(holders) == 1 else None
+
+        related = [
+            name for name in holders
+            if is_related(description, name)
+        ]
+
+        if len(related) == 1:
+            return related[0]
+
+        # Несколько связанных ("аквариум стеклянный": и "аквариум", и
+        # "декорация для аквариума террариума") - берём тот, чьё
+        # название целиком содержится в описании.
+        described = lemmas(description)
+        contained = [
+            name for name in related
+            if lemmas(name) and lemmas(name) <= described
+        ]
+
+        if len(contained) == 1:
+            return contained[0]
 
         return None
     # ==========================================================
@@ -650,6 +709,18 @@ class LearningAnalyzer:
             )
             return
 
+        # Заведомый конфликт со словарём - не предлагаем вообще (см.
+        # learning/alias_guard.py): чужое название, чужой алиас, алиас,
+        # который куратор уже удалял у этого товара, или описание, не
+        # связанное с названием товара ни одним словом.
+        if self._alias_guard is not None:
+
+            reason = self._alias_guard.conflict(product, alias)
+
+            if reason:
+                print("ALIAS CONFLICT:", repr(alias), "->", product, "-", reason)
+                return
+
         # --------------------------------------------------
         # ДЕДУП
         #
@@ -683,6 +754,9 @@ class LearningAnalyzer:
                 alias=alias
             )
         )
+
+        if self._alias_guard is not None:
+            self._alias_guard.register(product, alias)
     # ==========================================================
     # ALIASES ANALYSIS
     #
@@ -1085,4 +1159,4 @@ class LearningAnalyzer:
         print("NEW DROPDOWNS:", len(report.new_dropdown_variants))
         print("NEW DROPDOWN CANDIDATES:", len(report.new_dropdown_candidates))
         print("NEW PATTERNS:", len(report.new_patterns))
-        print("NEW DICTIONARY WORDS:", len(report.new_dictionary_words))
+        print("NEW DICTIONARY WORDS:", len(report.new_dictionary_words))

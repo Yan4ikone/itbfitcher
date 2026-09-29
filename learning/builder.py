@@ -16,6 +16,7 @@ import dictionaries.products as products_dictionary
 from dictionaries.products import PRODUCTS
 from dictionaries import all_dictionaries
 from dictionaries.products_formatter import canonicalize_products, format_products
+from learning.alias_guard import alias_forms, build_guard, save_snapshot
 from learning.dictionary_registry import DICTIONARY_REGISTRY
 from learning.dictionary_writer import update_dict_constant
 
@@ -227,6 +228,12 @@ class LearningBuilder:
         # прочитанный ПРЯМО СЕЙЧАС. Дельта применяется поверх него.
         current = fresh_module.PRODUCTS
 
+        # Последний рубеж защиты (см. learning/alias_guard.py): отчёт
+        # мог быть построен раньше, чем куратор почистил словарь, а
+        # confirmed-строки архива применяются вообще без окна. Сверяем
+        # дельту с тем, что лежит на диске прямо сейчас.
+        self._guard = build_guard(current)
+
         self._apply_delta(current)
 
         # canonicalize_products() сортирует товары по названию, чистит
@@ -249,6 +256,10 @@ class LearningBuilder:
         ) as f:
             f.write(format_products(canonical))
 
+        # Снимок "товар -> алиасы" после записи: всё, что куратор
+        # удалит из словаря потом, sync_rejected() увидит как удалённое.
+        save_snapshot(canonical)
+
         self.products = canonical
     # ==========================================================
     # ПРИМЕНЕНИЕ ДЕЛЬТЫ
@@ -256,8 +267,26 @@ class LearningBuilder:
     def _apply_delta(self, current):
 
         # 1. Новые товары - если такого описания ещё нет на диске.
+        guard = getattr(self, "_guard", None)
+
         for description, info in self._new_products.items():
-            current.setdefault(description, info)
+
+            if description in current:
+                continue
+
+            # Новый товар, чьё название уже занято чужим алиасом (или
+            # названием в другом написании) - заведомый дубль.
+            if guard is not None and any(
+                form in guard.name_owner or form in guard.alias_owner
+                for form in alias_forms(description)
+            ):
+                print("NEW PRODUCT SKIPPED (занято в словаре):", description)
+                continue
+
+            current[description] = info
+
+            if guard is not None:
+                guard.register_product(description)
 
         # 2. Алиасы - только к уже существующим на диске товарам.
         # Дедуп по нормализованному (регистр/пробелы) виду.
@@ -276,9 +305,21 @@ class LearningBuilder:
 
             for alias in aliases:
 
-                if alias not in known:
-                    existing.append(alias)
-                    known.add(alias)
+                if alias in known:
+                    continue
+
+                if guard is not None:
+
+                    reason = guard.conflict(product, alias, require_relation=False)
+
+                    if reason:
+                        print("ALIAS SKIPPED:", repr(alias), "->", product, "-", reason)
+                        continue
+
+                    guard.register(product, alias)
+
+                existing.append(alias)
+                known.add(alias)
 
         # 3. Dropdown-варианты к уже существующему dropdown (включая
         # материал - group=материал, см. learning/analyzer.py
@@ -417,4 +458,4 @@ class LearningBuilder:
     def save(self):
 
         self.save_products()
-        self.save_dictionaries()
+        self.save_dictionaries()

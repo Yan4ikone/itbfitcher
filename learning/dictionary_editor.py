@@ -31,6 +31,7 @@ sys.dont_write_bytecode = True
 from dictionaries import all_dictionaries
 from dictionaries import products as products_module
 from dictionaries.products_formatter import canonicalize_products, format_products
+from learning import alias_guard
 from learning.dictionary_registry import DICTIONARY_REGISTRY, get_dictionary
 from learning.dictionary_writer import update_dict_constant
 from learning.learning_filters import transliterate_ru
@@ -55,6 +56,12 @@ def _reload():
 def _reload_products():
     importlib.invalidate_caches()
     importlib.reload(products_module)
+    # Алиасы, удалённые куратором прямо в products.py (мимо редактора),
+    # запоминаются как отклонённые - см. learning/alias_guard.py.
+    try:
+        alias_guard.sync_rejected(products_module.PRODUCTS)
+    except Exception as error:
+        print("ALIAS GUARD SYNC ERROR:", error)
 
 
 def list_categories(dict_key: str) -> dict:
@@ -315,6 +322,8 @@ def _write_products(current: dict) -> None:
     with open(PRODUCTS_PATH, "w", encoding="utf-8") as f:
         f.write(format_products(canonical))
 
+    alias_guard.save_snapshot(canonical)
+
 
 def _find_variant(current: dict, product: str, code: str) -> dict:
 
@@ -461,37 +470,51 @@ def list_alias_collisions() -> list:
                     str(alias).strip().lower(), set()
                 ).add(name)
 
-    results = []
-    seen_keys = set()
+    # Одна и та же коллизия видна и по прямой форме, и по транслиту -
+    # раньше каждая попадала в список дважды (777 строк на ~390
+    # реальных коллизий). Теперь - одна строка на текст алиаса, по
+    # объединению обеих форм.
+    by_text = {}
 
     for form, alias_texts in alias_owner.items():
 
+        # Все товары, у которых ЭТА форма есть алиасом (в любом
+        # написании - "Кеды"/"кеды "/транслит).
+        form_owners = set()
+        for owners in alias_texts.values():
+            form_owners |= owners
+
         for alias_text, owners in alias_texts.items():
 
-            key = (form, alias_text)
-            if key in seen_keys:
-                continue
-            seen_keys.add(key)
-
-            collides_with = set()
+            entry = by_text.setdefault(
+                alias_text, {"owners": set(), "collides_with": set()}
+            )
+            entry["owners"] |= owners
 
             # Совпадает с названием чужого товара.
-            for other in name_owner.get(form, set()):
-                if other not in owners:
-                    collides_with.add(other)
+            entry["collides_with"] |= name_owner.get(form, set()) - owners
 
             # Совпадает с алиасом чужого товара (тот же alias у 2+
             # РАЗНЫХ товаров - какой из них "правильный" при
             # классификации, неочевидно).
-            if len(owners) > 1:
-                collides_with.update(owners)
+            if len(form_owners) > 1:
+                entry["collides_with"] |= form_owners
 
-            if collides_with:
-                results.append({
-                    "alias": alias_text,
-                    "owners": sorted(owners),
-                    "collides_with": sorted(collides_with - owners) or sorted(owners),
-                })
+    results = []
+
+    for alias_text, entry in by_text.items():
+
+        owners = entry["owners"]
+        collides_with = entry["collides_with"]
+
+        if not collides_with or collides_with == owners and len(owners) < 2:
+            continue
+
+        results.append({
+            "alias": alias_text,
+            "owners": sorted(owners),
+            "collides_with": sorted(collides_with - owners) or sorted(owners),
+        })
 
     results.sort(key=lambda item: item["alias"])
 
@@ -703,6 +726,8 @@ def add_alias(product: str, alias: str) -> None:
     info["aliases"] = existing
 
     _write_products(current)
+    # Куратор сам вернул алиас - снимаем отметку "удалён".
+    alias_guard.remove_rejected(product, alias)
     _reload_products()
 
 
@@ -730,6 +755,9 @@ def delete_alias(product: str, alias: str) -> None:
     ]
 
     _write_products(current)
+    # Удалённый куратором алиас обучение больше не предложит этому
+    # товару (learning/alias_guard.py).
+    alias_guard.add_rejected(product, alias)
     _reload_products()
 
 
@@ -1077,6 +1105,7 @@ def rename_product(old_name: str, new_name: str) -> None:
     current[new_name] = info
 
     _write_products(current)
+    alias_guard.rename_rejected(old_name, new_name)
     _reload_products()
 
 
