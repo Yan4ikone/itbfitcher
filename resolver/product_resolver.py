@@ -1,4 +1,7 @@
+import re
 import time
+
+from learning.alias_guard import is_related
 
 from copy import copy
 
@@ -101,6 +104,33 @@ class ProductResolver:
 
         candidates = self._resolve_generic_prefix_tie(candidates)
 
+        package_winner = self._prefer_package_contents(candidates, parsed)
+
+        if package_winner is not None:
+            # Продавец явно написал, что лежит в коробке, и это НЕ тот
+            # товар, что в заголовке/категории (карточка "Ящик для
+            # инструментов", а в описании "Содержимое упаковки: 1 x
+            # двигатель вентилятора охлаждения" - 2026-09-29). Берём
+            # товар из содержимого упаковки, но с пометкой на проверку:
+            # карточка противоречит сама себе.
+            candidates = [package_winner] + [
+                c for c in candidates if c is not package_winner
+            ]
+            winner = package_winner
+            winner.review = True
+            winner.reason = "PACKAGE_CONTENTS_OVERRIDE"
+
+            material_code = self.materials.resolve(winner, parsed)
+
+            if material_code:
+                winner.code = material_code
+
+            self._record_timing(
+                t_start, t_parse, t_after_candidates, len(candidates),
+            )
+
+            return winner, candidates
+
         winner = candidates[0]
 
         if used_excel_title_fallback:
@@ -166,6 +196,74 @@ class ProductResolver:
         )
 
         return winner, candidates
+
+    # ==========================================================
+    # СОДЕРЖИМОЕ УПАКОВКИ ПРОТИВ ЗАГОЛОВКА (2026-09-29)
+    #
+    # Победитель набрал очки только заголовком/категорией/"Тип", а в
+    # строке "Содержимое упаковки: ..." его нет вовсе - зато там
+    # прямо назван другой товар из словаря (полное совпадение имени или
+    # алиаса, а не ослабленное "для ..."). Возвращает этот товар (самый
+    # конкретный из названных) или None.
+    # ==========================================================
+    PACKAGE_FULL_MATCH = 300
+
+    def _prefer_package_contents(self, candidates, parsed=None):
+
+        if not candidates:
+            return None
+
+        # Только когда в упаковке ОДИН предмет: в наборах ("1 x телефон,
+        # 1 x кабель") главный товар часто назван иначе, чем в словаре,
+        # и перескакивать на аксессуар из комплекта нельзя.
+        contents = str((parsed or {}).get("package_contents", "") or "")
+
+        if not contents:
+            return None
+
+        items = re.findall(r"\d+\s*(?:[xх×*]\s|шт)", contents.lower() + " ")
+
+        if items:
+            return None
+
+        def package_points(candidate):
+            return max(
+                candidate.breakdown.get("PACKAGE_CONTENTS", 0),
+                candidate.breakdown.get("PACKAGE_CONTENTS_ALIAS", 0),
+                candidate.breakdown.get("DECLARED_NAME", 0),
+                candidate.breakdown.get("DECLARED_NAME_ALIAS", 0),
+            )
+
+        winner = candidates[0]
+
+        if package_points(winner) > 0:
+            return None
+
+        named = [
+            candidate for candidate in candidates[1:]
+            if package_points(candidate) >= self.PACKAGE_FULL_MATCH
+            and candidate.score > 0
+        ]
+
+        # Названия, связанные по словам с заголовочным товаром, - не
+        # противоречие, а синоним или его часть ("зеркало заднего вида" /
+        # "зеркало", "игровая консоль" / "игровая приставка").
+        named = [
+            candidate for candidate in named
+            if not is_related(candidate.product, winner.product)
+        ]
+
+        if not named:
+            return None
+
+        return max(
+            named,
+            key=lambda c: (
+                package_points(c),
+                len(str(c.product).split()),
+                c.score,
+            ),
+        )
 
     # ==========================================================
     # МУЛЬТИ-ТОВАРНЫЕ ЛИСТИНГИ (несколько РАЗНЫХ реальных товаров

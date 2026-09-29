@@ -238,6 +238,20 @@ class DropdownResolver:
             if item.get("code")
         }
 
+        # У товара есть свой плоский код ("чехол": 4202199000 + один
+        # вариант 6306120000 "оксфорд") - он и есть код по умолчанию.
+        # Раньше при несработавших осях его затирал первый вариант, и
+        # силиконовый чехол получал код брезента (2026-09-29).
+        flat_code = str(info.get("code", "")).strip()
+
+        if flat_code:
+            result.alternatives = {
+                flat_code: result.product,
+                **result.alternatives,
+            }
+            result.code = flat_code
+            return
+
         first_with_code = next(
             (v for v in variants if str(v.get("code", "")).strip()),
             None,

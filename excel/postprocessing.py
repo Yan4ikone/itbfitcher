@@ -15,6 +15,13 @@ RED_ROW_FILL = PatternFill(
     fill_type="solid",
     fgColor="FF0000",
 )
+# "Внимание" - товар разрешён, но требует отдельного взгляда куратора
+# (БАДы, лекарства, стабилизированные цветы... - см. ATTENTION_* в
+# dictionaries/all_dictionaries.py и utils/attention.py). 2026-09-29.
+ATTENTION_ROW_FILL = PatternFill(
+    fill_type="solid",
+    fgColor="FFC7CE",
+)
 GREEN_ROW_FILL = PatternFill(
     fill_type="solid",
     fgColor="E8F5E9",
@@ -124,6 +131,7 @@ def apply_visual_postprocessing(
     code_col_idx,
     decision_col_idx=None,
     max_row=None,
+    attention_rows=None,
 ):
     """
     Финальная визуальная обработка Excel.
@@ -150,6 +158,7 @@ def apply_visual_postprocessing(
     zero_count = 0
     restricted_count = 0
     normal_count = 0
+    attention_count = 0
 
     print(
         "\n"
@@ -192,6 +201,29 @@ def apply_visual_postprocessing(
             print(
                 f"[RED][ZERO] row={row} "
                 f"raw={raw_value!r}"
+            )
+            continue
+        # ----------------------------------------------------
+        # 1a. ВНИМАНИЕ (лёгкий красный) - важнее зелёного "разрешено",
+        # но запрещённый код (шаг 3) всё равно остаётся ярко-красным.
+        # ----------------------------------------------------
+        if attention_rows and row in attention_rows and not _is_restricted(code):
+
+            _paint_row(
+                ws=ws,
+                row=row,
+                fill=ATTENTION_ROW_FILL,
+                code_col_idx=code_col_idx,
+            )
+            if decision_col_idx:
+                ws.cell(
+                    row=row,
+                    column=decision_col_idx,
+                ).value = "Можно"
+            attention_count += 1
+            print(
+                f"[ATTENTION] row={row} "
+                f"code={code} reason={attention_rows[row]}"
             )
             continue
         # ----------------------------------------------------
@@ -257,6 +289,7 @@ def apply_visual_postprocessing(
     print(f"RESTRICTED: {restricted_count}")
     print(f"RED TOTAL:  {red_count}")
     print(f"GREEN:      {green_count}")
+    print(f"ATTENTION:  {attention_count}")
     print(f"NORMAL:     {normal_count}")
     print(
         "============================================================\n"
@@ -267,6 +300,7 @@ def apply_visual_postprocessing(
         "zero": zero_count,
         "restricted": restricted_count,
         "normal": normal_count,
+        "attention": attention_count,
     }
 # ============================================================
 # ПОКРАСКА СТРОКИ

@@ -24,6 +24,7 @@ from excel.postprocessing import (
 )
 from modules.dropdown_manager import apply_specific_dropdowns
 from utils.dropdown_helpers import build_alternatives_validation, comment_box_size, write_code_cell
+from utils.attention import attention_reason, card_text
 
 # Отдельное имя (НЕ "log") - в этом файле уже есть module-level `log`,
 # импортированный из parser/cdp_product_parser.py (см. импорт выше).
@@ -924,6 +925,17 @@ class OzonAutoProcessor:
         # т.п.) - нужен постобработке для покраски ячейки кода
         # (см. excel/postprocessing.py::apply_group_colors).
         ws[f"N{row}"] = getattr(result, "dropdown_group", "") or ""
+
+        # Класс "внимание" (2026-09-29) - лёгкая красная подсветка строки
+        # в постобработке + примечание с причиной у наименования. Списки
+        # пополняются в dictionaries/all_dictionaries.py (ATTENTION_*).
+        reason = attention_reason(result.product, result.code, card_text(card))
+
+        if reason:
+            if not hasattr(self, "attention_rows"):
+                self.attention_rows = {}
+            self.attention_rows[row] = reason
+            ws[f"B{row}"].comment = Comment(f"Внимание: {reason}", "Classifier")
         # ------------------------------------------------------
         # Decision Logger
         # ------------------------------------------------------
@@ -1105,6 +1117,7 @@ class OzonAutoProcessor:
     def run(self):
 
         self.start_time = time.time()
+        self.attention_rows = {}
         self.log("Открытие Excel...")
         wb = openpyxl.load_workbook(self.excel_path)
         ws = wb.active
@@ -1198,6 +1211,7 @@ class OzonAutoProcessor:
                 code_col_idx=3,        # колонка C
                 decision_col_idx=15,   # колонка O ("Можно"/"Нельзя")
                 max_row=postprocess_last_row,
+                attention_rows=getattr(self, "attention_rows", None),
             )
 
             self.log(
