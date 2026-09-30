@@ -24,7 +24,7 @@ from excel.postprocessing import (
 )
 from modules.dropdown_manager import apply_specific_dropdowns
 from utils.dropdown_helpers import build_alternatives_validation, comment_box_size, write_code_cell
-from utils.attention import attention_reason, card_text
+from utils.attention import attention_info, card_text
 
 # Отдельное имя (НЕ "log") - в этом файле уже есть module-level `log`,
 # импортированный из parser/cdp_product_parser.py (см. импорт выше).
@@ -929,12 +929,14 @@ class OzonAutoProcessor:
         # Класс "внимание" (2026-09-29) - лёгкая красная подсветка строки
         # в постобработке + примечание с причиной у наименования. Списки
         # пополняются в dictionaries/all_dictionaries.py (ATTENTION_*).
-        reason = attention_reason(result.product, result.code, card_text(card))
+        # Цвет и причина правятся в окне "Словарь" (вкладка "Покраска").
+        attention = attention_info(result.product, result.code, card_text(card))
 
-        if reason:
+        if attention:
+            reason, color = attention
             if not hasattr(self, "attention_rows"):
                 self.attention_rows = {}
-            self.attention_rows[row] = reason
+            self.attention_rows[row] = (reason, color)
             ws[f"B{row}"].comment = Comment(f"Внимание: {reason}", "Classifier")
         # ------------------------------------------------------
         # Decision Logger

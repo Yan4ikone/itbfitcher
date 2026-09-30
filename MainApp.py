@@ -51,6 +51,7 @@ from learning.archive_importer import import_archive_files
 from learning.manual import ManualTeacher
 from learning.runtime import LearningRuntime
 from learning.learning_window import LearningWindow, ProductEditorWindow
+from learning.dictionary_browser import DictionaryBrowserWindow
 from result_window import ResultWindow
 from server_split import (
     split_by_servers,
@@ -1032,7 +1033,11 @@ class App:
         открывается сразу, из любого места. См.
         learning/learning_window.py::ProductEditorWindow."""
 
-        ProductEditorWindow(self.root)
+        # 2026-09-29: новое окно "Словарь" - весь словарь по кодам,
+        # большая карточка товара, выгрузка/загрузка Excel
+        # (learning/dictionary_browser.py). Старый редактор открывается
+        # оттуда кнопкой "Старый редактор".
+        DictionaryBrowserWindow(self.root)
 
     def start_learning(self):
         if not self._require_file():

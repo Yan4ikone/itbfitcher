@@ -5,6 +5,7 @@ from dictionaries.all_dictionaries import (
     RESTRICTED_PREFIXES,
     MATERIAL_COLORS,
 )
+from utils.attention import fresh_dictionaries
 from utils.dropdown_helpers import group_color_key
 
 
@@ -209,10 +210,17 @@ def apply_visual_postprocessing(
         # ----------------------------------------------------
         if attention_rows and row in attention_rows and not _is_restricted(code):
 
+            attention = attention_rows[row]
+            if isinstance(attention, (tuple, list)) and len(attention) == 2:
+                reason, color = attention
+                fill = PatternFill(fill_type="solid", fgColor=str(color or "FFC7CE"))
+            else:
+                reason, fill = attention, ATTENTION_ROW_FILL
+
             _paint_row(
                 ws=ws,
                 row=row,
-                fill=ATTENTION_ROW_FILL,
+                fill=fill,
                 code_col_idx=code_col_idx,
             )
             if decision_col_idx:
@@ -223,7 +231,7 @@ def apply_visual_postprocessing(
             attention_count += 1
             print(
                 f"[ATTENTION] row={row} "
-                f"code={code} reason={attention_rows[row]}"
+                f"code={code} reason={reason}"
             )
             continue
         # ----------------------------------------------------
@@ -358,6 +366,8 @@ def apply_group_colors(ws, code_col_idx, group_col_idx, max_row=None):
     colored_count = 0
     skipped_count = 0
 
+    colors = getattr(fresh_dictionaries(), "MATERIAL_COLORS", MATERIAL_COLORS)
+
     for row in range(2, max_row + 1):
 
         group_cell = ws.cell(row=row, column=group_col_idx)
@@ -367,7 +377,9 @@ def apply_group_colors(ws, code_col_idx, group_col_idx, max_row=None):
             skipped_count += 1
             continue
 
-        color = MATERIAL_COLORS.get(group_color_key(group_value))
+        # Цвета групп правятся в окне "Словарь" ("Покраска…") -
+        # перечитываем словари, если файл поменялся.
+        color = colors.get(group_color_key(group_value))
 
         if not color:
             skipped_count += 1
