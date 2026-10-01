@@ -1,10 +1,11 @@
 import re
 
 from dictionaries.all_dictionaries import PURPOSE_ALIASES
+from utils.groups import canon
 
 
 _KNOWN_PURPOSE_WORDS = {
-    canonical: [str(alias).strip().lower() for alias in aliases if str(alias).strip()]
+    canon(canonical): [str(alias).strip().lower() for alias in aliases if str(alias).strip()]
     for canonical, aliases in PURPOSE_ALIASES.items()
 }
 
@@ -37,6 +38,9 @@ def find_known_purpose(text: str, allowed=None) -> str:
     # среди вариантов (2026-09-29): иначе широкий ключ вроде "sport" или
     # "carnival", встретившись в тексте раньше, "занимал" место и ось
     # вообще не находила нужный вариант ("bicycle" и т.п.).
+    if allowed is not None:
+        allowed = {canon(a) for a in allowed}
+
     for canonical, words in _KNOWN_PURPOSE_WORDS.items():
 
         if allowed is not None and canonical not in allowed:

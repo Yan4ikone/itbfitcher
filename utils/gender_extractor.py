@@ -1,10 +1,11 @@
 import re
 
 from dictionaries.all_dictionaries import GENDER_ALIASES
+from utils.groups import canon
 
 
 _KNOWN_GENDER_WORDS = {
-    canonical: [str(alias).strip().lower() for alias in aliases if str(alias).strip()]
+    canon(canonical): [str(alias).strip().lower() for alias in aliases if str(alias).strip()]
     for canonical, aliases in GENDER_ALIASES.items()
 }
 

@@ -3,7 +3,7 @@ import re
 from utils.gender_extractor import find_known_gender
 from utils.characteristic_extractor import find_known_characteristic
 from utils.purpose_extractor import find_known_purpose
-from utils.material_extractor import MATERIAL_GROUP_EN
+from utils.groups import canon
 
 
 class DropdownAxisResolver:
@@ -38,18 +38,15 @@ class MaterialAxisResolver(DropdownAxisResolver):
         if not material:
             return None
 
-        candidates = {material}
-
-        english = MATERIAL_GROUP_EN.get(material)
-
-        if english:
-            candidates.add(english)
+        # Группы сравниваются в каноническом русском виде (utils/
+        # groups.py): "plastic" и "пластик" - одна группа.
+        candidates = {canon(material)}
 
         for variant in variants:
 
-            name = str(variant.get("name", "")).strip().lower()
-            group = str(variant.get("group", "")).strip().lower()
-            explicit = str(variant.get("material", "")).strip().lower()
+            name = canon(variant.get("name", ""))
+            group = canon(variant.get("group", ""))
+            explicit = canon(variant.get("material", ""))
 
             if candidates & {name, group, explicit} - {""}:
                 return variant
@@ -81,15 +78,15 @@ class GenderAxisResolver(DropdownAxisResolver):
         if not text:
             return None
 
-        gender = find_known_gender(text)
+        gender = canon(find_known_gender(text))
 
         if not gender:
             return None
 
         for variant in variants:
 
-            group = str(variant.get("group", "")).strip().lower()
-            explicit = str(variant.get("gender", "")).strip().lower()
+            group = canon(variant.get("group", ""))
+            explicit = canon(variant.get("gender", ""))
 
             if gender in (group, explicit):
                 return variant
@@ -135,14 +132,14 @@ class CharacteristicAxisResolver(DropdownAxisResolver):
         if not text:
             return None
 
-        characteristic = find_known_characteristic(text)
+        characteristic = canon(find_known_characteristic(text))
 
         if not characteristic:
             return None
 
         for variant in variants:
 
-            group = str(variant.get("group", "")).strip().lower()
+            group = canon(variant.get("group", ""))
 
             if characteristic == group:
                 return variant
@@ -202,18 +199,18 @@ class PurposeCategoryAxisResolver(DropdownAxisResolver):
             return None
 
         allowed = {
-            str(variant.get("group", "")).strip().lower()
+            canon(variant.get("group", ""))
             for variant in variants
         }
 
-        purpose = find_known_purpose(text, allowed=allowed)
+        purpose = canon(find_known_purpose(text, allowed=allowed))
 
         if not purpose:
             return None
 
         for variant in variants:
 
-            group = str(variant.get("group", "")).strip().lower()
+            group = canon(variant.get("group", ""))
 
             if purpose == group:
                 return variant
@@ -342,16 +339,13 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
 
         if material:
 
-            material_candidates = {material}
-            english = MATERIAL_GROUP_EN.get(material)
-            if english:
-                material_candidates.add(english)
+            material_candidates = {canon(material)}
 
             by_material = [
                 v for v in variants
-                if str(
+                if canon(
                     v.get("material") or v.get("group") or v.get("name") or ""
-                ).strip().lower() in material_candidates
+                ) in material_candidates
             ]
 
             if by_material:
@@ -439,31 +433,28 @@ class MaterialCharacteristicAxisResolver(DropdownAxisResolver):
         if not material:
             return None
 
-        material_candidates = {material}
-        english = MATERIAL_GROUP_EN.get(material)
-        if english:
-            material_candidates.add(english)
+        material_candidates = {canon(material)}
 
         by_material = [
             v for v in variants
-            if str(
+            if canon(
                 v.get("material") or v.get("group") or v.get("name") or ""
-            ).strip().lower() in material_candidates
+            ) in material_candidates
         ]
 
         if not by_material:
             return None
 
         text = self._text(card)
-        characteristic = find_known_characteristic(text)
+        characteristic = canon(find_known_characteristic(text))
 
         if characteristic:
 
             for variant in by_material:
 
-                if str(
+                if canon(
                     variant.get("characteristic", "")
-                ).strip().lower() == characteristic:
+                ) == characteristic:
                     return variant
 
         # Характеристика не найдена в тексте (или не совпала ни с
@@ -631,11 +622,11 @@ class ScoredKeywordAxisResolver(DropdownAxisResolver):
                 matched_text = True
 
         materials = [
-            str(m).strip().lower()
+            canon(m)
             for m in variant.get("materials", [])
         ]
 
-        material = str(getattr(result, "material", "") or "").strip().lower()
+        material = canon(getattr(result, "material", "") or "")
 
         if materials and material and material in materials:
             score += self.MATERIAL_BONUS

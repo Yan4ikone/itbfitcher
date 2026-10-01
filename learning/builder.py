@@ -24,10 +24,12 @@ from learning.dictionary_writer import update_dict_constant
 
 def _variant_group(group, code):
 
+    from utils.groups import canon
+
     group = str(group or "").strip()
 
     if group and group.lower() != "other":
-        return group
+        return canon(group)
 
     return group_for_code(code)
 

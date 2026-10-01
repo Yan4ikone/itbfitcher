@@ -24,6 +24,7 @@ from excel.postprocessing import (
 )
 from modules.dropdown_manager import apply_specific_dropdowns
 from utils.dropdown_helpers import build_alternatives_validation, comment_box_size, write_code_cell
+from utils.groups import canon
 from utils.attention import attention_info, card_text
 
 # Отдельное имя (НЕ "log") - в этом файле уже есть module-level `log`,
@@ -885,7 +886,7 @@ class OzonAutoProcessor:
         if description:
             ws[f"B{row}"] = description
 
-        ws[f"N{row}"] = cached_card.get("dropdown_group", "") or ""
+        ws[f"N{row}"] = canon(cached_card.get("dropdown_group", "") or "")
 
         if code and code not in ("0", "nan"):
             write_code_cell(ws[f"C{row}"], code)
@@ -924,7 +925,7 @@ class OzonAutoProcessor:
         # (материал/пол/характеристика: "metal"/"male"/"electric" и
         # т.п.) - нужен постобработке для покраски ячейки кода
         # (см. excel/postprocessing.py::apply_group_colors).
-        ws[f"N{row}"] = getattr(result, "dropdown_group", "") or ""
+        ws[f"N{row}"] = canon(getattr(result, "dropdown_group", "") or "")
 
         # Класс "внимание" (2026-09-29) - лёгкая красная подсветка строки
         # в постобработке + примечание с причиной у наименования. Списки

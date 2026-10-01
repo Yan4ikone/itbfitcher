@@ -61,12 +61,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '8310000000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -157,12 +157,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7020008000',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
             ],
@@ -198,11 +198,6 @@ PRODUCTS = {
         'aliases': [
             'аккумулятор для инструмента',
         ],
-    },
-    'аккумулятор холода': {
-        'code': '3923299000',
-        'patterns': [],
-        'aliases': [],
     },
     'аксессуар бдсм': {
         'code': '7117190000',
@@ -362,7 +357,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8424200000',
-                    'group': 'manual',
+                    'group': 'ручной',
                     'match': [
                         'аэрограф',
                         'творчества',
@@ -371,12 +366,12 @@ PRODUCTS = {
                 },
                 {
                     'code': '8424300800',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '7412200000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -459,7 +454,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8501109900',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [
                         'электробритвы',
                         'запчасти',
@@ -472,12 +467,12 @@ PRODUCTS = {
                 },
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '8516900000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
             ],
@@ -508,12 +503,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '4820500000',
-                    'group': 'paper',
+                    'group': 'бумага',
                     'match': [],
                 },
             ],
@@ -685,12 +680,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8518299600',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [],
                 },
                 {
                     'code': '8504409100',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
             ],
@@ -874,12 +869,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '9403208009',
-                    'group': 'furniture',
+                    'group': 'мебель',
                     'match': [
                         'держатель',
                         'садового',
@@ -918,7 +913,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3922900000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'пластиковый',
                         'пластмассовый',
@@ -1027,12 +1022,10 @@ PRODUCTS = {
             'чипсы протеиновые',
             'protein chips',
             'чипсы protein',
+            'бады',
+            'предтренировочный комплекс',
+            'растительный напиток',
         ],
-    },
-    'бады': {
-        'code': '2106909803',
-        'patterns': [],
-        'aliases': [],
     },
     'база сиденья': {
         'code': '9401990009',
@@ -1084,7 +1077,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6307909800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -1106,7 +1099,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7010906109',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
             ],
@@ -1124,12 +1117,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7010906109',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
             ],
@@ -1168,12 +1161,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
             ],
@@ -1189,7 +1182,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9506999000',
-                    'group': 'sport',
+                    'group': 'спорт',
                     'match': [
                         'надувной',
                         'горки',
@@ -1234,12 +1227,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7326200009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -1440,17 +1433,17 @@ PRODUCTS = {
                 {
                     'code': '6912002900',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7013499900',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '3924100000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -1515,14 +1508,14 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6405909000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [
                         'балетки',
                     ],
                 },
                 {
                     'code': '6402999100',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -1575,22 +1568,22 @@ PRODUCTS = {
                 {
                     'code': '3926400000',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '8306290009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '4420190000',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '7018909000',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
             ],
         },
@@ -1685,7 +1678,7 @@ PRODUCTS = {
                 {
                     'code': '6103490001',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                     'match': [
                         'джоггеры',
                         'джинсы',
@@ -1700,7 +1693,7 @@ PRODUCTS = {
                 {
                     'code': '6104690001',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [
                         'школа',
                         'легинсы',
@@ -1709,7 +1702,7 @@ PRODUCTS = {
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                     'match': [
                         'утепленные',
                         'джинсы',
@@ -1809,12 +1802,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7117900000',
-                    'group': 'jewelry',
+                    'group': 'украшения',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -1837,22 +1830,22 @@ PRODUCTS = {
                 {
                     'code': '3923301090',
                     'name': 'Пласт до 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7010906109',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '7310100000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '3923309090',
                     'name': 'Пласт после 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -1937,23 +1930,23 @@ PRODUCTS = {
                 {
                     'code': '6913909800',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7018909000',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'металл',
                     ],
                 },
                 {
                     'code': '3926400000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -1961,11 +1954,6 @@ PRODUCTS = {
     },
     'ваза на кладбище': {
         'code': '6810990000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'вакуумный пакет': {
-        'code': '3923299000',
         'patterns': [],
         'aliases': [],
     },
@@ -2037,12 +2025,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8516797000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -2060,17 +2048,17 @@ PRODUCTS = {
                 {
                     'code': '3924900009',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7323990000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '4420190000',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
             ],
         },
@@ -2083,17 +2071,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4823908597',
-                    'group': 'paper',
+                    'group': 'бумага',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '4420909900',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [],
                 },
             ],
@@ -2107,12 +2095,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926200000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '6401990000',
-                    'group': 'rubber',
+                    'group': 'резина',
                     'match': [],
                 },
             ],
@@ -2146,12 +2134,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8712003000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                 },
                 {
                     'code': '9503001009',
                     'name': 'Детский',
-                    'group': 'child',
+                    'group': 'детский',
                 },
             ],
         },
@@ -2253,7 +2241,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8423101000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [
                         'разноцветный',
                         'кухонные',
@@ -2262,7 +2250,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8423109000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [
                         'металлические',
                         'белый',
@@ -2303,17 +2291,17 @@ PRODUCTS = {
                 {
                     'code': '3924900009',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7323990000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '4421999000',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
             ],
         },
@@ -2464,7 +2452,10 @@ PRODUCTS = {
     'витамины': {
         'code': '2936290009',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'таурин',
+            'порошок бромелайна',
+        ],
     },
     'вкладыш для обуви': {
         'code': '6406905000',
@@ -2577,17 +2568,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503009500',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
                 {
                     'code': '9506999000',
-                    'group': 'sport',
+                    'group': 'спорт',
                     'match': [],
                 },
                 {
                     'code': '9505900000',
-                    'group': 'carnival',
+                    'group': 'карнавал',
                     'match': [],
                 },
             ],
@@ -2642,7 +2633,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -2795,12 +2786,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8205598099',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '8204110000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -2888,32 +2879,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'гермомешок': {
-        'code': '',
-        'patterns': [
-            'гермомеш.*',
-        ],
-        'aliases': [],
-        'dropdown': {
-            'variants': [
-                {
-                    'code': '4819400000',
-                    'group': 'paper',
-                    'match': [],
-                },
-                {
-                    'code': '4202921900',
-                    'group': 'textile',
-                    'match': [],
-                },
-                {
-                    'code': '3923299000',
-                    'group': 'plastic',
-                    'match': [],
-                },
-            ],
-        },
-    },
     'гетры': {
         'code': '6406909000',
         'patterns': [],
@@ -2938,12 +2903,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9506290000',
-                    'group': 'sport',
+                    'group': 'спорт',
                     'match': [],
                 },
                 {
                     'code': '6113001000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
             ],
@@ -2976,11 +2941,6 @@ PRODUCTS = {
     },
     'гитарный слайд': {
         'code': '7326909807',
-        'patterns': [],
-        'aliases': [],
-    },
-    'глазурь': {
-        'code': '1704907500',
         'patterns': [],
         'aliases': [],
     },
@@ -3123,21 +3083,21 @@ PRODUCTS = {
                 {
                     'code': '6913909800',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7018909000',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '5603139000',
                     'name': 'Нетканый',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -3173,11 +3133,6 @@ PRODUCTS = {
     },
     'грейфер для чистки колодца': {
         'code': '8201100000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'гречневая лапша': {
-        'code': '1902301000',
         'patterns': [],
         'aliases': [],
     },
@@ -3237,12 +3192,12 @@ PRODUCTS = {
                 {
                     'code': '3924900009',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7323100000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
             ],
         },
@@ -3344,7 +3299,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9025198009',
-                    'group': 'measuring',
+                    'group': 'измерения',
                     'match': [
                         'влажности',
                         'modbus',
@@ -3353,7 +3308,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '9032102000',
-                    'group': 'measuring',
+                    'group': 'измерения',
                     'match': [
                         'датчики',
                         'зондом',
@@ -3436,7 +3391,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926400000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -3473,12 +3428,12 @@ PRODUCTS = {
                 {
                     'code': '3926909709',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7326909807',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'защелки',
                         'удлинители',
@@ -3488,28 +3443,28 @@ PRODUCTS = {
                 {
                     'code': '4421999000',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'самоклеящийся',
                         'настенный',
                     ],
-                    'characteristic': 'household',
+                    'characteristic': 'бытовой',
                 },
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'металл',
                     ],
-                    'characteristic': 'household',
+                    'characteristic': 'бытовой',
                 },
                 {
                     'code': '8505199000',
-                    'group': 'magnet',
+                    'group': 'магнит',
                     'match': [
                         'магнитный',
                         'иголок',
@@ -3625,21 +3580,21 @@ PRODUCTS = {
                 {
                     'code': '6203423100',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                 },
                 {
                     'code': '6204623100',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                 },
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                 },
                 {
                     'code': '6104630000',
-                    'group': 'female',
+                    'group': 'женский',
                 },
             ],
         },
@@ -3678,17 +3633,17 @@ PRODUCTS = {
                 {
                     'code': '9403208009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '9403609009',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '9403700008',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -3740,12 +3695,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8202310000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '6804210000',
-                    'group': 'abrasive',
+                    'group': 'абразив',
                     'match': [],
                 },
             ],
@@ -3790,21 +3745,21 @@ PRODUCTS = {
                 {
                     'code': '3923301090',
                     'name': 'Пласт до 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7310100000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '3923309090',
                     'name': 'Пласт после 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '8413810000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [
                         'воды',
                         'помпа',
@@ -3814,11 +3769,6 @@ PRODUCTS = {
             ],
         },
     },
-    'диспенсер для гигиенических пакетов для животных': {
-        'code': '3923299000',
-        'patterns': [],
-        'aliases': [],
-    },
     'диспенсер для напитков': {
         'code': '',
         'patterns': [],
@@ -3827,12 +3777,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7013379900',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
                 {
                     'code': '3924100000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -3871,17 +3821,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8509800000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
                 {
                     'code': '3923301090',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -3905,12 +3855,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8504405500',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '8507908000',
-                    'group': 'battery',
+                    'group': 'аккумуляторный',
                     'match': [],
                 },
             ],
@@ -3974,14 +3924,14 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'разделочная',
                     ],
                 },
                 {
                     'code': '4419900000',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [
                         'разморозки',
                         'продуктов',
@@ -3989,7 +3939,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'сувенирная',
                         'разделочная',
@@ -3997,11 +3947,11 @@ PRODUCTS = {
                         'железо',
                         'сковорода',
                     ],
-                    'characteristic': 'household',
+                    'characteristic': 'бытовой',
                 },
                 {
                     'code': '3924100000',
-                    'group': 'abs пластик',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -4055,12 +4005,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -4093,12 +4043,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8481801100',
-                    'group': 'plumbing',
+                    'group': 'сантехника',
                     'match': [],
                 },
                 {
                     'code': '8481801900',
-                    'group': 'plumbing',
+                    'group': 'сантехника',
                     'match': [],
                 },
             ],
@@ -4164,12 +4114,12 @@ PRODUCTS = {
                 {
                     'code': '3923301090',
                     'name': 'Пласт до 2л',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7310100000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'нержавеющая',
                         'сталь',
@@ -4179,7 +4129,7 @@ PRODUCTS = {
                 {
                     'code': '7010906109',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
             ],
         },
@@ -4198,7 +4148,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9603909900',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -4252,7 +4202,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8471709800',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -4275,12 +4225,12 @@ PRODUCTS = {
                 {
                     'code': '6110909000',
                     'name': 'Текстиль',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
                 {
                     'code': '4203100001',
                     'name': 'Кожа',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
             ],
         },
@@ -4391,12 +4341,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '8306290009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -4410,12 +4360,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7318230009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -4435,11 +4385,11 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8301200009',
-                    'group': 'automobile',
+                    'group': 'автомобиль',
                 },
                 {
                     'code': '8301401100',
-                    'group': 'furniture',
+                    'group': 'мебель',
                 },
             ],
         },
@@ -4507,12 +4457,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8708999709',
-                    'group': 'automobile',
+                    'group': 'автомобиль',
                     'match': [],
                 },
                 {
                     'code': '8412310009',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
             ],
@@ -4701,12 +4651,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9021101000',
-                    'group': 'medical',
+                    'group': 'медицина',
                     'match': [],
                 },
                 {
                     'code': '6216000000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -4767,7 +4717,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8302300009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'аксессуар',
                         'мотоэкипировки',
@@ -4776,7 +4726,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8483908909',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -4812,7 +4762,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7009920000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [
                         'подсветкой',
                         'макияжа',
@@ -4821,7 +4771,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '7009100009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -4845,7 +4795,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7009100009',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
             ],
@@ -4866,21 +4816,21 @@ PRODUCTS = {
                 {
                     'code': '3926400000',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '8306290009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '7117900000',
-                    'group': 'jewelry',
+                    'group': 'украшения',
                 },
                 {
                     'code': '7018909000',
                     'name': 'Стекл',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
             ],
         },
@@ -4997,12 +4947,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
                 {
                     'code': '9503008500',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
             ],
@@ -5208,12 +5158,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8509800000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
                 {
                     'code': '8207509000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -5332,12 +5282,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9617000001',
-                    'group': 'tableware',
+                    'group': 'посуда',
                     'match': [],
                 },
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -5415,17 +5365,17 @@ PRODUCTS = {
                 {
                     'code': '3923301090',
                     'name': 'Пласт до 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7310100000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '3923309090',
                     'name': 'Пласт после 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -5454,12 +5404,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9608101000',
-                    'group': 'stationery',
+                    'group': 'канцелярия',
                     'match': [],
                 },
                 {
                     'code': '3926909200',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -5504,20 +5454,8 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'капуста нори': {
-        'code': '1212210000',
-        'patterns': [],
-        'aliases': [
-            'водоросли нори',
-        ],
-    },
     'карабин альпинистский': {
         'code': '7616999008',
-        'patterns': [],
-        'aliases': [],
-    },
-    'карамель леденцовая': {
-        'code': '1704907500',
         'patterns': [],
         'aliases': [],
     },
@@ -5643,7 +5581,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9504400000',
-                    'group': 'paper',
+                    'group': 'бумага',
                     'match': [],
                 },
             ],
@@ -5668,12 +5606,12 @@ PRODUCTS = {
                 {
                     'code': '4202321000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '4202310000',
                     'name': 'Кожа',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
             ],
         },
@@ -5719,12 +5657,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8715001000',
-                    'group': 'child',
+                    'group': 'детский',
                     'match': [],
                 },
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
             ],
@@ -5769,20 +5707,20 @@ PRODUCTS = {
                 {
                     'code': '6913909800',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7018909000',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '3926400000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -5825,12 +5763,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9506919000',
-                    'group': 'sport',
+                    'group': 'спорт',
                     'match': [],
                 },
                 {
                     'code': '6206400000',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [],
                 },
             ],
@@ -5884,11 +5822,6 @@ PRODUCTS = {
     },
     'китайский фонарик': {
         'code': '9505900000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'китайский чай': {
-        'code': '0902300009',
         'patterns': [],
         'aliases': [],
     },
@@ -5976,7 +5909,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8205909000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -6002,12 +5935,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4202321000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '7117900000',
-                    'group': 'jewelry',
+                    'group': 'украшения',
                     'match': [],
                 },
             ],
@@ -6036,7 +5969,7 @@ PRODUCTS = {
                 {
                     'code': '8536501109',
                     'name': 'кнопочный',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
@@ -6088,7 +6021,7 @@ PRODUCTS = {
                 {
                     'code': '3926909709',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'автомобиля',
                         'салон',
@@ -6099,12 +6032,12 @@ PRODUCTS = {
                 {
                     'code': '5705003000',
                     'name': 'Ворс',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '5705008000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
@@ -6174,12 +6107,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8509800000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
                 {
                     'code': '8213000000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -6209,12 +6142,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6307909800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '5609000000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'блок',
                         'сменный',
@@ -6283,7 +6216,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8302200000',
-                    'group': 'furniture',
+                    'group': 'мебель',
                     'match': [
                         'тачки',
                         'сумка',
@@ -6294,7 +6227,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8708709909',
-                    'group': 'automobile',
+                    'group': 'автомобиль',
                     'match': [
                         'садовой',
                         'тачки',
@@ -6321,19 +6254,19 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6406905000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'стельки',
                     ],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '4421999000',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [],
                 },
             ],
@@ -6409,12 +6342,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'автомобильный',
                         'qmz',
@@ -6498,12 +6431,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6111909000',
-                    'group': 'child',
+                    'group': 'детский',
                     'match': [],
                 },
                 {
                     'code': '6111209000',
-                    'group': 'child',
+                    'group': 'детский',
                     'match': [],
                 },
             ],
@@ -6617,7 +6550,7 @@ PRODUCTS = {
                 {
                     'code': '6103290009',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                     'match': [
                         'принт',
                         'спортивный',
@@ -6628,12 +6561,12 @@ PRODUCTS = {
                 {
                     'code': '6104299000',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                 },
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                 },
             ],
         },
@@ -6775,7 +6708,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3920510000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -6814,7 +6747,12 @@ PRODUCTS = {
     'конфеты': {
         'code': '1704907500',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'карамель',
+        ],
+        'synonyms': [
+            'глазурь',
+        ],
     },
     'коньки': {
         'code': '9506701000',
@@ -6825,33 +6763,6 @@ PRODUCTS = {
         'code': '1211200000',
         'patterns': [],
         'aliases': [],
-    },
-    'корзина': {
-        'code': '',
-        'patterns': [],
-        'aliases': [
-            'korzina',
-        ],
-        'dropdown': {
-            'title': 'Выберите вариант',
-            'variants': [
-                {
-                    'code': '3923100000',
-                    'name': 'Пластик',
-                    'group': 'plastic',
-                },
-                {
-                    'code': '4202929800',
-                    'name': 'Текстиль',
-                    'group': 'textile',
-                },
-                {
-                    'code': '7323990000',
-                    'name': 'Металл',
-                    'group': 'metal',
-                },
-            ],
-        },
     },
     'корзина для белья': {
         'code': '4421910000',
@@ -6871,22 +6782,22 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7326200002',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '9403700008',
-                    'group': 'furniture',
+                    'group': 'мебель',
                     'match': [],
                 },
                 {
                     'code': '4202990000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -6926,13 +6837,21 @@ PRODUCTS = {
     },
     'коробка': {
         'code': '',
-        'patterns': [],
+        'patterns': [
+            'органайз.*',
+        ],
         'aliases': [
             'konteyner',
             'контейнеры',
             'korobka',
             'ящик',
             'короб',
+            'korzina',
+            'organayzer',
+        ],
+        'synonyms': [
+            'корзина',
+            'органайзер',
         ],
         'dropdown': {
             'title': 'Выберите вариант',
@@ -6940,18 +6859,18 @@ PRODUCTS = {
                 {
                     'code': '3923100000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '4202929800',
                     'name': 'Текстиль',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '7326909409',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
@@ -7066,12 +6985,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6104230000',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [],
                 },
                 {
                     'code': '6111909000',
-                    'group': 'child',
+                    'group': 'детский',
                     'match': [
                         'боди',
                     ],
@@ -7099,17 +7018,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6104130000',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [],
                 },
                 {
                     'code': '6203299000',
-                    'group': 'male',
+                    'group': 'мужской',
                     'match': [],
                 },
                 {
                     'code': '6211431000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
             ],
@@ -7145,7 +7064,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '6104299000',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [
                         'veilure',
                     ],
@@ -7192,7 +7111,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4202929800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'мотокофр',
                         'футляр',
@@ -7215,12 +7134,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6109909000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
                 {
                     'code': '6110309900',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
             ],
@@ -7242,17 +7161,17 @@ PRODUCTS = {
                 {
                     'code': '4202321000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '4202310000',
                     'name': 'Кожа',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
                 {
                     'code': '4202929800',
                     'name': 'Текстиль',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
             ],
         },
@@ -7273,7 +7192,7 @@ PRODUCTS = {
                 {
                     'code': '8505902009',
                     'name': 'Электро',
-                    'group': 'electric',
+                    'group': 'электрический',
                 },
             ],
         },
@@ -7333,6 +7252,7 @@ PRODUCTS = {
             'пастель рисования',
             'палитра',
             'kraski',
+            'гуашь',
         ],
     },
     'краски для моделизма': {
@@ -7359,20 +7279,20 @@ PRODUCTS = {
                 {
                     'code': '3925901000',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7326909807',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '8302420000',
-                    'group': 'furniture',
+                    'group': 'мебель',
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -7445,17 +7365,17 @@ PRODUCTS = {
                 {
                     'code': '9403208009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '9403609009',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '9403700008',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -7499,7 +7419,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6403190000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [],
                 },
                 {
@@ -7520,12 +7440,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
                 {
                     'code': '9506290000',
-                    'group': 'sport',
+                    'group': 'спорт',
                     'match': [],
                 },
             ],
@@ -7561,17 +7481,17 @@ PRODUCTS = {
                 {
                     'code': '6912002900',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7013499900',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '3924100000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -7597,14 +7517,14 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'брызг',
                     ],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'гастроемкости',
                         'пластик',
@@ -7612,7 +7532,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '7013499900',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
             ],
@@ -7663,7 +7583,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -7679,17 +7599,17 @@ PRODUCTS = {
                 {
                     'code': '3924900009',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '8308100000',
                     'name': 'Металл для одежд',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '7326909807',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
             ],
         },
@@ -7761,17 +7681,17 @@ PRODUCTS = {
                 {
                     'code': '3924900009',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7323930000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '6912002900',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '8205510090',
@@ -7830,12 +7750,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6211120000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
                 {
                     'code': '6112419000',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [
                         'малышей',
                     ],
@@ -7867,7 +7787,7 @@ PRODUCTS = {
                 {
                     'code': '6201900000',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                     'match': [
                         'плащ',
                         'пальто',
@@ -7876,23 +7796,18 @@ PRODUCTS = {
                 {
                     'code': '6202900009',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                 },
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                 },
             ],
         },
     },
     'куртка для малышей': {
         'code': '6102909000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'курьерский пакет': {
-        'code': '3923299000',
         'patterns': [],
         'aliases': [],
     },
@@ -7943,11 +7858,11 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8539520009',
-                    'group': 'lamp',
+                    'group': 'освещение',
                 },
                 {
                     'code': '8539490000',
-                    'group': 'UF',
+                    'group': 'уф',
                 },
             ],
         },
@@ -7981,13 +7896,13 @@ PRODUCTS = {
                 {
                     'code': '6307909800',
                     'name': 'Текстиль',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '9403700008',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -8050,21 +7965,16 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8481801900',
-                    'group': 'plumbing',
+                    'group': 'сантехника',
                     'match': [],
                 },
                 {
                     'code': '7324900009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
         },
-    },
-    'лекарство для животных': {
-        'code': '2106909803',
-        'patterns': [],
-        'aliases': [],
     },
     'лента': {
         'code': '',
@@ -8079,6 +7989,16 @@ PRODUCTS = {
             'монтажная лента',
             'пленка',
             'plenka',
+            'наклейка автомобильная',
+            'наклейка коллекционная',
+            'знак автомобильный',
+            'наклейки',
+            'стикеры',
+            'стикер',
+            'этикетка',
+        ],
+        'synonyms': [
+            'наклейка',
         ],
         'dropdown': {
             'variants': [
@@ -8091,6 +8011,15 @@ PRODUCTS = {
                     'code': '3919900000',
                     'group': 'полиэстер',
                     'match': [],
+                },
+                {
+                    'code': '4811419000',
+                    'group': 'бумага',
+                    'match': [
+                        'стикер',
+                        'бумаж',
+                        'бумаг',
+                    ],
                 },
             ],
         },
@@ -8132,6 +8061,16 @@ PRODUCTS = {
         'code': '7326903000',
         'patterns': [],
         'aliases': [],
+    },
+    'лечебное средство': {
+        'code': '3004900002',
+        'patterns': [],
+        'aliases': [
+            'лекарство для животных',
+            'таблетки лекарств',
+            'пилюли для сердца',
+            'средство от грибка',
+        ],
     },
     'линейка': {
         'code': '9017801000',
@@ -8198,17 +8137,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8215991000',
-                    'group': 'tableware',
+                    'group': 'посуда',
                 },
                 {
                     'code': '7323990000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '4421999000',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
             ],
         },
@@ -8248,12 +8187,12 @@ PRODUCTS = {
                 },
                 {
                     'code': '6109909000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
                 {
                     'code': '6110909000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
             ],
@@ -8298,11 +8237,11 @@ PRODUCTS = {
                 {
                     'code': '3926909709',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'для животных',
                         'для кошек',
@@ -8310,7 +8249,7 @@ PRODUCTS = {
                         'кошачий',
                         'для кота',
                     ],
-                    'characteristic': 'household',
+                    'characteristic': 'бытовой',
                 },
             ],
         },
@@ -8326,12 +8265,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8305900000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3926100000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -8376,7 +8315,9 @@ PRODUCTS = {
     'макароны': {
         'code': '1902301000',
         'patterns': [],
-        'aliases': [],
+        'aliases': [
+            'лапша',
+        ],
     },
     'макивара': {
         'code': '9506919000',
@@ -8634,17 +8575,17 @@ PRODUCTS = {
                 {
                     'code': '9403208009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '9403609009',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '9403700008',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -8689,12 +8630,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3924100000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -8730,18 +8671,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'мешки для мусора': {
-        'code': '3923299000',
-        'patterns': [],
-        'aliases': [
-            'мешки мусора',
-        ],
-    },
-    'мешки садовые': {
-        'code': '6305109000',
-        'patterns': [],
-        'aliases': [],
-    },
     'мешок': {
         'code': '',
         'patterns': [],
@@ -8750,17 +8679,38 @@ PRODUCTS = {
             'мешочек для хранения хлопковый',
             'meshok',
             'мешки',
+            'пакеты',
+            'крафт пакет',
+            'пакет для подарков',
+            'мешки мусора',
+            'гермомешок',
+        ],
+        'synonyms': [
+            'пакет',
+            'чехол для одежды',
+            'вакуумный пакет',
+            'пакет для продуктов',
+            'пакет подарочный',
+            'мешки для мусора',
+            'мешки садовые',
         ],
         'dropdown': {
             'title': 'Выберите вариант',
             'variants': [
                 {
-                    'code': '3923210000',
-                    'group': 'plastic',
+                    'code': '3923299000',
+                    'group': 'пластик',
+                    'match': [],
                 },
                 {
-                    'code': '4202921100',
-                    'group': 'plastic',
+                    'code': '4819400000',
+                    'group': 'бумага',
+                    'match': [],
+                },
+                {
+                    'code': '6305109000',
+                    'group': 'текстиль',
+                    'match': [],
                 },
             ],
         },
@@ -8789,7 +8739,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4202929800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'сумка',
                         'стакана',
@@ -8802,7 +8752,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '6305900000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -8877,12 +8827,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9506919000',
-                    'group': 'sport',
+                    'group': 'спорт',
                     'match': [],
                 },
                 {
                     'code': '9019109009',
-                    'group': 'medical',
+                    'group': 'медицина',
                     'match': [],
                 },
             ],
@@ -8898,12 +8848,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8424300800',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '8424900000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
             ],
@@ -8975,12 +8925,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7324100009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '8481801900',
-                    'group': 'plumbing',
+                    'group': 'сантехника',
                     'match': [],
                 },
             ],
@@ -8997,19 +8947,19 @@ PRODUCTS = {
                 {
                     'code': '6402999100',
                     'name': 'Детские',
-                    'group': 'child',
+                    'group': 'детский',
                     'match': [],
                 },
                 {
                     'code': '6402999800',
                     'name': 'Женские',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [],
                 },
                 {
                     'code': '6402999600',
                     'name': 'Мужские',
-                    'group': 'male',
+                    'group': 'мужской',
                     'match': [],
                 },
             ],
@@ -9032,12 +8982,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'abs пластик',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '8302300009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -9060,17 +9010,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4421999000',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [],
                 },
                 {
                     'code': '9610000000',
-                    'group': 'stationery',
+                    'group': 'канцелярия',
                     'match': [],
                 },
                 {
                     'code': '9403208009',
-                    'group': 'furniture',
+                    'group': 'мебель',
                     'match': [],
                 },
             ],
@@ -9147,12 +9097,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6405909000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [],
                 },
                 {
                     'code': '6402190000',
-                    'group': 'rubber',
+                    'group': 'резина',
                     'match': [],
                 },
             ],
@@ -9275,12 +9225,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9206000000',
-                    'group': 'music',
+                    'group': 'музыка',
                     'match': [],
                 },
                 {
                     'code': '8306100000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -9335,7 +9285,7 @@ PRODUCTS = {
                 {
                     'code': '3923301090',
                     'name': 'Пласт до 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'мусорный',
                     ],
@@ -9343,21 +9293,21 @@ PRODUCTS = {
                 {
                     'code': '7310100000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '3923309090',
                     'name': 'Пласт после 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'мусорное ведро',
                         'ведро для мусора',
                     ],
-                    'characteristic': 'household',
+                    'characteristic': 'бытовой',
                 },
             ],
         },
@@ -9427,12 +9377,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8509400000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
                 {
                     'code': '8205510090',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'ручная',
                         'механическая',
@@ -9494,14 +9444,14 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9504908009',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [
                         'опытов',
                     ],
                 },
                 {
                     'code': '7018109000',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
             ],
@@ -9580,12 +9530,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4903000000',
-                    'group': 'paper',
+                    'group': 'бумага',
                     'match': [],
                 },
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
             ],
@@ -9613,12 +9563,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9021101000',
-                    'group': 'medical',
+                    'group': 'медицина',
                     'match': [],
                 },
                 {
                     'code': '6307909800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -9649,12 +9599,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8206000000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '8205909000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -9719,12 +9669,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4823699000',
-                    'group': 'paper',
+                    'group': 'бумага',
                     'match': [],
                 },
                 {
                     'code': '3924100000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -9800,12 +9750,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6306120000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '7610909000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -9860,12 +9810,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '4304000000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [],
                 },
             ],
@@ -9898,23 +9848,23 @@ PRODUCTS = {
                 {
                     'code': '3926909709',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7326909807',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '4016930005',
-                    'group': 'rubber',
+                    'group': 'резина',
                     'match': [],
                 },
                 {
                     'code': '6307909800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'спортивная',
                         'спорта',
@@ -9933,12 +9883,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -9968,37 +9918,6 @@ PRODUCTS = {
         'code': '3926909709',
         'patterns': [],
         'aliases': [],
-    },
-    'наклейка': {
-        'code': '',
-        'patterns': [],
-        'aliases': [
-            'наклейка автомобильная',
-            'наклейка коллекционная',
-            'знак автомобильный',
-            'наклейки',
-            'стикеры',
-            'стикер',
-            'этикетка',
-        ],
-        'dropdown': {
-            'variants': [
-                {
-                    'code': '3919900000',
-                    'group': 'plastic',
-                    'match': [],
-                },
-                {
-                    'code': '4811419000',
-                    'group': 'бумага',
-                    'match': [
-                        'стикер',
-                        'бумаж',
-                        'бумаг',
-                    ],
-                },
-            ],
-        },
     },
     'наколенник': {
         'code': '9506919000',
@@ -10066,7 +9985,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6307909800',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [
                         'пояс',
                         'инструментов',
@@ -10083,12 +10002,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9404908000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '9403700008',
-                    'group': 'furniture',
+                    'group': 'мебель',
                     'match': [],
                 },
             ],
@@ -10116,12 +10035,12 @@ PRODUCTS = {
                 {
                     'code': '7326909807',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '3926909709',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -10146,12 +10065,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
                 {
                     'code': '9506290000',
-                    'group': 'sport',
+                    'group': 'спорт',
                     'match': [],
                 },
             ],
@@ -10264,24 +10183,24 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8414807300',
-                    'group': 'air',
+                    'group': 'воздух',
                 },
                 {
                     'code': '8413810000',
-                    'group': 'water',
+                    'group': 'вода',
                 },
                 {
                     'code': '8413302008',
-                    'group': 'fuel',
+                    'group': 'топливо',
                 },
                 {
                     'code': '8414202000',
                     'name': 'Ручно',
-                    'group': 'manual',
+                    'group': 'ручной',
                 },
                 {
                     'code': '8414208000',
-                    'group': 'manual',
+                    'group': 'ручной',
                     'match': [
                         'резиновая',
                         'груша',
@@ -10330,7 +10249,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9405110039',
-                    'group': 'lamp',
+                    'group': 'освещение',
                     'match': [
                         'потолочный',
                         'уличный',
@@ -10340,7 +10259,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '9405290039',
-                    'group': 'lamp',
+                    'group': 'освещение',
                     'match': [],
                 },
             ],
@@ -10378,14 +10297,14 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9405210013',
-                    'group': 'lamp',
+                    'group': 'освещение',
                     'match': [
                         'напольный',
                     ],
                 },
                 {
                     'code': '9405290039',
-                    'group': 'lamp',
+                    'group': 'освещение',
                     'match': [],
                 },
             ],
@@ -10413,7 +10332,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8518309500',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [
                         'противошумные',
                         'микрофоном',
@@ -10425,7 +10344,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '6307909800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'polar',
                         'китай',
@@ -10517,12 +10436,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8213000000',
-                    'group': 'сталь',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '8509800000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -10542,6 +10461,14 @@ PRODUCTS = {
         'code': '8202100000',
         'patterns': [],
         'aliases': [],
+    },
+    'нори': {
+        'code': '1212210000',
+        'patterns': [],
+        'aliases': [
+            'водоросли нори',
+            'капуста нори',
+        ],
     },
     'носки': {
         'code': '6115950000',
@@ -10663,7 +10590,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '9403208009',
-                    'group': 'furniture',
+                    'group': 'мебель',
                     'match': [],
                 },
             ],
@@ -10752,7 +10679,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9403609009',
-                    'group': 'furniture',
+                    'group': 'мебель',
                     'match': [
                         'белья',
                         'корзина',
@@ -10760,12 +10687,12 @@ PRODUCTS = {
                 },
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -10786,17 +10713,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6211321000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
                 {
                     'code': '5608191900',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '3926200000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -10838,7 +10765,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6109909000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [
                         'малышей',
                         'майка',
@@ -10846,7 +10773,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '6102909000',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [],
                 },
             ],
@@ -10916,44 +10843,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'органайзер': {
-        'code': '',
-        'patterns': [
-            'органайз.*',
-        ],
-        'aliases': [
-            'organayzer',
-        ],
-        'dropdown': {
-            'title': 'Выберите вариант',
-            'variants': [
-                {
-                    'code': '3923100000',
-                    'name': 'Пластик',
-                    'group': 'plastic',
-                    'match': [],
-                },
-                {
-                    'code': '4202929800',
-                    'name': 'Текстиль',
-                    'group': 'textile',
-                    'match': [],
-                },
-                {
-                    'code': '7326909409',
-                    'name': 'Металл',
-                    'group': 'metal',
-                    'match': [],
-                },
-                {
-                    'code': '4819100000',
-                    'name': 'Чехол пласт',
-                    'group': 'бумага',
-                    'match': [],
-                },
-            ],
-        },
-    },
     'органайзер автомобильная': {
         'code': '3926300000',
         'patterns': [],
@@ -11013,14 +10902,14 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8421392008',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [
                         'увлажнитель',
                     ],
                 },
                 {
                     'code': '8543708000',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [],
                 },
             ],
@@ -11069,12 +10958,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8424300100',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '8516400000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
             ],
@@ -11111,7 +11000,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6306900000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'туризма',
                         'пол',
@@ -11119,7 +11008,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -11182,7 +11071,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9004901000',
-                    'group': 'optics',
+                    'group': 'оптика',
                     'match': [
                         'диоптрий',
                         'без',
@@ -11192,7 +11081,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '9004909000',
-                    'group': 'optics',
+                    'group': 'оптика',
                     'match': [],
                 },
             ],
@@ -11215,12 +11104,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9004109100',
-                    'group': 'optics',
+                    'group': 'оптика',
                     'match': [],
                 },
                 {
                     'code': '9004109900',
-                    'group': 'optics',
+                    'group': 'оптика',
                     'match': [
                         'диоптрий',
                         'без',
@@ -11247,12 +11136,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503006900',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
                 {
                     'code': '9504908009',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [],
                 },
             ],
@@ -11260,32 +11149,6 @@ PRODUCTS = {
     },
     'пазлы': {
         'code': '9503006900',
-        'patterns': [],
-        'aliases': [],
-    },
-    'пакет': {
-        'code': '3923210000',
-        'patterns': [],
-        'aliases': [
-            'пакеты',
-        ],
-        'dropdown': {
-            'variants': [
-                {
-                    'code': '3923210000',
-                    'group': 'plastic',
-                    'match': [],
-                },
-            ],
-        },
-    },
-    'пакет для продуктов': {
-        'code': '3923299000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'пакет подарочный': {
-        'code': '3923299000',
         'patterns': [],
         'aliases': [],
     },
@@ -11323,7 +11186,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6505009000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
@@ -11380,17 +11243,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9506919000',
-                    'group': 'sport',
+                    'group': 'спорт',
                     'match': [],
                 },
                 {
                     'code': '9021101000',
-                    'group': 'medical',
+                    'group': 'медицина',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -11466,7 +11329,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3405901090',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
@@ -11492,12 +11355,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '9505900000',
-                    'group': 'carnival',
+                    'group': 'карнавал',
                     'match': [],
                 },
             ],
@@ -11543,12 +11406,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8714103000',
-                    'group': 'motorcycle',
+                    'group': 'мотоцикл',
                     'match': [],
                 },
                 {
                     'code': '8302300009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -11564,12 +11427,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8518408008',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [],
                 },
                 {
                     'code': '9209920000',
-                    'group': 'music',
+                    'group': 'музыка',
                     'match': [],
                 },
             ],
@@ -11651,17 +11514,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6913909800',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                     'match': [],
                 },
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -11681,7 +11544,7 @@ PRODUCTS = {
                 {
                     'code': '8536501109',
                     'name': 'кнопочный',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [
                         'кнопочный',
                     ],
@@ -11689,7 +11552,7 @@ PRODUCTS = {
                 {
                     'code': '8536501509',
                     'name': 'поворотный',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [
                         'поворотный',
                     ],
@@ -11731,12 +11594,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8536691000',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [],
                 },
                 {
                     'code': '8536900100',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [
                         'штатное',
                         'место',
@@ -11764,12 +11627,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8515110000',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [],
                 },
                 {
                     'code': '8416900000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
             ],
@@ -11821,12 +11684,12 @@ PRODUCTS = {
                 },
                 {
                     'code': '4015190000',
-                    'group': 'rubber',
+                    'group': 'резина',
                     'match': [],
                 },
                 {
                     'code': '4203299000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [],
                 },
             ],
@@ -11909,17 +11772,17 @@ PRODUCTS = {
                 {
                     'code': '6103390000',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                 },
                 {
                     'code': '6204399000',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                 },
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                 },
             ],
         },
@@ -11944,7 +11807,7 @@ PRODUCTS = {
                 {
                     'code': '6208290000',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [
                         'пеньюар',
                         'красивый',
@@ -11956,7 +11819,7 @@ PRODUCTS = {
                 {
                     'code': '6207999000',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                 },
                 {
                     'code': '6108390000',
@@ -12013,11 +11876,6 @@ PRODUCTS = {
         'aliases': [
             'пильный диск',
         ],
-    },
-    'пилюли для сердца': {
-        'code': '3004900002',
-        'patterns': [],
-        'aliases': [],
     },
     'пинетки': {
         'code': '6405209900',
@@ -12108,7 +11966,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3005100000',
-                    'group': 'medical',
+                    'group': 'медицина',
                     'match': [],
                 },
             ],
@@ -12181,12 +12039,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6102901000',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [],
                 },
                 {
                     'code': '6202900001',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [],
                 },
             ],
@@ -12432,22 +12290,22 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4421999000',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [],
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '6912002900',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                     'match': [],
                 },
             ],
@@ -12511,7 +12369,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'бижутерии',
                         'украшений',
@@ -12520,13 +12378,13 @@ PRODUCTS = {
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'фруктовница',
                         'ключей',
                         'чаша',
                     ],
-                    'characteristic': 'household',
+                    'characteristic': 'бытовой',
                 },
                 {
                     'code': '4421999000',
@@ -12535,7 +12393,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '9403208009',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'цветов',
                     ],
@@ -12557,12 +12415,12 @@ PRODUCTS = {
                 {
                     'code': '9403609009',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '9403208009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
             ],
         },
@@ -12612,12 +12470,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8516605000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -12631,12 +12489,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6307909800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '3926400000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -12672,12 +12530,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '9403208009',
-                    'group': 'furniture',
+                    'group': 'мебель',
                     'match': [],
                 },
             ],
@@ -12769,7 +12627,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8413810000',
-                    'group': 'water',
+                    'group': 'вода',
                     'match': [
                         'фонтана',
                         'автоматическая',
@@ -12777,12 +12635,12 @@ PRODUCTS = {
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'автопоилка',
                         'кормушка',
                     ],
-                    'characteristic': 'household',
+                    'characteristic': 'бытовой',
                 },
             ],
         },
@@ -12817,12 +12675,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3918109000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '4202921900',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -12837,19 +12695,19 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4011100009',
-                    'group': 'automobile',
+                    'group': 'автомобиль',
                 },
                 {
                     'code': '4011400000',
-                    'group': 'motorcycle',
+                    'group': 'мотоцикл',
                 },
                 {
                     'code': '4011500009',
-                    'group': 'bicycle',
+                    'group': 'велосипед',
                 },
                 {
                     'code': '9507209000',
-                    'group': 'fishing',
+                    'group': 'рыбалка',
                 },
             ],
         },
@@ -12868,7 +12726,7 @@ PRODUCTS = {
                 {
                     'code': '9403208009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'кухонной',
                         'напольная',
@@ -12878,18 +12736,18 @@ PRODUCTS = {
                 {
                     'code': '9403609009',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '9403700008',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
-                    'characteristic': 'household',
+                    'characteristic': 'бытовой',
                 },
             ],
         },
@@ -12902,12 +12760,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -12992,11 +12850,6 @@ PRODUCTS = {
     },
     'поппер': {
         'code': '9507900000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'порошок бромелайна': {
-        'code': '2936900009',
         'patterns': [],
         'aliases': [],
     },
@@ -13107,12 +12960,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '8515110000',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [],
                 },
             ],
@@ -13174,11 +13027,6 @@ PRODUCTS = {
     },
     'предохранительный клапан': {
         'code': '8481401000',
-        'patterns': [],
-        'aliases': [],
-    },
-    'предтренировочный комплекс': {
-        'code': '2106909803',
         'patterns': [],
         'aliases': [],
     },
@@ -13269,12 +13117,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6802290009',
-                    'group': 'stone',
+                    'group': 'камень',
                     'match': [],
                 },
                 {
                     'code': '7103990008',
-                    'group': 'jewelry',
+                    'group': 'украшения',
                     'match': [],
                 },
             ],
@@ -13376,12 +13224,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8517180000',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [],
                 },
                 {
                     'code': '8517110000',
-                    'group': 'electronics',
+                    'group': 'электроника',
                     'match': [],
                 },
             ],
@@ -13396,7 +13244,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [
                         'мебель',
                         'кукол',
@@ -13404,7 +13252,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'синельная',
                     ],
@@ -13574,12 +13422,12 @@ PRODUCTS = {
                 {
                     'code': '9606210000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '9606220000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
             ],
         },
@@ -13616,7 +13464,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8543708000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -13847,11 +13695,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'растительный напиток': {
-        'code': '2106909803',
-        'patterns': [],
-        'aliases': [],
-    },
     'расходник для печати': {
         'code': '',
         'patterns': [],
@@ -13864,12 +13707,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8443999000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '3215900009',
-                    'group': 'chemistry',
+                    'group': 'химия',
                     'match': [],
                 },
             ],
@@ -13952,12 +13795,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4016999708',
-                    'group': 'rubber',
+                    'group': 'резина',
                     'match': [],
                 },
                 {
                     'code': '9615900000',
-                    'group': 'hair',
+                    'group': 'волосы',
                     'match': [
                         'волос',
                         'смешанный',
@@ -13980,12 +13823,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4016920000',
-                    'group': 'rubber',
+                    'group': 'резина',
                     'match': [],
                 },
                 {
                     'code': '3926100000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -14014,7 +13857,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'кухни',
                     ],
@@ -14045,23 +13888,23 @@ PRODUCTS = {
                 {
                     'code': '4203300000',
                     'name': 'Кожа',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
                 {
                     'code': '6117808009',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '6117801009',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'стяжной',
                     ],
                 },
                 {
                     'code': '4010320000',
-                    'group': 'automobile',
+                    'group': 'автомобиль',
                     'match': [
                         'вариатора',
                         'приводной',
@@ -14102,17 +13945,17 @@ PRODUCTS = {
                 {
                     'code': '9113900009',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '9113900001',
                     'name': 'Кожа',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
                 {
                     'code': '9113200000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
             ],
         },
@@ -14130,12 +13973,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9113900009',
-                    'group': 'watch',
+                    'group': 'часы',
                     'match': [],
                 },
                 {
                     'code': '9113200000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -14209,7 +14052,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -14337,17 +14180,17 @@ PRODUCTS = {
                 {
                     'code': '6205908009',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                 },
                 {
                     'code': '6206909000',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                 },
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                 },
             ],
         },
@@ -14392,12 +14235,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3925300000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '4419900000',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [],
                 },
             ],
@@ -14528,7 +14371,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8205909000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -14562,12 +14405,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8714109000',
-                    'group': 'motorcycle',
+                    'group': 'мотоцикл',
                     'match': [],
                 },
                 {
                     'code': '8714999009',
-                    'group': 'bicycle',
+                    'group': 'велосипед',
                     'match': [],
                 },
             ],
@@ -14592,7 +14435,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4202921100',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'школьная',
                         'сумка',
@@ -14600,7 +14443,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '4202929100',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -14628,12 +14471,12 @@ PRODUCTS = {
                 {
                     'code': '6405909000',
                     'name': 'Прочее',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
                 {
                     'code': '6403999800',
                     'name': 'Кожа',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [
                         'мюли',
                         'каблуке',
@@ -14673,12 +14516,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3918109000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '5603139000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -14715,16 +14558,16 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4803009000',
-                    'group': 'paper',
+                    'group': 'бумага',
                 },
                 {
                     'code': '6307109000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
                 {
                     'code': '6307103000',
                     'name': 'Неткан',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
             ],
         },
@@ -14744,19 +14587,19 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6307103000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'безворсовые',
                     ],
                 },
                 {
                     'code': '6307109000',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
                 {
                     'code': '4803009000',
-                    'group': 'paper',
+                    'group': 'бумага',
                     'match': [
                         'коврик',
                         'одноразовый',
@@ -14781,12 +14624,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -14849,7 +14692,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7013499900',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
                 {
@@ -14868,12 +14711,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503003900',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
                 {
                     'code': '9503003500',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
             ],
@@ -14894,12 +14737,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8207509000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '8207909900',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -14918,13 +14761,13 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9405290039',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '8539490000',
                     'name': 'фитосветильник',
-                    'group': 'uf',
+                    'group': 'уф',
                     'match': [],
                 },
             ],
@@ -14992,16 +14835,16 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6110909000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                 },
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                 },
                 {
                     'code': '4201000000',
-                    'group': 'animal',
+                    'group': 'животные',
                     'match': [
                         'для собаки',
                         'для собак',
@@ -15306,12 +15149,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9604000000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -15337,14 +15180,14 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9604000000',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [
                         'садовое',
                     ],
                 },
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -15448,12 +15291,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9603210000',
-                    'group': 'hygiene',
+                    'group': 'гигиена',
                     'match': [],
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -15511,12 +15354,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6307909800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '6217100000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'пояс',
                     ],
@@ -15532,12 +15375,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '2710199800',
-                    'group': 'fuel',
+                    'group': 'топливо',
                     'match': [],
                 },
                 {
                     'code': '3403199000',
-                    'group': 'chemistry',
+                    'group': 'химия',
                     'match': [],
                 },
             ],
@@ -15653,12 +15496,12 @@ PRODUCTS = {
                 {
                     'code': '3924900009',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7323990000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
             ],
         },
@@ -15698,12 +15541,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '6912002900',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                     'match': [],
                 },
             ],
@@ -15739,12 +15582,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3924100000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '9404300000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -16036,11 +15879,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'средство от грибка': {
-        'code': '3004900002',
-        'patterns': [],
-        'aliases': [],
-    },
     'средство от накипи': {
         'code': '3824994500',
         'patterns': [],
@@ -16061,7 +15899,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6702900000',
-                    'group': 'decor',
+                    'group': 'декор',
                     'match': [],
                 },
                 {
@@ -16083,17 +15921,17 @@ PRODUCTS = {
                 {
                     'code': '6912002900',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7013499900',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '3924100000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -16145,12 +15983,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8714999009',
-                    'group': 'bicycle',
+                    'group': 'велосипед',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -16174,12 +16012,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909200',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -16205,12 +16043,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8205909000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '9021101000',
-                    'group': 'medical',
+                    'group': 'медицина',
                     'match': [],
                 },
             ],
@@ -16226,17 +16064,17 @@ PRODUCTS = {
                 {
                     'code': '9403208009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '9403609009',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '9403700008',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -16365,12 +16203,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -16419,7 +16257,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8205700000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -16454,7 +16292,7 @@ PRODUCTS = {
                 {
                     'code': '9401710009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'табурет',
                     ],
@@ -16466,7 +16304,7 @@ PRODUCTS = {
                 {
                     'code': '9401610000',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
             ],
         },
@@ -16504,12 +16342,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6911100000',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                     'match': [],
                 },
                 {
                     'code': '7323910000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -16554,7 +16392,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4202290000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'uniqlo',
                         'боди',
@@ -16565,7 +16403,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '4202210000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [
                         'портфель',
                         'шоппер',
@@ -16583,7 +16421,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '4202929800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'rhinowalk',
                         'велосипедная',
@@ -16656,12 +16494,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'белья',
                         'навесная',
@@ -16684,12 +16522,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8516299100',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [],
                 },
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -16723,12 +16561,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
                 {
                     'code': '9017809000',
-                    'group': 'measuring',
+                    'group': 'измерения',
                     'match': [],
                 },
             ],
@@ -16763,11 +16601,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'таблетки': {
-        'code': '2106909803',
-        'patterns': [],
-        'aliases': [],
-    },
     'таблетница': {
         'code': '',
         'patterns': [],
@@ -16776,12 +16609,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3924100000',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '7323990000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -16800,12 +16633,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8310000000',
-                    'group': 'алюминий',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -16832,12 +16665,12 @@ PRODUCTS = {
                 {
                     'code': '3924900009',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7323990000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'пластик',
                         'moorii',
@@ -16875,12 +16708,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6405909000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [],
                 },
                 {
                     'code': '6405209100',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -16899,12 +16732,12 @@ PRODUCTS = {
                 {
                     'code': '6912002900',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7013499900',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [
                         'цвет',
                         'стекло',
@@ -16914,25 +16747,20 @@ PRODUCTS = {
                 {
                     'code': '3924100000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7323930000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '4419900000',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
             ],
         },
-    },
-    'таурин': {
-        'code': '2936290009',
-        'patterns': [],
-        'aliases': [],
     },
     'тахограф автомобильный': {
         'code': '8525899900',
@@ -17260,12 +17088,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9503009909',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
                 {
                     'code': '9503009500',
-                    'group': 'toys',
+                    'group': 'игрушки',
                     'match': [],
                 },
             ],
@@ -17329,12 +17157,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8467298000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '8467292000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
             ],
@@ -17425,7 +17253,7 @@ PRODUCTS = {
                 {
                     'code': '6107190000',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                     'match': [
                         'боксеры',
                         'трусов',
@@ -17435,12 +17263,12 @@ PRODUCTS = {
                 {
                     'code': '6108290000',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                 },
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                     'match': [
                         'боксеры',
                     ],
@@ -17462,16 +17290,16 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4803009000',
-                    'group': 'paper',
+                    'group': 'бумага',
                 },
                 {
                     'code': '6307109000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
                 {
                     'code': '6307103000',
                     'name': 'Неткан',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
             ],
         },
@@ -17514,13 +17342,13 @@ PRODUCTS = {
                 {
                     'code': '9403609009',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [],
                 },
                 {
                     'code': '9403700008',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -17569,32 +17397,32 @@ PRODUCTS = {
                 {
                     'code': '6402999600',
                     'name': 'Муж',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '6402999800',
                     'name': 'Жен',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '6402999100',
                     'name': 'Детск ',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '6403999600',
                     'name': 'Муж',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
                 {
                     'code': '6403999800',
                     'name': 'Жен',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
                 {
                     'code': '6403999100',
                     'name': 'Детск',
-                    'group': 'leather',
+                    'group': 'кожа',
                 },
             ],
         },
@@ -17735,7 +17563,7 @@ PRODUCTS = {
         'aliases': [],
     },
     'уксус': {
-        'code': '2103909009',
+        'code': '2209009100',
         'patterns': [],
         'aliases': [],
     },
@@ -17809,12 +17637,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9015309000',
-                    'group': 'measuring',
+                    'group': 'измерения',
                     'match': [],
                 },
                 {
                     'code': '8513100000',
-                    'group': 'lamp',
+                    'group': 'освещение',
                     'match': [],
                 },
             ],
@@ -17944,17 +17772,17 @@ PRODUCTS = {
                 {
                     'code': '3926400000',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '8306290009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '4420190000',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
             ],
         },
@@ -18004,15 +17832,15 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8421210009',
-                    'group': 'water',
+                    'group': 'вода',
                 },
                 {
                     'code': '8421392008',
-                    'group': 'air',
+                    'group': 'воздух',
                 },
                 {
                     'code': '8421230000',
-                    'group': 'fuel',
+                    'group': 'топливо',
                 },
             ],
         },
@@ -18059,13 +17887,13 @@ PRODUCTS = {
                 {
                     'code': '7412200000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '3917400009',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -18103,7 +17931,7 @@ PRODUCTS = {
                 {
                     'code': '3923301090',
                     'name': 'Пласт до 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'дорожный',
                         'набор',
@@ -18114,7 +17942,7 @@ PRODUCTS = {
                 {
                     'code': '7310100000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'гастроемкость',
                     ],
@@ -18122,12 +17950,12 @@ PRODUCTS = {
                 {
                     'code': '3923309090',
                     'name': 'Пласт после 2',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'min_volume_l': 2,
                 },
                 {
                     'code': '7010906109',
-                    'group': 'glass',
+                    'group': 'стекло',
                     'match': [],
                 },
             ],
@@ -18206,7 +18034,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8512200009',
-                    'group': 'lamp',
+                    'group': 'освещение',
                     'match': [
                         'мототехники',
                         'фара',
@@ -18214,7 +18042,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '8512100000',
-                    'group': 'lamp',
+                    'group': 'освещение',
                     'match': [],
                 },
             ],
@@ -18249,15 +18077,15 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3924900009',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '6912002900',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7323930000',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
             ],
         },
@@ -18295,12 +18123,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '8424900000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
             ],
@@ -18383,16 +18211,16 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8302420000',
-                    'group': 'furniture',
+                    'group': 'мебель',
                 },
                 {
                     'code': '8308900000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
                 {
                     'code': '6305900000',
                     'name': 'Текстил',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
             ],
         },
@@ -18414,12 +18242,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8308900000',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'сумок',
                     ],
@@ -18486,17 +18314,17 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6109909000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
                 {
                     'code': '6109902000',
-                    'group': 'adult',
+                    'group': 'взрослый',
                     'match': [],
                 },
                 {
                     'code': '6111309000',
-                    'group': 'child',
+                    'group': 'детский',
                     'match': [
                         'белья',
                         'комплект',
@@ -18520,12 +18348,12 @@ PRODUCTS = {
                 {
                     'code': '4202921900',
                     'name': 'Пласт',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
                 {
                     'code': '4202929800',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -18539,12 +18367,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4202990000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '4202918000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [],
                 },
             ],
@@ -18582,7 +18410,7 @@ PRODUCTS = {
                 },
                 {
                     'code': '6208920000',
-                    'group': 'female',
+                    'group': 'женский',
                     'match': [
                         'пеньюар',
                     ],
@@ -18637,17 +18465,17 @@ PRODUCTS = {
                 {
                     'code': '3926909709',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7326909807',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '4016999708',
                     'name': 'Резина',
-                    'group': 'rubber',
+                    'group': 'резина',
                 },
             ],
         },
@@ -18706,18 +18534,19 @@ PRODUCTS = {
             'patron',
         ],
     },
+    'чай': {
+        'code': '0902300009',
+        'patterns': [],
+        'aliases': [
+            'чай листовой',
+            'chay',
+            'китайский чай',
+        ],
+    },
     'чай в пакетиках': {
         'code': '0902300001',
         'patterns': [],
         'aliases': [],
-    },
-    'чай листовой': {
-        'code': '0902300009',
-        'patterns': [],
-        'aliases': [
-            'чай',
-            'chay',
-        ],
     },
     'чайная доска': {
         'code': '4419190000',
@@ -18742,21 +18571,21 @@ PRODUCTS = {
                 {
                     'code': '7323930000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '7013379900',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '8516797000',
                     'name': 'Электро',
-                    'group': 'electric',
+                    'group': 'электрический',
                 },
                 {
                     'code': '6912002900',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
             ],
         },
@@ -18782,7 +18611,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8508700008',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -18851,22 +18680,22 @@ PRODUCTS = {
                 {
                     'code': '6912002900',
                     'name': 'Керамика',
-                    'group': 'ceramic',
+                    'group': 'керамика',
                 },
                 {
                     'code': '7013499900',
                     'name': 'Стекло',
-                    'group': 'glass',
+                    'group': 'стекло',
                 },
                 {
                     'code': '3924100000',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '7323990000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
             ],
         },
@@ -18891,12 +18720,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4420190000',
-                    'group': 'wood',
+                    'group': 'дерево',
                     'match': [],
                 },
                 {
                     'code': '7117900000',
-                    'group': 'jewelry',
+                    'group': 'украшения',
                     'match': [],
                 },
             ],
@@ -18908,14 +18737,14 @@ PRODUCTS = {
         'aliases': [],
     },
     'чехол': {
-        'code': '4202199000',
+        'code': '',
         'patterns': [],
         'aliases': [],
         'dropdown': {
             'variants': [
                 {
-                    'code': '6306120000',
-                    'group': 'оксфорд',
+                    'code': '4202929800',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -18961,25 +18790,6 @@ PRODUCTS = {
         'patterns': [],
         'aliases': [],
     },
-    'чехол для одежды': {
-        'code': '',
-        'patterns': [],
-        'aliases': [],
-        'dropdown': {
-            'variants': [
-                {
-                    'code': '3923210000',
-                    'group': 'plastic',
-                    'match': [],
-                },
-                {
-                    'code': '4202929800',
-                    'group': 'textile',
-                    'match': [],
-                },
-            ],
-        },
-    },
     'чехол для смартфона': {
         'code': '4202321000',
         'patterns': [
@@ -19019,6 +18829,36 @@ PRODUCTS = {
             'запчасть для смарт часов',
         ],
     },
+    'чехол для термоса': {
+        'code': '4202199000',
+        'patterns': [],
+        'aliases': [],
+        'excludes_context': [
+            'телефон',
+            'смартфон',
+            'iphone',
+            'айфон',
+            'samsung',
+            'galaxy',
+            'xiaomi',
+            'redmi',
+            'honor',
+            'huawei',
+            'realme',
+            'poco',
+            'tecno',
+            'infinix',
+        ],
+        'dropdown': {
+            'variants': [
+                {
+                    'code': '6306120000',
+                    'group': 'оксфорд',
+                    'match': [],
+                },
+            ],
+        },
+    },
     'чехол для удочки': {
         'code': '4202990000',
         'patterns': [],
@@ -19057,7 +18897,7 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6304990000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
@@ -19076,12 +18916,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '9404908000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '3926909709',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [],
                 },
             ],
@@ -19228,12 +19068,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6117100000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '6214900000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [
                         'косынка',
                     ],
@@ -19325,15 +19165,15 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4011100009',
-                    'group': 'automobile',
+                    'group': 'автомобиль',
                 },
                 {
                     'code': '4011400000',
-                    'group': 'motorcycle',
+                    'group': 'мотоцикл',
                 },
                 {
                     'code': '4011500009',
-                    'group': 'bicycle',
+                    'group': 'велосипед',
                 },
             ],
         },
@@ -19358,22 +19198,22 @@ PRODUCTS = {
                 {
                     'code': '4202921900',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
                 {
                     'code': '4420909900',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '8306290009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '4202929800',
                     'name': 'Текстиль',
-                    'group': 'textile',
+                    'group': 'текстиль',
                 },
             ],
         },
@@ -19392,17 +19232,17 @@ PRODUCTS = {
                 {
                     'code': '9403208009',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                 },
                 {
                     'code': '9403609009',
                     'name': 'Дерево',
-                    'group': 'wood',
+                    'group': 'дерево',
                 },
                 {
                     'code': '9403700008',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                 },
             ],
         },
@@ -19448,7 +19288,7 @@ PRODUCTS = {
                 {
                     'code': '3917320009',
                     'name': 'Пластик',
-                    'group': 'plastic',
+                    'group': 'пластик',
                     'match': [
                         'сифона',
                         'гофротруба',
@@ -19475,12 +19315,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '4009420000',
-                    'group': 'rubber',
+                    'group': 'резина',
                     'match': [],
                 },
                 {
                     'code': '7326909807',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [],
                 },
             ],
@@ -19517,12 +19357,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6405909000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [],
                 },
                 {
                     'code': '6402993900',
-                    'group': 'rubber',
+                    'group': 'резина',
                     'match': [],
                 },
             ],
@@ -19551,12 +19391,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6506999090',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
                 {
                     'code': '6505001000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],
@@ -19617,17 +19457,17 @@ PRODUCTS = {
                 {
                     'code': '6203499000',
                     'name': 'Муж',
-                    'group': 'male',
+                    'group': 'мужской',
                 },
                 {
                     'code': '6204695000',
                     'name': 'Жен',
-                    'group': 'female',
+                    'group': 'женский',
                 },
                 {
                     'code': '6111909000',
                     'name': 'Дет',
-                    'group': 'child',
+                    'group': 'детский',
                 },
                 {
                     'code': '6104620000',
@@ -19773,13 +19613,13 @@ PRODUCTS = {
                 {
                     'code': '8467219900',
                     'name': 'Сетевой',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '8467211000',
                     'name': 'Аккумуляторный',
-                    'group': 'battery',
+                    'group': 'аккумуляторный',
                     'match': [],
                 },
             ],
@@ -19864,7 +19704,7 @@ PRODUCTS = {
                 {
                     'code': '9603909900',
                     'name': 'Бытовая (дом/уборка/одежда)',
-                    'group': 'household',
+                    'group': 'бытовой',
                     'match': [
                         'для дома',
                         'для уборки',
@@ -19905,7 +19745,7 @@ PRODUCTS = {
                 {
                     'code': '7323100000',
                     'name': 'Металл',
-                    'group': 'metal',
+                    'group': 'металл',
                     'match': [
                         'для гриля',
                         'для мангала',
@@ -20171,12 +20011,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8467221000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '8467292000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
             ],
@@ -20200,12 +20040,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '8467298509',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
                 {
                     'code': '8467292000',
-                    'group': 'electric',
+                    'group': 'электрический',
                     'match': [],
                 },
             ],
@@ -20253,12 +20093,12 @@ PRODUCTS = {
             'variants': [
                 {
                     'code': '6405909000',
-                    'group': 'leather',
+                    'group': 'кожа',
                     'match': [],
                 },
                 {
                     'code': '6404199000',
-                    'group': 'textile',
+                    'group': 'текстиль',
                     'match': [],
                 },
             ],

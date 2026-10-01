@@ -12,7 +12,8 @@ from learning.learning_filters import (
 from learning.name_normalizer import normalize_dictionary_name
 from learning.product_matcher import ProductMatcher
 from utils.synonyms import match_terms
-from utils.material_extractor import is_excluded_material_key, MATERIAL_GROUP_EN
+from utils.material_extractor import is_excluded_material_key
+from utils.groups import canon
 from utils.gender_extractor import find_known_gender
 
 from learning.review_models import (
@@ -646,17 +647,14 @@ class LearningAnalyzer:
         # и русское каноническое имя, и его английский эквивалент,
         # т.к. group у разных товаров исторически записан в разных
         # конвенциях (см. utils.material_extractor.MATERIAL_GROUP_EN).
-        group_candidates = {material}
-        english = MATERIAL_GROUP_EN.get(material)
-        if english:
-            group_candidates.add(english)
+        group_candidates = {canon(material)}
 
         existing_variants = (
             (product_info.get("dropdown") or {}).get("variants", [])
             or []
         )
         existing_groups = {
-            str(v.get("group", "")).strip().lower()
+            canon(v.get("group", ""))
             for v in existing_variants
         }
 
@@ -670,7 +668,7 @@ class LearningAnalyzer:
             if item.product == product_name and str(item.code).strip() == str(code).strip():
                 return
 
-        group = english or material
+        group = canon(material)
 
         report.new_dropdown_variants.append(
             NewDropdownVariant(

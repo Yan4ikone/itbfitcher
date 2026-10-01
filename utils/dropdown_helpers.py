@@ -15,7 +15,7 @@ dropdown-варианты хранят только code/group/match - "name" н
 
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from utils.material_extractor import MATERIAL_GROUP_EN
+from utils.groups import canon, color_group
 
 
 def write_code_cell(cell, code):
@@ -68,7 +68,6 @@ def write_code_cell(cell, code):
 
 # group хранится по-английски у большинства товаров (metal/plastic/...),
 # но для показа человеку удобнее по-русски - обратный перевод.
-MATERIAL_GROUP_RU = {en: ru for ru, en in MATERIAL_GROUP_EN.items()}
 
 
 def variant_display_name(variant: dict) -> str:
@@ -88,7 +87,7 @@ def variant_display_name(variant: dict) -> str:
 
     if group and group.lower() != "other":
 
-        display = MATERIAL_GROUP_RU.get(group.lower(), group)
+        display = canon(group)
 
         return display[:1].upper() + display[1:] if display else display
 
@@ -112,12 +111,9 @@ def group_color_key(group: str) -> str:
     английского на русский, если нужно (group хранится по-английски
     у большинства товаров - metal/plastic/...)."""
 
-    group = str(group or "").strip().lower()
-
-    if not group:
-        return ""
-
-    return MATERIAL_GROUP_RU.get(group, group)
+    # Одна группа - один цвет (utils/groups.py): plastic/пластик/
+    # abs пластик/пвх красятся цветом "пластик".
+    return color_group(group)
 
 
 def variant_color_key(variant: dict) -> str:

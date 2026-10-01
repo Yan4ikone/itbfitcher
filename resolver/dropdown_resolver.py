@@ -1,12 +1,6 @@
 from resolver.dropdown_axis_resolver import AXIS_RESOLVERS, get_axis_resolver
 from utils.dropdown_helpers import variant_display_name
-from utils.material_extractor import MATERIAL_GROUP_EN
-
-# Английские канонические токены материала (см. MATERIAL_GROUP_EN) -
-# ими по конвенции (обновления (2)/(17) products-dict-gradation-audit.md)
-# записывается group материальных dropdown-вариантов. Нужны отдельным
-# множеством ниже - см. комментарий у шага 2 в resolve_code().
-_ENGLISH_MATERIAL_GROUPS = frozenset(MATERIAL_GROUP_EN.values())
+from utils.groups import canon, is_standard
 
 class DropdownResolver:
 
@@ -142,12 +136,18 @@ class DropdownResolver:
 
         for variant in variants:
 
-            group = str(variant.get("group", "")).strip().lower()
+            group = canon(variant.get("group", ""))
 
             if not group:
                 continue
 
-            if group in _ENGLISH_MATERIAL_GROUPS:
+            # Стандартные группы (материал / пол / характеристика /
+            # назначение - utils/groups.py) уже проверены осями выше по
+            # своим словарям; буквальный поиск названия группы в тексте -
+            # только для своих групп товара ("кнопочный", "крестообразный").
+            # Раньше так пропускались английские материалы, а остальные
+            # английские группы в русском тексте просто не находились.
+            if is_standard(group):
                 continue
 
             if self._contains(text, group):
@@ -166,15 +166,12 @@ class DropdownResolver:
 
         if material:
 
-            material_candidates = {material}
-            english = MATERIAL_GROUP_EN.get(material)
-            if english:
-                material_candidates.add(english)
+            material_candidates = {canon(material)}
 
             for variant in variants:
 
-                name = str(variant.get("name", "")).strip().lower()
-                group = str(variant.get("group", "")).strip().lower()
+                name = canon(variant.get("name", ""))
+                group = canon(variant.get("group", ""))
 
                 if (material_candidates & {name, group}) - {""}:
 
@@ -371,7 +368,7 @@ class DropdownResolver:
         if variant.get("match"):
             return
 
-        group = str(variant.get("group", "")).strip().lower()
+        group = canon(variant.get("group", ""))
         code = str(variant.get("code", "")).strip()
 
         if not group:
@@ -379,7 +376,7 @@ class DropdownResolver:
 
         siblings = [
             item for item in variants
-            if str(item.get("group", "")).strip().lower() == group
+            if canon(item.get("group", "")) == group
             and str(item.get("code", "")).strip() not in ("", code)
         ]
 
@@ -402,7 +399,7 @@ class DropdownResolver:
             return
 
         result.code = code
-        result.dropdown_group = str(variant.get("group", "")).strip()
+        result.dropdown_group = canon(variant.get("group", ""))
         result.dropdown = variant_display_name(variant)
         result.source = source
         result.confidence = confidence

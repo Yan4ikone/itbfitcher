@@ -36,10 +36,7 @@ from learning.dictionary_registry import DICTIONARY_REGISTRY, get_dictionary
 from learning.dictionary_writer import update_dict_constant
 from learning.learning_filters import transliterate_ru
 from learning.name_normalizer import normalize_dictionary_name
-from utils.material_extractor import MATERIAL_GROUP_EN
-
-
-MATERIAL_GROUP_RU = {en: ru for ru, en in MATERIAL_GROUP_EN.items()}
+from utils.groups import LEGACY as GROUP_LEGACY, canon, standard_groups
 
 PRODUCTS_PATH = (
     Path(__file__).parent.parent
@@ -180,18 +177,10 @@ def find_group_usage(dict_key: str, group: str) -> list:
     одной и той же категории.
     """
 
-    group = str(group).strip().lower()
+    group = canon(group)
 
-    candidates = {group}
-
-    if dict_key == "material":
-        english = MATERIAL_GROUP_EN.get(group)
-        if english:
-            candidates.add(english)
-
-        russian = MATERIAL_GROUP_RU.get(group)
-        if russian:
-            candidates.add(russian)
+    # старые английские написания той же группы тоже считаются
+    candidates = {group} | {en for en, ru in GROUP_LEGACY.items() if ru == group}
 
     importlib.invalidate_caches()
     importlib.reload(products_module)
@@ -582,10 +571,14 @@ def list_known_groups() -> list:
 
         for variant in dropdown.get("variants", []) or []:
 
-            group = str(variant.get("group", "")).strip()
+            group = canon(variant.get("group", ""))
 
             if group:
                 groups.add(group)
+
+    # все стандартные русские группы видны в списке, даже если пока
+    # ни у одного варианта не используются
+    groups |= set(standard_groups())
 
     return sorted(groups)
 
@@ -603,12 +596,9 @@ def list_known_groups() -> list:
 # "other" - ошибка, и проверка его покажет.
 def _known_group_vocabulary():
 
-    return (
-        set(MATERIAL_GROUP_EN.values())
-        | set(all_dictionaries.GENDER_ALIASES.keys())
-        | set(all_dictionaries.CHARACTERISTIC_ALIASES.keys())
-        | set(all_dictionaries.PURPOSE_ALIASES.keys())
-    )
+    # Канонические русские группы (utils/groups.py) - материал, пол,
+    # характеристика, назначение.
+    return set(standard_groups())
 
 
 def list_group_issues() -> list:
@@ -669,7 +659,7 @@ def list_group_issues() -> list:
                 })
                 continue
 
-            low = group.lower()
+            low = canon(group)
 
             if (
                     low.isascii()
@@ -774,7 +764,7 @@ def set_variant_group(product: str, code: str, group: str) -> None:
     current = products_module.PRODUCTS
     variant = _find_variant(current, product, code)
 
-    variant["group"] = group
+    variant["group"] = canon(group)
 
     _write_products(current)
     _reload_products()
@@ -862,7 +852,7 @@ def add_variant(
 
     variants.append({
         "code": code,
-        "group": str(group or "").strip().lower(),
+        "group": canon(group),
         "name": str(name or "").strip(),
         "match": [str(w).strip().lower() for w in (match or []) if str(w).strip()],
     })
