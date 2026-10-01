@@ -2,6 +2,7 @@ import re
 import time
 
 from learning.alias_guard import is_related
+from utils.synonyms import synonyms_of
 
 from copy import copy
 
@@ -357,9 +358,12 @@ class ProductResolver:
             return candidates
 
         def is_specialization(specific, generic):
+            # синонимы общего товара считаются его названиями:
+            # "футляр для очков" уточняет "коробку" с синонимом "футляр"
+            names = [generic.product] + synonyms_of(generic.info)
             return (
                 specific.product != generic.product
-                and specific.product.startswith(generic.product + " ")
+                and any(specific.product.startswith(name + " ") for name in names)
             )
 
         most_specific = None

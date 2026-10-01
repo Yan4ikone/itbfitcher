@@ -364,6 +364,13 @@ class App:
 
     def __init__(self):
         self.root = tk.Tk()
+        # Ctrl+C/V/X/A на русской раскладке + меню правой кнопки во
+        # всех полях ввода программы (utils/tk_clipboard.py).
+        try:
+            from utils import tk_clipboard
+            tk_clipboard.install(self.root)
+        except Exception as error:
+            print("CLIPBOARD SHORTCUTS ERROR:", error)
         self.root.title("Кодировщик")
         self.root.geometry("1180x780")
         self.root.minsize(980, 680)

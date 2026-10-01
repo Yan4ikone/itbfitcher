@@ -464,7 +464,7 @@ def list_alias_collisions() -> list:
     for name, info in products.items():
         if not isinstance(info, dict):
             continue
-        for alias in info.get("aliases", []) or []:
+        for alias in list(info.get("aliases", []) or []) + list(info.get("synonyms") or []):
             for form in _name_forms(alias):
                 alias_owner.setdefault(form, {}).setdefault(
                     str(alias).strip().lower(), set()

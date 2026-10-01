@@ -4,6 +4,7 @@ from difflib import SequenceMatcher
 from cleaner.morphology import Morphology
 from cleaner.product_extractor import ProductExtractor
 from learning.name_normalizer import normalize_dictionary_name
+from utils.synonyms import match_terms
 
 
 class ProductMatcher:
@@ -160,7 +161,7 @@ class ProductMatcher:
         # Алиасы
         # ------------------------------------------------------
 
-        for alias in info.get("aliases", []):
+        for alias in match_terms(info):
 
             score = max(
                 score,

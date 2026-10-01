@@ -6,6 +6,7 @@ import importlib
 
 import dictionaries.products as products_dictionary
 from utils.tokenizer import lemmatized_tokens
+from utils.synonyms import match_terms
 
 
 class ProductRepository:
@@ -106,7 +107,7 @@ class ProductRepository:
             # Aliases
             # ------------------------------------------------------
 
-            for alias in info.get("aliases", []):
+            for alias in match_terms(info):
 
                 alias_lower = str(alias).lower()
 

@@ -5,7 +5,10 @@ canonicalize_products() применяется ПРЯМО ПЕРЕД запис�
 класса бага.
 """
 
-FIELD_ORDER = ["code", "patterns", "aliases", "material_codes", "dropdown"]
+FIELD_ORDER = [
+    "code", "patterns", "aliases", "synonyms", "excludes_context",
+    "requires_context", "material_codes", "dropdown",
+]
 VARIANT_FIELD_ORDER = ["code", "name", "group", "match", "min_volume_l", "max_volume_l"]
 DROPDOWN_FIELD_ORDER = ["title", "axis", "variants"]
 
@@ -110,8 +113,23 @@ def canon_entry(name, info):
             out[key] = _dedup_preserve_order(info.get("patterns", []))
             continue
 
+        if key in ("synonyms", "excludes_context", "requires_context"):
+            values = _dedup_preserve_order(info.get(key) or [])
+            if key == "synonyms":
+                values = [v for v in values if v != name]
+            if values:
+                out[key] = values
+            continue
+
         if key in info:
             out[key] = info[key]
+
+    # Остальные поля (score_words, display_name и т.п.) раньше молча
+    # терялись при каждой записи словаря - в том числе excludes_context
+    # / requires_context. Теперь сохраняются как есть, после основных.
+    for key, value in info.items():
+        if key not in out and key not in FIELD_ORDER:
+            out[key] = value
 
     return out
 

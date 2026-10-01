@@ -11,6 +11,7 @@ from learning.learning_filters import (
 )
 from learning.name_normalizer import normalize_dictionary_name
 from learning.product_matcher import ProductMatcher
+from utils.synonyms import match_terms
 from utils.material_extractor import is_excluded_material_key, MATERIAL_GROUP_EN
 from utils.gender_extractor import find_known_gender
 
@@ -782,7 +783,7 @@ class LearningAnalyzer:
         # --------------------------------------------------
         known_aliases = {
             normalize_dictionary_name(existing).lower().strip()
-            for existing in (product_info.get("aliases", []) or [])
+            for existing in match_terms(product_info)
         }
 
         if alias in known_aliases:

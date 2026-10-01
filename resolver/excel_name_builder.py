@@ -1,5 +1,7 @@
 import re
 
+from utils.synonyms import card_name
+
 
 class ExcelNameBuilder:
 
@@ -28,7 +30,9 @@ class ExcelNameBuilder:
         if not product:
             return ""
 
-        parts = [product]
+        # Синоним товара, если в наименовании карточки стоит именно он
+        # ("корзина" у товара "коробка") - utils/synonyms.py.
+        parts = [card_name(card, product)]
 
         if self._need_volume(card):
             # Духи/парфюмерия/ароматизаторы и т.п. - в названии участвует

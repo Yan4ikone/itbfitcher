@@ -1,5 +1,6 @@
 from resolver.candidate import Candidate
 from utils.tokenizer import lemmatized_tokens
+from utils.synonyms import match_terms
 
 
 class CandidateFinder:
@@ -223,10 +224,7 @@ class CandidateFinder:
         # ALIASES
         # ----------------------------------------------------------
 
-        for alias in info.get(
-            "aliases",
-            []
-        ):
+        for alias in match_terms(info):
 
             alias_tokens = (
                 self.repository.alias_tokens.get(
@@ -288,10 +286,7 @@ class CandidateFinder:
                     if product_tokens & spec_tokens:
                         return True
 
-                    for alias in info.get(
-                        "aliases",
-                        []
-                    ):
+                    for alias in match_terms(info):
 
                         alias_tokens = (
                             self.repository.alias_tokens.get(

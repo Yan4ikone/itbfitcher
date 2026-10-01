@@ -1,6 +1,8 @@
 from difflib import SequenceMatcher
 from learning.name_normalizer import normalize_dictionary_name
 from utils.tokenizer import lemmatized_tokens, word_case
+from utils.synonyms import synonyms_of
+from resolver.candidate import Candidate
 
 import re
 
@@ -83,12 +85,30 @@ class CandidateScorer:
             ).lower().strip(),
         }
         prepared = {**parsed, **normalized}
-        self._score_product(
-            candidate,
-            prepared,
-            candidate.product,
-            specs_weight,
-        )
+        # Синонимы (utils/synonyms.py) - полноценные вторые названия:
+        # каждый оценивается ровно как название товара, берётся лучший.
+        # Так "футляр" как синоним "коробки" весит столько же, сколько
+        # весил отдельный товар "футляр", и не перебивает более точный
+        # товар "футляр для очков".
+        names = [candidate.product] + synonyms_of(info)
+
+        if len(names) == 1:
+            self._score_product(
+                candidate,
+                prepared,
+                candidate.product,
+                specs_weight,
+            )
+        else:
+            best = None
+            for name in names:
+                trial = Candidate(product=candidate.product)
+                self._score_product(trial, prepared, name, specs_weight)
+                if best is None or trial.score > best.score:
+                    best = trial
+            for match in best.matches:
+                candidate.add(match["type"], match["points"], match["text"])
+
         self._score_aliases(candidate, prepared, info.get("aliases", []))
 
         self._score_patterns(candidate, parsed, info.get("patterns", []))
