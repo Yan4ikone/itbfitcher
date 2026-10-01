@@ -164,6 +164,16 @@ class DropdownResolver:
         # --------------------------------------------------
         material = str(result.material or "").strip().lower()
 
+        # Если у товара явно задан список осей и материала в нём нет
+        # (вариант выбирается по слову - 2026-10-01, слияние групп),
+        # материал не должен выбирать вариант и здесь.
+        explicit_axis = dropdown.get("axis")
+
+        if explicit_axis:
+            axes = explicit_axis if isinstance(explicit_axis, (list, tuple)) else [explicit_axis]
+            if not any(a in ("material", "material_volume", "material_characteristic") for a in axes):
+                material = ""
+
         if material:
 
             material_candidates = {canon(material)}

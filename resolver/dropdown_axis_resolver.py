@@ -309,7 +309,7 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
     """
 
     _VOLUME_RE = re.compile(
-        r"(\d+(?:[.,]\d+)?)\s*(мл|л)\b",
+        r"(\d+(?:[.,]\d+)?)\s*(мл|ml|литр(?:а|ов)?|л|l)(?![a-zа-яё])",
         re.IGNORECASE,
     )
 
@@ -356,6 +356,15 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
         if material_had_no_variant:
             return None
 
+        # 2026-10-01: по объёму ось решает только у товаров, где есть
+        # варианты с порогом ("до 2 л" / "свыше 2 л"). Раньше при
+        # неизвестном материале и любом "500 мл" в тексте она отдавала
+        # просто первый вариант товара.
+        bounded = [
+            v for v in pool
+            if v.get("min_volume_l") is not None or v.get("max_volume_l") is not None
+        ]
+
         volume_l = self._extract_volume_liters(card)
 
         if volume_l is None:
@@ -366,47 +375,84 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
                 return pool[0]
             return None
 
-        for variant in pool:
+        if not bounded:
+            # как было до 2026-10-01 для товаров без порогов объёма:
+            # первый вариант (самый частый код) из суженного списка
+            return pool[0] if pool else None
+
+        # Материал неизвестен, а у товара есть и другие материалы
+        # (стекло, металл) - порог объёма есть только у пластика, и
+        # выбирать его молча нельзя: пусть уйдёт на проверку.
+        if not material and len(bounded) < len(pool):
+            return None
+
+        # "до N л" - включительно (ТН ВЭД: "не более 2 л"), "свыше N л" -
+        # строго больше.
+        for variant in bounded:
 
             min_v = variant.get("min_volume_l")
             max_v = variant.get("max_volume_l")
 
-            if max_v is not None and volume_l >= float(max_v):
+            if max_v is not None and volume_l > float(max_v):
                 continue
 
-            if min_v is not None and volume_l < float(min_v):
+            if min_v is not None and volume_l <= float(min_v):
                 continue
 
             return variant
 
         return None
 
-    def _extract_volume_liters(self, card):
+    _SPEC_VOLUME_KEYS = ("объем", "объём", "вместимость", "емкость", "ёмкость")
+    _NUMBER_RE = re.compile(r"(\d+(?:[.,]\d+)?)")
 
-        text = " ".join(
-            filter(
-                None,
-                [
-                    getattr(card, "title", ""),
-                    getattr(card, "description", ""),
-                    getattr(card, "cleaned_text", ""),
-                ],
-            )
-        ).lower()
+    def _extract_volume_liters(self, card):
+        """Объём в литрах: сначала характеристика "Объем, мл" / "Объем, л"
+        / "Вместимость", потом заголовок, потом описание."""
 
         specs = getattr(card, "specs", {}) or {}
-        text += " " + " ".join(str(v) for v in specs.values())
 
-        match = self._VOLUME_RE.search(text)
+        for key, value in specs.items():
 
-        if not match:
-            return None
+            key_l = str(key).lower()
 
-        value = float(match.group(1).replace(",", "."))
-        unit = match.group(2)
+            if not any(word in key_l for word in self._SPEC_VOLUME_KEYS):
+                continue
 
-        if unit == "мл":
-            value = value / 1000.0
+            value_l = str(value or "").lower()
+            match = self._VOLUME_RE.search(value_l)
+
+            if match:
+                return self._to_liters(match.group(1), match.group(2))
+
+            number = self._NUMBER_RE.search(value_l)
+
+            if not number:
+                continue
+
+            if "мл" in key_l:
+                return self._to_liters(number.group(1), "мл")
+            if re.search(r"(?<![а-яё])л(?![а-яё])", key_l):
+                return self._to_liters(number.group(1), "л")
+
+        for field in ("title", "description", "cleaned_text"):
+
+            text = str(getattr(card, field, "") or "").lower()
+            match = self._VOLUME_RE.search(text)
+
+            if match:
+                return self._to_liters(match.group(1), match.group(2))
+
+        return None
+
+    @staticmethod
+    def _to_liters(number, unit):
+
+        value = float(str(number).replace(",", "."))
+        unit = str(unit).lower()
+
+        if unit.startswith("мл") or unit == "ml":
+            return value / 1000.0
 
         return value
 
