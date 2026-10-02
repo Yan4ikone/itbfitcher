@@ -3,7 +3,105 @@ import re
 from utils.gender_extractor import find_known_gender
 from utils.characteristic_extractor import find_known_characteristic
 from utils.purpose_extractor import find_known_purpose
-from utils.groups import canon
+from utils.groups import canon, material_parent
+
+
+def card_text(card) -> str:
+
+    parts = [
+        getattr(card, "title", ""),
+        getattr(card, "description", ""),
+        getattr(card, "cleaned_text", ""),
+    ]
+
+    specs = getattr(card, "specs", {}) or {}
+
+    for key, value in specs.items():
+        parts.append(str(key))
+        parts.append(str(value))
+
+    return " ".join(str(part) for part in parts if part).lower()
+
+
+def material_text(card) -> str:
+    """Текст для поиска материала - как resolver/material_resolver.py."""
+
+    from utils.material_extractor import is_excluded_material_key, strip_excluded_material_mentions
+
+    parts = []
+
+    for field in ("title", "slug", "description", "cleaned_text", "material"):
+        value = getattr(card, field, "")
+        if value:
+            parts.append(strip_excluded_material_mentions(str(value)).lower())
+
+    for key, value in (getattr(card, "specs", {}) or {}).items():
+        if value and not is_excluded_material_key(key):
+            parts.append(str(value).lower())
+
+    return " ".join(parts)
+
+
+def words_found(variant, text) -> bool:
+
+    for keyword in variant.get("match") or []:
+        keyword = str(keyword).strip().lower()
+        if keyword and re.search(r"(?<!\w)" + re.escape(keyword) + r"\w*", text):
+            return True
+
+    return False
+
+
+def prefer_by_words(matched, card):
+    """Несколько вариантов одного материала (2026-10-01, товары-категории:
+    "посуда" + своя алюминиевая сковорода, свой фарфор у кружки с
+    блюдцем) - сначала вариант, чьи слова есть в карточке, иначе общий
+    вариант без слов, иначе первый. Варианты с порогом объёма решает
+    ось объёма - здесь как раньше, первый."""
+
+    full = card_text(card)
+    title = str(getattr(card, "title", "") or "").lower()
+    material = None
+
+    def found(variant):
+        nonlocal material
+        # свой код влитого товара - по его слову в НАИМЕНОВАНИИ карточки
+        # (в описании "катушка"/"удилище" встречаются где угодно)
+        if variant.get("title_words"):
+            return words_found(variant, title)
+        # уточнение материала (бывшие material_codes) - в тексте о
+        # материале, без подошвы/стельки/подкладки
+        if variant.get("material_words"):
+            if material is None:
+                material = material_text(card)
+            return words_found(variant, material)
+        return words_found(variant, full)
+
+    # вариант "только по слову" (код влитого товара / уточнение
+    # материала) без своего слова в карточке не выбирается
+    matched = [
+        v for v in matched
+        if not v.get("require_words") or found(v)
+    ]
+
+    if not matched:
+        return None
+
+    if len(matched) == 1:
+        return matched[0]
+
+    if any(v.get("min_volume_l") is not None or v.get("max_volume_l") is not None for v in matched):
+        return matched[0]
+
+    for variant in matched:
+        if variant.get("match") and found(variant):
+            return variant
+
+    for variant in matched:
+        if not variant.get("match"):
+            return variant
+
+    return matched[0]
 
 
 class DropdownAxisResolver:
@@ -41,6 +139,7 @@ class MaterialAxisResolver(DropdownAxisResolver):
         # Группы сравниваются в каноническом русском виде (utils/
         # groups.py): "plastic" и "пластик" - одна группа.
         candidates = {canon(material)}
+        matched = []
 
         for variant in variants:
 
@@ -49,9 +148,12 @@ class MaterialAxisResolver(DropdownAxisResolver):
             explicit = canon(variant.get("material", ""))
 
             if candidates & {name, group, explicit} - {""}:
-                return variant
+                matched.append(variant)
 
-        return None
+        if not matched:
+            return None
+
+        return prefer_by_words(matched, card)
 
 
 class GenderAxisResolver(DropdownAxisResolver):
@@ -83,15 +185,12 @@ class GenderAxisResolver(DropdownAxisResolver):
         if not gender:
             return None
 
-        for variant in variants:
+        matched = [
+            variant for variant in variants
+            if gender in (canon(variant.get("group", "")), canon(variant.get("gender", "")))
+        ]
 
-            group = canon(variant.get("group", ""))
-            explicit = canon(variant.get("gender", ""))
-
-            if gender in (group, explicit):
-                return variant
-
-        return None
+        return prefer_by_words(matched, card) if matched else None
 
     def _text(self, card):
 
@@ -137,14 +236,9 @@ class CharacteristicAxisResolver(DropdownAxisResolver):
         if not characteristic:
             return None
 
-        for variant in variants:
+        matched = [v for v in variants if canon(v.get("group", "")) == characteristic]
 
-            group = canon(variant.get("group", ""))
-
-            if characteristic == group:
-                return variant
-
-        return None
+        return prefer_by_words(matched, card) if matched else None
 
     def _text(self, card):
 
@@ -208,14 +302,9 @@ class PurposeCategoryAxisResolver(DropdownAxisResolver):
         if not purpose:
             return None
 
-        for variant in variants:
+        matched = [v for v in variants if canon(v.get("group", "")) == purpose]
 
-            group = canon(variant.get("group", ""))
-
-            if purpose == group:
-                return variant
-
-        return None
+        return prefer_by_words(matched, card) if matched else None
 
     def _text(self, card):
 
@@ -259,9 +348,26 @@ class KeywordAxisResolver(DropdownAxisResolver):
         if not text:
             return None
 
+        title = str(getattr(card, "title", "") or "").lower()
+        material = canon(getattr(result, "material", "") or "")
+
         for variant in variants:
 
+            # уточнение материала выбирает ось материала, не эта
+            if variant.get("material_words"):
+                continue
+
             keywords = variant.get("match", [])
+            haystack = title if variant.get("title_words") else text
+
+            # свой код влитого товара другого материала ("кулинарная
+            # форма" пластик) не годится для карточки из металла
+            if (
+                variant.get("title_words") and material
+                and material_parent(variant.get("group", ""))
+                and canon(variant.get("group", "")) != material
+            ):
+                continue
 
             for keyword in keywords:
 
@@ -272,7 +378,7 @@ class KeywordAxisResolver(DropdownAxisResolver):
 
                 pattern = r"(?<!\w)" + re.escape(keyword) + r"\w*"
 
-                if re.search(pattern, text):
+                if re.search(pattern, haystack):
                     return variant
 
         return None
@@ -372,13 +478,13 @@ class MaterialVolumeAxisResolver(DropdownAxisResolver):
             # если после сужения остался ровно один вариант, это
             # уже однозначный ответ
             if material and len(pool) == 1:
-                return pool[0]
+                return prefer_by_words(pool, card)
             return None
 
         if not bounded:
             # как было до 2026-10-01 для товаров без порогов объёма:
             # первый вариант (самый частый код) из суженного списка
-            return pool[0] if pool else None
+            return prefer_by_words(pool, card) if pool else None
 
         # Материал неизвестен, а у товара есть и другие материалы
         # (стекло, металл) - порог объёма есть только у пластика, и
@@ -506,10 +612,10 @@ class MaterialCharacteristicAxisResolver(DropdownAxisResolver):
         # Характеристика не найдена в тексте (или не совпала ни с
         # одним точным вариантом) - используем общий вариант для
         # этого материала, у которого characteristic не задан.
-        for variant in by_material:
+        general = [v for v in by_material if not v.get("characteristic")]
 
-            if not variant.get("characteristic"):
-                return variant
+        if general:
+            return prefer_by_words(general, card)
 
         return None
 

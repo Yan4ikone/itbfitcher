@@ -1,4 +1,4 @@
-from resolver.dropdown_axis_resolver import AXIS_RESOLVERS, get_axis_resolver
+from resolver.dropdown_axis_resolver import AXIS_RESOLVERS, get_axis_resolver, prefer_by_words
 from utils.dropdown_helpers import variant_display_name
 from utils.groups import canon, is_standard
 
@@ -178,22 +178,22 @@ class DropdownResolver:
 
             material_candidates = {canon(material)}
 
-            for variant in variants:
+            matched = [
+                v for v in variants
+                if (material_candidates & {canon(v.get("name", "")), canon(v.get("group", ""))}) - {""}
+            ]
+            chosen = prefer_by_words(matched, card) if matched else None
 
-                name = canon(variant.get("name", ""))
-                group = canon(variant.get("group", ""))
-
-                if (material_candidates & {name, group}) - {""}:
-
-                    self._apply_variant(
-                        result,
-                        variant,
-                        source="DROPDOWN_MATERIAL",
-                        confidence=95,
-                        review=False,
-                    )
-                    self._flag_shared_group(result, variant, variants)
-                    return
+            if chosen:
+                self._apply_variant(
+                    result,
+                    chosen,
+                    source="DROPDOWN_MATERIAL",
+                    confidence=95,
+                    review=False,
+                )
+                self._flag_shared_group(result, chosen, variants)
+                return
         # --------------------------------------------------
         # 4. Ничего не определили однозначно.
         #
@@ -244,6 +244,38 @@ class DropdownResolver:
             for item in variants
             if item.get("code")
         }
+
+        # Товар-категория (2026-10-01): у каждого влитого товара свой
+        # код по умолчанию - "миска" металл, "кружка" керамика. Если
+        # материал не определился, берём код того товара, чьё слово
+        # стоит в наименовании карточки.
+        # материал словом в заголовке в другой форме ("пластиковые
+        # миски", "из стекла") - общий словарь его не поймал
+        if dropdown.get("defaults") and not result.material:
+            variant = self._title_material_variant(variants, card)
+            if variant:
+                self._apply_variant(
+                    result, variant, source="DROPDOWN_MATERIAL", confidence=80, review=False,
+                )
+                return
+
+        default = self._synonym_default(dropdown, card)
+
+        if default:
+            code, review = default
+            variant = next(
+                (v for v in variants if str(v.get("code", "")).strip() == code),
+                {"code": code, "group": ""},
+            )
+            variant = self._fit_volume(variant, variants, card)
+            self._apply_variant(
+                result,
+                variant,
+                source="DROPDOWN_DEFAULT",
+                confidence=50 if review else 80,
+                review=review,
+            )
+            return
 
         # У товара есть свой плоский код ("чехол": 4202199000 + один
         # вариант 6306120000 "оксфорд") - он и есть код по умолчанию.
@@ -352,6 +384,11 @@ class DropdownResolver:
             if not resolver:
                 continue
 
+            # у товара-категории при неизвестном материале объём не
+            # выбирает вариант вслепую - сработает код по слову товара
+            if axis == "material_volume" and dropdown.get("defaults") and not result.material:
+                continue
+
             variant = resolver.find(variants, card, result)
 
             if variant:
@@ -384,9 +421,17 @@ class DropdownResolver:
         if not group:
             return
 
+        # Сосед со своими словами (match) - частный случай, которого в
+        # карточке нет (иначе выбрали бы его); общий вариант тогда не
+        # спорный. Спорны соседи без слов и соседи с порогом объёма.
         siblings = [
             item for item in variants
             if canon(item.get("group", "")) == group
+            and (
+                not item.get("match")
+                or item.get("min_volume_l") is not None
+                or item.get("max_volume_l") is not None
+            )
             and str(item.get("code", "")).strip() not in ("", code)
         ]
 
@@ -401,6 +446,101 @@ class DropdownResolver:
             for item in [variant] + [v for v in variants if v is not variant]
             if item.get("code")
         }
+
+    @staticmethod
+    def _fit_volume(variant, variants, card):
+        """Код по умолчанию с порогом объёма ("канистра" -> до 2 л), а в
+        карточке 20 л - берём вариант того же материала с подходящим
+        порогом."""
+
+        bounded = lambda v: v.get("min_volume_l") is not None or v.get("max_volume_l") is not None
+
+        if not bounded(variant):
+            return variant
+
+        from resolver.dropdown_axis_resolver import MaterialVolumeAxisResolver
+
+        volume = MaterialVolumeAxisResolver()._extract_volume_liters(card)
+
+        if volume is None:
+            return variant
+
+        group = canon(variant.get("group", ""))
+
+        for other in variants:
+            if canon(other.get("group", "")) != group or not bounded(other):
+                continue
+            min_v, max_v = other.get("min_volume_l"), other.get("max_volume_l")
+            if max_v is not None and volume > float(max_v):
+                continue
+            if min_v is not None and volume <= float(min_v):
+                continue
+            return other
+
+        return variant
+
+    _TITLE_MATERIAL_STEMS = (
+        ("пластик", "пластик"), ("силикон", "пластик"), ("акрил", "пластик"),
+        ("металл", "металл"), ("нержав", "металл"), ("стал", "металл"), ("алюмин", "металл"),
+        ("чугун", "металл"), ("медн", "металл"), ("латун", "металл"),
+        ("стекл", "стекло"), ("стеклян", "стекло"),
+        ("керами", "керамика"), ("фарфор", "керамика"), ("фаянс", "керамика"),
+        ("дерев", "дерево"), ("бамбук", "дерево"),
+        ("бумаж", "бумага"), ("картон", "бумага"),
+    )
+
+    def _title_material_variant(self, variants, card):
+
+        import re
+
+        title = str(getattr(card, "title", "") or "").lower()
+
+        found = []
+
+        for stem, group in self._TITLE_MATERIAL_STEMS:
+            match = re.search(r"(?<!\w)" + stem + r"\w*", title)
+            if match:
+                found.append((match.start(), group))
+
+        for _pos, group in sorted(found):
+            for variant in variants:
+                if canon(variant.get("group", "")) == group and not variant.get("require_words"):
+                    return variant
+
+        return None
+
+    @staticmethod
+    def _synonym_default(dropdown, card):
+        """(код, нужна ли проверка) по dropdown["defaults"] - {слово:
+        {"code", "review"}} - для слова, которое раньше всех стоит в
+        заголовке (потом в описании)."""
+
+        import re
+
+        defaults = dropdown.get("defaults") or {}
+
+        if not defaults:
+            return None
+
+        for field in ("title", "description"):
+
+            text = str(getattr(card, field, "") or "").lower()
+
+            if not text:
+                continue
+
+            best = None
+
+            for word, rule in defaults.items():
+                match = re.search(r"(?<!\w)" + re.escape(str(word).lower()) + r"\w*", text)
+                if match and (best is None or match.start() < best[0]):
+                    rule = rule if isinstance(rule, dict) else {"code": rule, "review": True}
+                    best = (match.start(), str(rule.get("code", "")).strip(), bool(rule.get("review", True)))
+
+            if best and best[1]:
+                return best[1], best[2]
+
+        return None
 
     def _apply_variant(self, result, variant, source, confidence, review):
         code = str(variant.get("code", "")).strip()

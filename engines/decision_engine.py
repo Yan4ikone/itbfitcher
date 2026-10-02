@@ -445,6 +445,20 @@ class DecisionEngine:
                     "загрузилась, либо ИИ вернул пустой ответ)"
                 )
         # ==========================================================
+        # 7.9. ПРОВЕРКА ПО ИСТОРИИ КУРАТОРА И "ГЛАВНОМУ СЛОВУ"
+        # (2026-10-02, utils/decision_history.py): пара "товар + код",
+        # которую куратор по архиву чаще исправлял, уходит на проверку
+        # (или сразу получает его обычный код); товар, найденный только
+        # по слову после "для/на/с", - тоже на проверку.
+        # ==========================================================
+        try:
+            from utils.decision_history import apply as history_apply
+            repository = getattr(self.dropdown, "repository", None)
+            info = repository.get(result.product) if repository is not None and result.product else None
+            result = history_apply(result, card, info)
+        except Exception as error:
+            print("DECISION HISTORY ERROR:", error)
+        # ==========================================================
         # 8. EXCEL NAME
         # ==========================================================
         builder = ExcelNameBuilder()

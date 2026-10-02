@@ -85,7 +85,19 @@ def canon_entry(name, info):
     material_codes = info.get("material_codes") or {}
     code = info.get("code", "")
 
-    if dropdown and _has_real_gradation(dropdown) and not material_codes:
+    # 2026-10-01: плоский код, совпадающий с кодом одного из вариантов,
+    # - это вариант по умолчанию (товар-категория, бывшие material_codes),
+    # его оставляем. Выбор варианта он больше не блокирует - см.
+    # engines/decision_engine.py (material_already_resolved).
+    variant_codes = {
+        str(v.get("code", "")).strip()
+        for v in (dropdown or {}).get("variants") or []
+    }
+
+    if (
+        dropdown and _has_real_gradation(dropdown) and not material_codes
+        and str(code or "").strip() not in variant_codes
+    ):
         code = ""
 
     for key in FIELD_ORDER:
